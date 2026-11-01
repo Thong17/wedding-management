@@ -1,0 +1,137 @@
+<script setup lang="ts">
+import { computed, nextTick, ref, watch } from 'vue'
+import type { CachedGuest, GiftMethod } from '@/offline/db'
+import { GiftValidationError, validateGiftInput, type GiftInput, type ValidationErrors } from '@/offline/transactionRepo'
+import { SIDE_LABELS } from '@/utils/format'
+
+const props = defineProps<{
+  guest: CachedGuest | null
+  currency: string
+  eventId: number
+  /** Gifts already recorded on this device for the selected guest. */
+  previousCount: number
+  submit: (input: Omit<GiftInput, 'eventId'>) => Promise<unknown>
+}>()
+const emit = defineEmits<{ clearGuest: [] }>()
+
+const amount = ref('')
+const method = ref<GiftMethod>('cash')
+const note = ref('')
+const walkInName = ref('')
+const errors = ref<ValidationErrors>({})
+const saving = ref(false)
+const formError = ref<string | null>(null)
+const amountInput = ref<HTMLInputElement | null>(null)
+
+const quickAmounts = computed(() => (props.currency === 'KHR' ? [20000, 40000, 50000, 100000] : [10, 20, 50, 100]))
+
+watch(
+  () => props.guest?.id,
+  async (id) => {
+    errors.value = {}
+    if (id != null) {
+      walkInName.value = ''
+      await nextTick()
+      amountInput.value?.focus()
+    }
+  },
+)
+
+function buildInput(): Omit<GiftInput, 'eventId'> {
+  return {
+    guestId: props.guest?.id ?? null,
+    guestName: props.guest?.full_name ?? walkInName.value.trim(),
+    walkInName: props.guest ? '' : walkInName.value,
+    amount: amount.value,
+    currency: props.currency,
+    method: method.value,
+    note: note.value,
+  }
+}
+
+async function onSubmit() {
+  const input = buildInput()
+  errors.value = validateGiftInput({ ...input, eventId: props.eventId })
+  if (Object.keys(errors.value).length) return
+  if (props.previousCount > 0 && !confirm(`${input.guestName} already has ${props.previousCount} gift(s) recorded. Record another one?`)) return
+  saving.value = true
+  formError.value = null
+  try {
+    await props.submit(input)
+    amount.value = ''
+    note.value = ''
+    walkInName.value = ''
+    method.value = 'cash'
+  } catch (err) {
+    if (err instanceof GiftValidationError) errors.value = err.errors
+    // Not saved: keep the form filled in so nothing typed is lost.
+    else formError.value = `Could not save on this device: ${err instanceof Error ? err.message : String(err)}`
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <form class="stack" @submit.prevent="onSubmit">
+    <div v-if="guest" class="selected">
+      <div class="row">
+        <div>
+          <strong class="name">{{ guest.full_name }}</strong>
+          <div class="muted small">
+            {{ SIDE_LABELS[guest.side] }}<span v-if="guest.group"> · {{ guest.group }}</span><span v-if="guest.table_no"> · Table {{ guest.table_no }}</span>
+          </div>
+        </div>
+        <span class="spacer" />
+        <button type="button" class="btn-small" @click="emit('clearGuest')">Change</button>
+      </div>
+      <p v-if="previousCount" class="banner banner-warn small">Already {{ previousCount }} gift(s) recorded for this guest on this device.</p>
+    </div>
+    <label v-else>
+      Walk-in guest name (not on the list)
+      <input v-model="walkInName" maxlength="200" placeholder="Or search and select a guest" />
+      <span class="field-error" v-if="errors.guest">{{ errors.guest }}</span>
+    </label>
+
+    <label>
+      Amount ({{ currency }})
+      <input ref="amountInput" v-model="amount" inputmode="decimal" placeholder="0.00" class="amount" autocomplete="off" />
+      <span class="field-error" v-if="errors.amount">{{ errors.amount }}</span>
+    </label>
+    <div class="row">
+      <button v-for="q in quickAmounts" :key="q" type="button" class="btn-small" @click="amount = String(q)">{{ q.toLocaleString() }}</button>
+    </div>
+
+    <div class="row methods" role="radiogroup" aria-label="Payment method">
+      <label v-for="m in (['cash', 'transfer', 'other'] as const)" :key="m" class="method" :class="{ on: method === m }">
+        <input type="radio" :value="m" v-model="method" hidden />
+        {{ m === 'cash' ? '💵 Cash' : m === 'transfer' ? '🏦 Transfer' : '🎁 Other' }}
+      </label>
+    </div>
+
+    <label>Note <input v-model="note" maxlength="500" placeholder="Optional (e.g. envelope #)" /></label>
+    <span class="field-error" v-if="errors.note">{{ errors.note }}</span>
+
+    <p v-if="formError" class="banner banner-danger small">{{ formError }}</p>
+    <button class="btn-primary btn-block big" :disabled="saving">{{ saving ? 'Saving…' : 'Record gift' }}</button>
+  </form>
+</template>
+
+<style scoped>
+.selected { padding: 12px; border-radius: 8px; background: var(--c-primary-soft); }
+.name { font-size: 1.15rem; }
+.amount { font-size: 1.6rem; font-weight: 700; }
+.methods { gap: 6px; }
+.method {
+  flex: 1;
+  flex-direction: row;
+  justify-content: center;
+  padding: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  cursor: pointer;
+  min-width: 90px;
+}
+.method.on { border-color: var(--c-primary); background: var(--c-primary-soft); color: var(--c-primary); }
+.big { min-height: 52px; font-size: 1.05rem; }
+</style>

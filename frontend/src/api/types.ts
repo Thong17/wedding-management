@@ -1,0 +1,102 @@
+import type { GiftMethod, GuestSide } from '@/offline/db'
+
+export interface ApiUser {
+  id: number
+  username: string
+  first_name: string
+  last_name: string
+}
+
+export interface ApiEvent {
+  id: number
+  name: string
+  date: string
+  venue: string
+  currency: string
+  role: 'owner' | 'manager' | null
+  created_at: string
+  updated_at: string
+}
+
+export type EventInput = Pick<ApiEvent, 'name' | 'date' | 'venue' | 'currency'>
+
+export interface ApiMember {
+  id: number
+  user_id: number
+  username: string
+  role: 'owner' | 'manager'
+}
+
+export interface ApiGuest {
+  id: number
+  event: number
+  full_name: string
+  nickname: string
+  phone: string
+  side: GuestSide
+  group: string
+  table_no: string
+  qr_token: string
+  is_deleted: boolean
+  updated_at: string
+}
+
+export type GuestInput = Pick<ApiGuest, 'full_name' | 'nickname' | 'phone' | 'side' | 'group' | 'table_no'>
+
+export interface GuestListResponse {
+  server_time: string
+  full: boolean
+  results: ApiGuest[]
+}
+
+export interface ApiGift {
+  id: number
+  client_txn_id: string
+  event: number
+  guest: number | null
+  guest_name: string
+  walk_in_name: string
+  amount: string
+  currency: string
+  method: GiftMethod
+  note: string
+  client_created_at: string
+  recorded_by_username: string
+  received_at: string
+  updated_at: string
+  voided: boolean
+}
+
+export interface SyncItemPayload {
+  client_txn_id: string
+  event_id: number
+  guest_id: number | null
+  walk_in_name: string
+  amount: string
+  currency: string
+  method: GiftMethod
+  note: string
+  client_created_at: string
+  device_id: string
+}
+
+export interface SyncItemResult {
+  client_txn_id: string | null
+  status: 'created' | 'duplicate' | 'rejected'
+  gift_id?: number
+  code?: string
+  errors?: Record<string, unknown>
+}
+
+export interface EventReport {
+  event_id: number
+  currency: string
+  count: number
+  total: string | number
+  by_method: { method: GiftMethod; count: number; total: string }[]
+  by_side: { side: GuestSide; count: number; total: string }[]
+  walk_in: { count: number; total: string | number }
+  guests_total: number
+  guests_with_gift: number
+  by_guest: { id: number; full_name: string; side: GuestSide; group: string; gift_count: number; gift_total: string | null }[]
+}
