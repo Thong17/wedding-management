@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { eventsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { EventInput } from '@/api/types'
+import AppDatePicker from '@/components/AppDatePicker.vue'
 
 const props = defineProps<{ id?: string }>()
 const router = useRouter()
@@ -45,7 +46,7 @@ async function save() {
       <h1>{{ id ? 'Edit event' : 'New event' }}</h1>
       <label>Name <input v-model="form.name" required maxlength="200" />
         <span class="field-error" v-if="fieldErrors.name">{{ fieldErrors.name.join(' ') }}</span></label>
-      <label>Date <input v-model="form.date" type="date" required />
+      <label>Date <AppDatePicker v-model="form.date" required />
         <span class="field-error" v-if="fieldErrors.date">{{ fieldErrors.date.join(' ') }}</span></label>
       <label>Venue <input v-model="form.venue" maxlength="255" /></label>
       <label>Currency (ISO code) <input v-model="form.currency" required maxlength="3" placeholder="USD" />

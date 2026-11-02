@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { eventsApi } from '@/api/endpoints'
+import AppSelect from '@/components/AppSelect.vue'
 import { errorMessage } from '@/api/http'
 import type { EventReport } from '@/api/types'
 import { countByStatus, type StatusCounts } from '@/offline/transactionRepo'
@@ -12,6 +13,11 @@ const report = ref<EventReport | null>(null)
 const error = ref<string | null>(null)
 const local = ref<StatusCounts | null>(null)
 const showOnly = ref<'all' | 'with' | 'without'>('all')
+const SHOW_OPTIONS = [
+  { value: 'all' as const, label: 'All guests' },
+  { value: 'with' as const, label: 'Gave a gift' },
+  { value: 'without' as const, label: 'No gift yet' },
+]
 
 const guests = computed(() => {
   const all = report.value?.by_guest ?? []
@@ -72,9 +78,7 @@ function exportCsv() {
         <div class="row">
           <h2>Guests</h2>
           <span class="spacer" />
-          <select v-model="showOnly" style="width: auto">
-            <option value="all">All guests</option><option value="with">Gave a gift</option><option value="without">No gift yet</option>
-          </select>
+          <AppSelect v-model="showOnly" :options="SHOW_OPTIONS" aria-label="Show guests" inline />
           <button class="btn-small" @click="exportCsv">Export CSV</button>
         </div>
         <div class="table-wrap">

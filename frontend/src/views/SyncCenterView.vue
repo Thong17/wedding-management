@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { authApi } from '@/api/endpoints'
+import AppSelect from '@/components/AppSelect.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import { onTransactionsChanged } from '@/offline/changes'
 import type { CachedGuest, GiftMethod, GiftTransaction, TxnStatus } from '@/offline/db'
@@ -16,12 +17,19 @@ import {
 } from '@/offline/transactionRepo'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
-import { downloadFile, formatDateTime, formatRelative } from '@/utils/format'
+import { downloadFile, formatDateTime, formatRelative, METHOD_OPTIONS } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
 const sync = useSyncStore()
 const auth = useAuthStore()
 const filter = ref<TxnStatus | 'unsynced' | 'all'>('unsynced')
+const FILTER_OPTIONS: { value: TxnStatus | 'unsynced' | 'all'; label: string }[] = [
+  { value: 'unsynced', label: 'Not yet synced' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'pending', label: 'Waiting' },
+  { value: 'synced', label: 'Synced' },
+  { value: 'all', label: 'All on this device' },
+]
 const rows = ref<GiftTransaction[]>([])
 const serverCheck = ref<null | boolean>(null)
 
@@ -141,13 +149,7 @@ async function saveEdit() {
 
     <div class="card stack">
       <div class="row">
-        <select v-model="filter" style="width: auto">
-          <option value="unsynced">Not yet synced</option>
-          <option value="failed">Failed</option>
-          <option value="pending">Waiting</option>
-          <option value="synced">Synced</option>
-          <option value="all">All on this device</option>
-        </select>
+        <AppSelect v-model="filter" :options="FILTER_OPTIONS" aria-label="Filter records" inline />
         <span class="muted small">{{ visible.length }} record(s)</span>
         <span class="spacer" />
         <button class="btn-small" @click="exportRows('csv')" :disabled="!visible.length">Export CSV</button>
@@ -180,7 +182,7 @@ async function saveEdit() {
             <div class="row">
               <label style="flex: 1">Amount <input v-model="editForm.amount" inputmode="decimal" /></label>
               <label style="flex: 1">Method
-                <select v-model="editForm.method"><option value="cash">Cash</option><option value="transfer">Bank transfer</option><option value="other">Other</option></select>
+                <AppSelect v-model="editForm.method" :options="METHOD_OPTIONS" />
               </label>
             </div>
             <span class="field-error" v-if="editErrors.amount">{{ editErrors.amount }}</span>

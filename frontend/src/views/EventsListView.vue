@@ -37,8 +37,9 @@ onMounted(() => store.load())
 </template>
 
 <style scoped>
-.events { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-.event { position: relative; }
+/* Cards grow from 370px up to 500px; any leftover space in a row stays at the end. */
+.events { display: flex; flex-wrap: wrap; gap: 12px; }
+.event { position: relative; flex: 1 1 370px; min-width: min(370px, 100%); max-width: 500px; }
 .report { position: absolute; top: 12px; right: 12px; width: 36px; min-height: 36px; height: 36px; border-radius: 50%; corner-shape: round; }
 /* Keep the title and meta clear of the absolutely positioned report button. */
 .event-head { padding-right: 44px; min-width: 0; overflow-wrap: anywhere; }

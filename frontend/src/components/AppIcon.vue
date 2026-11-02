@@ -6,6 +6,9 @@ const paths = {
   chart: ['M3 3v18h18', 'M8 17v-4', 'M13 17V9', 'M18 17v-7'],
   'chevron-left': ['M15 18l-6-6 6-6'],
   'chevron-right': ['M9 18l6-6-6-6'],
+  'chevron-down': ['M6 9l6 6 6-6'],
+  check: ['M20 6L9 17l-5-5'],
+  calendar: ['M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M16 2v4', 'M8 2v4', 'M3 10h18'],
 } as const
 
 defineProps<{ name: keyof typeof paths; size?: number }>()

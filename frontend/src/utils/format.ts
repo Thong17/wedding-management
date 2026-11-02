@@ -1,3 +1,5 @@
+import type { GiftMethod, GuestSide } from '@/offline/db'
+
 export function formatMoney(amount: string | number | null | undefined, currency: string): string {
   const n = Number(amount ?? 0)
   try {
@@ -31,5 +33,12 @@ export function downloadFile(filename: string, content: BlobPart, type: string):
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export const METHOD_LABELS: Record<string, string> = { cash: 'Cash', transfer: 'Bank transfer', other: 'Other' }
-export const SIDE_LABELS: Record<string, string> = { bride: 'Bride', groom: 'Groom', both: 'Both' }
+export const METHOD_LABELS: Record<GiftMethod, string> = { cash: 'Cash', transfer: 'Bank transfer', other: 'Other' }
+export const SIDE_LABELS: Record<GuestSide, string> = { bride: 'Bride', groom: 'Groom', both: 'Both' }
+
+/** Turn a label map into AppSelect options, keeping the map's order. */
+export function labelOptions<T extends string>(labels: Record<T, string>): { value: T; label: string }[] {
+  return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }))
+}
+export const METHOD_OPTIONS = labelOptions(METHOD_LABELS)
+export const SIDE_OPTIONS = labelOptions(SIDE_LABELS)

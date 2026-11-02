@@ -5,7 +5,8 @@ import { useRouter } from 'vue-router'
 import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiEvent, ApiGift, ApiGuest, ApiMember, GuestInput } from '@/api/types'
-import { formatDateTime, formatMoney, METHOD_LABELS, SIDE_LABELS } from '@/utils/format'
+import AppSelect from '@/components/AppSelect.vue'
+import { formatDateTime, formatMoney, METHOD_LABELS, METHOD_OPTIONS, SIDE_LABELS, SIDE_OPTIONS } from '@/utils/format'
 import { exportGuestsXlsx } from '@/utils/guestExport'
 import { toast } from '@/utils/toast'
 
@@ -37,6 +38,10 @@ const editingGift = ref<{ gift: ApiGift; amount: string; method: ApiGift['method
 // Members
 const members = ref<ApiMember[]>([])
 const memberForm = reactive({ username: '', role: 'manager' as 'owner' | 'manager' })
+const ROLE_OPTIONS = [
+  { value: 'manager' as const, label: 'Manager' },
+  { value: 'owner' as const, label: 'Owner' },
+]
 
 async function load() {
   try {
@@ -231,7 +236,7 @@ async function deleteEvent() {
             </div>
             <div class="row">
               <label style="flex: 1">Side
-                <select v-model="guestForm.side"><option value="bride">Bride</option><option value="groom">Groom</option><option value="both">Both</option></select>
+                <AppSelect v-model="guestForm.side" :options="SIDE_OPTIONS" />
               </label>
               <label style="flex: 1">Group <input v-model="guestForm.group" maxlength="100" /></label>
               <label style="flex: 1">Table <input v-model="guestForm.table_no" maxlength="20" /></label>
@@ -267,7 +272,7 @@ async function deleteEvent() {
                   <td class="small">{{ formatDateTime(g.client_created_at) }}</td>
                   <td>{{ g.guest_name }}</td>
                   <td><input v-model="editingGift.amount" inputmode="decimal" style="width: 110px" /></td>
-                  <td><select v-model="editingGift.method"><option value="cash">Cash</option><option value="transfer">Bank transfer</option><option value="other">Other</option></select></td>
+                  <td><AppSelect v-model="editingGift.method" :options="METHOD_OPTIONS" aria-label="Method" /></td>
                   <td><input v-model="editingGift.note" maxlength="500" /></td>
                   <td></td>
                   <td class="nowrap"><button class="btn-small btn-primary" @click="saveGiftEdit">Save</button> <button class="btn-small" @click="editingGift = null">Cancel</button></td>
@@ -299,7 +304,7 @@ async function deleteEvent() {
         </ul>
         <form v-if="isOwner" class="row" @submit.prevent="addMember">
           <input v-model="memberForm.username" placeholder="Username" required style="flex: 1; min-width: 160px" />
-          <select v-model="memberForm.role" style="width: auto"><option value="manager">Manager</option><option value="owner">Owner</option></select>
+          <AppSelect v-model="memberForm.role" :options="ROLE_OPTIONS" aria-label="Role" inline />
           <button class="btn-primary">Add</button>
         </form>
         <p class="muted small">Managers can record gifts and manage guests. Accounts are created by an administrator in Django admin.</p>
