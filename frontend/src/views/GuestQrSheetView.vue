@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import QRCode from 'qrcode'
 import { onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { errorMessage } from '@/api/http'
 import { guestsApi } from '@/api/endpoints'
 import type { ApiGuest } from '@/api/types'
@@ -11,6 +12,7 @@ const eventId = Number(props.id)
 const items = ref<{ guest: ApiGuest; svg: string }[]>([])
 const error = ref<string | null>(null)
 const print = () => window.print()
+const { t } = useI18n()
 
 onMounted(async () => {
   try {
@@ -30,17 +32,17 @@ onMounted(async () => {
 <template>
   <div class="container stack">
     <div class="row no-print">
-      <h1>Guest QR codes</h1>
+      <h1>{{ t('qrSheet.title') }}</h1>
       <span class="spacer" />
-      <button class="btn-primary" @click="print">Print</button>
+      <button class="btn-primary" @click="print">{{ t('common.print') }}</button>
     </div>
-    <p class="muted small no-print">Print these and attach them to invitations. Scanning one at the gift desk selects the guest instantly, even offline.</p>
+    <p class="muted small no-print">{{ t('qrSheet.help') }}</p>
     <div v-if="error" class="banner banner-danger">{{ error }}</div>
     <div class="sheet">
       <div v-for="i in items" :key="i.guest.id" class="tag">
         <div class="qr" v-html="i.svg" />
         <strong>{{ i.guest.full_name }}</strong>
-        <span class="small muted" v-if="i.guest.table_no">Table {{ i.guest.table_no }}</span>
+        <span class="small muted" v-if="i.guest.table_no">{{ t('common.table', { n: i.guest.table_no }) }}</span>
       </div>
     </div>
   </div>

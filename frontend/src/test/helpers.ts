@@ -1,6 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb'
 import { closeDB } from '@/offline/db'
-import { addTransaction, type GiftInput } from '@/offline/transactionRepo'
+import { addTransaction, type GiftInput, type Recorder } from '@/offline/transactionRepo'
 
 /** Fresh, empty IndexedDB for each test. */
 export async function resetDB(): Promise<void> {
@@ -26,6 +26,10 @@ export function giftInput(overrides: Partial<GiftInput> = {}): GiftInput {
   }
 }
 
-export function addGift(overrides: Partial<GiftInput> = {}, recordedBy = 'demo') {
-  return addTransaction(giftInput(overrides), { deviceId: 'dev-1', recordedBy })
+export const DEMO_USER: Recorder = { id: 1, username: 'demo' }
+
+/** A plain name records a gift without a user id, like records saved before ids were stored. */
+export function addGift(overrides: Partial<GiftInput> = {}, recordedBy: Recorder | string = DEMO_USER) {
+  const user = typeof recordedBy === 'string' ? { id: null, username: recordedBy } : recordedBy
+  return addTransaction(giftInput(overrides), { deviceId: 'dev-1', recordedBy: user })
 }

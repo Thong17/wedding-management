@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import GiftForm from '@/components/GiftForm.vue'
 import GuestSearch from '@/components/GuestSearch.vue'
 import OcrScanner from '@/components/OcrScanner.vue'
@@ -19,6 +20,7 @@ const props = defineProps<{ id: string }>()
 const eventId = Number(props.id)
 const desk = useGiftDeskStore()
 const eventsStore = useEventsStore()
+const { t } = useI18n()
 
 const event = ref<ApiEvent | CachedEvent | null>(null)
 const loadError = ref<string | null>(null)
@@ -36,7 +38,7 @@ const recent = computed(() => desk.transactions.slice(0, 30))
 onMounted(async () => {
   const res = await eventsStore.getEvent(eventId)
   event.value = res.event
-  if (!res.event) loadError.value = 'This event is not saved on this device yet. Open it once while online.'
+  if (!res.event) loadError.value = t('desk.notCached')
   await desk.open(eventId)
 })
 onBeforeUnmount(() => desk.close())
@@ -58,10 +60,10 @@ async function onScan(text: string) {
     const guest = await findGuestByQrToken(eventId, parsed.token)
     if (guest) {
       selectGuest(guest)
-      toast(`Found ${guest.full_name}`, 'info', 2000)
+      toast(t('desk.found', { name: guest.full_name }), 'info', 2000)
       return
     }
-    toast('QR code is not for a guest of this event.', 'error')
+    toast(t('desk.qrNotGuest'), 'error')
     return
   }
   onSearchText(text)
@@ -74,7 +76,7 @@ function onSearchText(text: string) {
 
 async function submit(input: Omit<GiftInput, 'eventId'>) {
   const record = await desk.recordGift(input)
-  toast(`✓ Saved ${formatMoney(record.amount, record.currency)} from ${record.guestNameSnapshot}`)
+  toast(t('desk.saved', { amount: formatMoney(record.amount, record.currency), name: record.guestNameSnapshot }))
   clearGuest()
 }
 </script>
@@ -83,17 +85,17 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
   <div class="container stack">
     <div class="row">
       <div>
-        <h1>{{ event?.name ?? 'Gift desk' }}</h1>
+        <h1>{{ event?.name ?? t('desk.title') }}</h1>
         <div class="muted small">
-          {{ desk.guests.length }} guests saved on this device · updated {{ formatRelative(desk.guestsCachedAt) }}
+          {{ t('desk.guestsSaved', { n: desk.guests.length, when: formatRelative(desk.guestsCachedAt) }) }}
           <button class="btn-small" @click="desk.refreshGuests()" :disabled="desk.refreshingGuests">
-            {{ desk.refreshingGuests ? 'Refreshing…' : '↻ Refresh guests' }}
+            {{ desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh') }}
           </button>
         </div>
       </div>
       <span class="spacer" />
       <div class="stat right">
-        <span class="muted small">Recorded here ({{ desk.transactions.length }})</span>
+        <span class="muted small">{{ t('desk.recordedHere', { n: desk.transactions.length }) }}</span>
         <strong>{{ formatMoney(desk.localTotal, currency) }}</strong>
       </div>
     </div>
@@ -103,9 +105,9 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
     <div class="grid-2">
       <section class="card stack">
         <div class="tabs">
-          <button :class="{ active: mode === 'search' }" @click="mode = 'search'">🔎 Search</button>
-          <button :class="{ active: mode === 'qr' }" @click="mode = 'qr'">▦ Scan QR</button>
-          <button :class="{ active: mode === 'ocr' }" @click="mode = 'ocr'">📝 Scan text</button>
+          <button :class="{ active: mode === 'search' }" @click="mode = 'search'">{{ t('desk.tabSearch') }}</button>
+          <button :class="{ active: mode === 'qr' }" @click="mode = 'qr'">{{ t('desk.tabQr') }}</button>
+          <button :class="{ active: mode === 'ocr' }" @click="mode = 'ocr'">{{ t('desk.tabOcr') }}</button>
         </div>
         <QrScanner v-if="mode === 'qr'" @scan="onScan" />
         <OcrScanner v-if="mode === 'ocr'" @text="onSearchText" />
@@ -121,7 +123,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
       </section>
 
       <section class="card stack">
-        <h2>Record gift</h2>
+        <h2>{{ t('desk.recordGift') }}</h2>
         <GiftForm
           :guest="selected"
           :currency="currency"
@@ -135,9 +137,9 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
 
     <section class="card stack">
       <div class="row">
-        <h2>Recent on this device</h2>
+        <h2>{{ t('desk.recent') }}</h2>
         <span class="spacer" />
-        <RouterLink to="/sync" class="small">Sync center →</RouterLink>
+        <RouterLink to="/sync" class="small">{{ t('desk.syncCenter') }}</RouterLink>
       </div>
       <TransactionList :items="recent" />
     </section>

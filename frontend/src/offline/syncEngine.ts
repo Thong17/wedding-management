@@ -15,7 +15,7 @@ export interface SyncSnapshot {
 export interface SyncEngineOptions {
   send: (items: SyncItemPayload[]) => Promise<{ results: SyncItemResult[] }>
   /** Username whose records this session may upload; null when logged out. */
-  currentUser: () => string | null
+  currentUser: () => repo.Recorder | null
   batchSize?: number
   isOnline?: () => boolean
   /** Cross-tab mutual exclusion. Returns false if another tab holds the lock. */
@@ -164,7 +164,7 @@ export class SyncEngine {
         // We hold the lock, so nothing else is uploading: any `syncing` record is stale.
         await repo.recoverStaleSyncing()
         while (!stopped) {
-          const batch = await repo.claimBatch(this.batchSize, { recordedBy: user, ignoreBackoff: force })
+          const batch = await repo.claimBatch(this.batchSize, { user, ignoreBackoff: force })
           if (!batch.length) break
           const outcome = await this.sendBatch(batch)
           if (outcome.kind !== 'ok') {

@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import axios from 'axios'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiEvent, ApiGift, ApiGuest, ApiMember, GuestInput } from '@/api/types'
 import AppSelect from '@/components/AppSelect.vue'
-import { formatDateTime, formatMoney, METHOD_LABELS, METHOD_OPTIONS, SIDE_LABELS, SIDE_OPTIONS } from '@/utils/format'
+import { formatDateTime, formatMoney, methodLabel, methodOptions, sideLabel, sideOptions } from '@/utils/format'
 import { exportGuestsXlsx } from '@/utils/guestExport'
 import { toast } from '@/utils/toast'
 
 const props = defineProps<{ id: string }>()
 const eventId = computed(() => Number(props.id))
 const router = useRouter()
+const { t } = useI18n()
 
 const event = ref<ApiEvent | null>(null)
 const tab = ref<'guests' | 'gifts' | 'members'>('guests')
@@ -38,10 +40,10 @@ const editingGift = ref<{ gift: ApiGift; amount: string; method: ApiGift['method
 // Members
 const members = ref<ApiMember[]>([])
 const memberForm = reactive({ username: '', role: 'manager' as 'owner' | 'manager' })
-const ROLE_OPTIONS = [
-  { value: 'manager' as const, label: 'Manager' },
-  { value: 'owner' as const, label: 'Owner' },
-]
+const roleOptions = computed(() => [
+  { value: 'manager' as const, label: t('role.manager') },
+  { value: 'owner' as const, label: t('role.owner') },
+])
 
 async function load() {
   try {
@@ -60,7 +62,7 @@ async function exportGuests() {
   try {
     await exportGuestsXlsx(event.value, guests.value)
   } catch (err) {
-    toast(`Export failed: ${errorMessage(err)}`, 'error')
+    toast(t('detail.exportFailed', { error: errorMessage(err) }), 'error')
   } finally {
     exporting.value = false
   }
@@ -74,7 +76,7 @@ async function saveGuest() {
   try {
     if (editingGuestId.value) await guestsApi.update(eventId.value, editingGuestId.value, guestForm)
     else await guestsApi.create(eventId.value, guestForm)
-    toast(editingGuestId.value ? 'Guest updated' : 'Guest added')
+    toast(editingGuestId.value ? t('guests.updated') : t('guests.added'))
     cancelGuestEdit()
     await loadGuests()
   } catch (err) {
@@ -90,7 +92,7 @@ function cancelGuestEdit() {
   Object.assign(guestForm, emptyGuest())
 }
 async function deleteGuest(g: ApiGuest) {
-  if (!confirm(`Remove ${g.full_name} from the guest list? Gifts already recorded stay.`)) return
+  if (!confirm(t('guests.removeConfirm', { name: g.full_name }))) return
   await guestsApi.remove(eventId.value, g.id)
   await loadGuests()
 }
@@ -99,7 +101,7 @@ async function importCsv(e: Event) {
   if (!file) return
   try {
     importResult.value = await guestsApi.importCsv(eventId.value, file)
-    toast(`Imported ${importResult.value.created} guest(s)`)
+    toast(t('guests.imported', { n: importResult.value.created }))
     await loadGuests()
   } catch (err) {
     toast(errorMessage(err), 'error')
@@ -121,7 +123,7 @@ async function saveGiftEdit() {
       note: edit.note,
       updated_at: edit.gift.updated_at,
     })
-    toast('Gift updated')
+    toast(t('gifts.updated'))
     editingGift.value = null
     await loadGifts()
   } catch (err) {
@@ -129,10 +131,10 @@ async function saveGiftEdit() {
   }
 }
 async function voidGift(g: ApiGift) {
-  if (!confirm(`Void the gift of ${formatMoney(g.amount, g.currency)} from ${g.guest_name}?`)) return
+  if (!confirm(t('gifts.voidConfirm', { amount: formatMoney(g.amount, g.currency), name: g.guest_name }))) return
   try {
     await giftsApi.void(eventId.value, g.id, g.updated_at)
-    toast('Gift voided')
+    toast(t('gifts.voided'))
     await loadGifts()
   } catch (err) {
     handleGiftConflict(err)
@@ -141,7 +143,7 @@ async function voidGift(g: ApiGift) {
 function handleGiftConflict(err: unknown) {
   if (axios.isAxiosError(err) && err.response?.status === 409) {
     const current = err.response.data.current as ApiGift
-    toast(`Someone else changed this gift (now ${formatMoney(current.amount, current.currency)}). Reloaded — please review.`, 'error', 6000)
+    toast(t('gifts.conflict', { amount: formatMoney(current.amount, current.currency) }), 'error', 6000)
     editingGift.value = null
     void loadGifts()
   } else {
@@ -159,7 +161,7 @@ async function addMember() {
   }
 }
 async function removeMember(m: ApiMember) {
-  if (!confirm(`Remove ${m.username}?`)) return
+  if (!confirm(t('members.removeConfirm', { name: m.username }))) return
   try {
     await eventsApi.removeMember(eventId.value, m.user_id)
     await loadMembers()
@@ -168,7 +170,7 @@ async function removeMember(m: ApiMember) {
   }
 }
 async function deleteEvent() {
-  if (!confirm('Delete this event? This is only possible when no gifts were recorded.')) return
+  if (!confirm(t('members.deleteConfirm'))) return
   try {
     await eventsApi.remove(eventId.value)
     router.push('/')
@@ -180,80 +182,80 @@ async function deleteEvent() {
 
 <template>
   <div class="container stack">
-    <div v-if="error" class="banner banner-danger">{{ error }} <span class="muted">(Event management needs a connection; the gift desk works offline.)</span></div>
+    <div v-if="error" class="banner banner-danger">{{ error }} <span class="muted">{{ t('detail.needsConnection') }}</span></div>
     <template v-if="event">
       <div class="row">
         <div>
           <h1>{{ event.name }}</h1>
-          <div class="muted small">{{ event.date }}<span v-if="event.venue"> · {{ event.venue }}</span> · {{ event.currency }} · you are {{ event.role }}</div>
+          <div class="muted small">{{ event.date }}<span v-if="event.venue"> · {{ event.venue }}</span> · {{ event.currency }} · {{ t('detail.youAre', { role: t(`role.${event.role}`) }) }}</div>
         </div>
         <span class="spacer" />
-        <RouterLink class="btn btn-primary" :to="`/events/${event.id}/desk`">Gift desk</RouterLink>
-        <RouterLink class="btn" :to="`/events/${event.id}/report`">Report</RouterLink>
-        <RouterLink class="btn" :to="`/events/${event.id}/qr`">QR sheet</RouterLink>
-        <button :disabled="exporting || !guests.length" @click="exportGuests">{{ exporting ? 'Exporting…' : 'Export guests' }}</button>
-        <RouterLink v-if="isOwner" class="btn" :to="`/events/${event.id}/edit`">Edit</RouterLink>
+        <RouterLink class="btn btn-primary" :to="`/events/${event.id}/desk`">{{ t('detail.giftDesk') }}</RouterLink>
+        <RouterLink class="btn" :to="`/events/${event.id}/report`">{{ t('detail.report') }}</RouterLink>
+        <RouterLink class="btn" :to="`/events/${event.id}/qr`">{{ t('detail.qrSheet') }}</RouterLink>
+        <button :disabled="exporting || !guests.length" @click="exportGuests">{{ exporting ? t('detail.exporting') : t('detail.exportGuests') }}</button>
+        <RouterLink v-if="isOwner" class="btn" :to="`/events/${event.id}/edit`">{{ t('common.edit') }}</RouterLink>
       </div>
 
       <div class="tabs">
-        <button :class="{ active: tab === 'guests' }" @click="tab = 'guests'">Guests ({{ guests.length }})</button>
-        <button :class="{ active: tab === 'gifts' }" @click="tab = 'gifts'">Gifts ({{ gifts.length }})</button>
-        <button :class="{ active: tab === 'members' }" @click="tab = 'members'">Managers ({{ members.length }})</button>
+        <button :class="{ active: tab === 'guests' }" @click="tab = 'guests'">{{ t('detail.tabGuests', { n: guests.length }) }}</button>
+        <button :class="{ active: tab === 'gifts' }" @click="tab = 'gifts'">{{ t('detail.tabGifts', { n: gifts.length }) }}</button>
+        <button :class="{ active: tab === 'members' }" @click="tab = 'members'">{{ t('detail.tabManagers', { n: members.length }) }}</button>
       </div>
 
       <!-- Guests -->
       <div v-if="tab === 'guests'" class="grid-2">
         <div class="card stack">
           <div class="row">
-            <input v-model="guestFilter" placeholder="Filter guests…" style="flex: 1" />
+            <input v-model="guestFilter" :placeholder="t('guests.filter')" style="flex: 1" />
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Side</th><th>Group / table</th><th>Phone</th><th></th></tr></thead>
+              <thead><tr><th>{{ t('guests.name') }}</th><th>{{ t('guests.side') }}</th><th>{{ t('guests.groupTable') }}</th><th>{{ t('guests.phone') }}</th><th></th></tr></thead>
               <tbody>
                 <tr v-for="g in filteredGuests" :key="g.id">
                   <td>{{ g.full_name }}<div v-if="g.nickname" class="muted small">“{{ g.nickname }}”</div></td>
-                  <td>{{ SIDE_LABELS[g.side] }}</td>
-                  <td>{{ g.group }}<span v-if="g.table_no"> · T{{ g.table_no }}</span></td>
+                  <td>{{ sideLabel(g.side) }}</td>
+                  <td>{{ g.group }}<span v-if="g.table_no"> · {{ t('guests.tableShort', { n: g.table_no }) }}</span></td>
                   <td class="nowrap">{{ g.phone }}</td>
                   <td class="nowrap right">
-                    <button class="btn-small" @click="editGuest(g)">Edit</button>
-                    <button class="btn-small btn-danger" @click="deleteGuest(g)">✕</button>
+                    <button class="btn-small" @click="editGuest(g)">{{ t('common.edit') }}</button>
+                    <button class="btn-small btn-danger" :aria-label="t('common.remove')" @click="deleteGuest(g)">✕</button>
                   </td>
                 </tr>
-                <tr v-if="!filteredGuests.length"><td colspan="5" class="muted">No guests.</td></tr>
+                <tr v-if="!filteredGuests.length"><td colspan="5" class="muted">{{ t('guests.none') }}</td></tr>
               </tbody>
             </table>
           </div>
         </div>
         <div class="stack">
           <form class="card stack" @submit.prevent="saveGuest">
-            <h2>{{ editingGuestId ? 'Edit guest' : 'Add guest' }}</h2>
-            <label>Full name <input v-model="guestForm.full_name" required maxlength="200" /></label>
+            <h2>{{ editingGuestId ? t('guests.editTitle') : t('guests.addTitle') }}</h2>
+            <label>{{ t('guests.fullName') }} <input v-model="guestForm.full_name" required maxlength="200" /></label>
             <div class="row">
-              <label style="flex: 1">Nickname <input v-model="guestForm.nickname" maxlength="100" /></label>
-              <label style="flex: 1">Phone <input v-model="guestForm.phone" type="tel" maxlength="32" /></label>
+              <label style="flex: 1">{{ t('guests.nickname') }} <input v-model="guestForm.nickname" maxlength="100" /></label>
+              <label style="flex: 1">{{ t('guests.phone') }} <input v-model="guestForm.phone" type="tel" maxlength="32" /></label>
             </div>
             <div class="row">
-              <label style="flex: 1">Side
-                <AppSelect v-model="guestForm.side" :options="SIDE_OPTIONS" />
+              <label style="flex: 1">{{ t('guests.side') }}
+                <AppSelect v-model="guestForm.side" :options="sideOptions()" />
               </label>
-              <label style="flex: 1">Group <input v-model="guestForm.group" maxlength="100" /></label>
-              <label style="flex: 1">Table <input v-model="guestForm.table_no" maxlength="20" /></label>
+              <label style="flex: 1">{{ t('guests.group') }} <input v-model="guestForm.group" maxlength="100" /></label>
+              <label style="flex: 1">{{ t('guests.table') }} <input v-model="guestForm.table_no" maxlength="20" /></label>
             </div>
             <div class="row">
-              <button class="btn-primary">{{ editingGuestId ? 'Save' : 'Add guest' }}</button>
-              <button v-if="editingGuestId" type="button" @click="cancelGuestEdit">Cancel</button>
+              <button class="btn-primary">{{ editingGuestId ? t('common.save') : t('guests.addTitle') }}</button>
+              <button v-if="editingGuestId" type="button" @click="cancelGuestEdit">{{ t('common.cancel') }}</button>
             </div>
           </form>
           <div class="card stack">
-            <h2>Import guests from CSV</h2>
-            <p class="muted small">UTF-8 CSV with a header row. Columns: <span class="mono">full_name</span> (required), <span class="mono">nickname, phone, side (bride/groom/both), group, table_no</span>.</p>
+            <h2>{{ t('guests.importTitle') }}</h2>
+            <p class="muted small">{{ t('guests.importHelp') }} <span class="mono">full_name</span> {{ t('guests.required') }}, <span class="mono">nickname, phone, side (bride/groom/both), group, table_no</span>.</p>
             <input type="file" accept=".csv,text/csv" @change="importCsv" />
             <div v-if="importResult" class="small">
-              Created {{ importResult.created }}.
+              {{ t('guests.created', { n: importResult.created }) }}
               <ul v-if="importResult.errors.length" class="field-error">
-                <li v-for="e in importResult.errors" :key="e.row">Row {{ e.row }}: {{ Object.entries(e.errors).map(([k, v]) => `${k}: ${v.join(' ')}`).join('; ') }}</li>
+                <li v-for="e in importResult.errors" :key="e.row">{{ t('guests.rowError', { row: e.row, errors: Object.entries(e.errors).map(([k, v]) => `${k}: ${v.join(' ')}`).join('; ') }) }}</li>
               </ul>
             </div>
           </div>
@@ -262,32 +264,32 @@ async function deleteEvent() {
 
       <!-- Gifts (server copy) -->
       <div v-if="tab === 'gifts'" class="card stack">
-        <p class="muted small">Gifts confirmed by the server. Gifts still waiting on a device are shown in that device's Sync center.</p>
+        <p class="muted small">{{ t('gifts.serverNote') }}</p>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>When</th><th>Guest</th><th class="right">Amount</th><th>Method</th><th>Note</th><th>By</th><th></th></tr></thead>
+            <thead><tr><th>{{ t('gifts.when') }}</th><th>{{ t('gifts.guest') }}</th><th class="right">{{ t('gifts.amount') }}</th><th>{{ t('gifts.method') }}</th><th>{{ t('gifts.note') }}</th><th>{{ t('gifts.by') }}</th><th></th></tr></thead>
             <tbody>
               <tr v-for="g in gifts" :key="g.id">
                 <template v-if="editingGift?.gift.id === g.id">
                   <td class="small">{{ formatDateTime(g.client_created_at) }}</td>
                   <td>{{ g.guest_name }}</td>
                   <td><input v-model="editingGift.amount" inputmode="decimal" style="width: 110px" /></td>
-                  <td><AppSelect v-model="editingGift.method" :options="METHOD_OPTIONS" aria-label="Method" /></td>
+                  <td><AppSelect v-model="editingGift.method" :options="methodOptions()" :aria-label="t('gifts.method')" /></td>
                   <td><input v-model="editingGift.note" maxlength="500" /></td>
                   <td></td>
-                  <td class="nowrap"><button class="btn-small btn-primary" @click="saveGiftEdit">Save</button> <button class="btn-small" @click="editingGift = null">Cancel</button></td>
+                  <td class="nowrap"><button class="btn-small btn-primary" @click="saveGiftEdit">{{ t('common.save') }}</button> <button class="btn-small" @click="editingGift = null">{{ t('common.cancel') }}</button></td>
                 </template>
                 <template v-else>
                   <td class="small nowrap">{{ formatDateTime(g.client_created_at) }}</td>
-                  <td>{{ g.guest_name }}<span v-if="!g.guest" class="badge badge-neutral">walk-in</span></td>
+                  <td>{{ g.guest_name }}<span v-if="!g.guest" class="badge badge-neutral">{{ t('common.walkIn') }}</span></td>
                   <td class="right nowrap">{{ formatMoney(g.amount, g.currency) }}</td>
-                  <td>{{ METHOD_LABELS[g.method] }}</td>
+                  <td>{{ methodLabel(g.method) }}</td>
                   <td class="small">{{ g.note }}</td>
                   <td class="small">{{ g.recorded_by_username }}</td>
-                  <td class="nowrap right"><button class="btn-small" @click="startGiftEdit(g)">Edit</button> <button class="btn-small btn-danger" @click="voidGift(g)">Void</button></td>
+                  <td class="nowrap right"><button class="btn-small" @click="startGiftEdit(g)">{{ t('common.edit') }}</button> <button class="btn-small btn-danger" @click="voidGift(g)">{{ t('gifts.void') }}</button></td>
                 </template>
               </tr>
-              <tr v-if="!gifts.length"><td colspan="7" class="muted">No gifts on the server yet.</td></tr>
+              <tr v-if="!gifts.length"><td colspan="7" class="muted">{{ t('gifts.none') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -297,18 +299,18 @@ async function deleteEvent() {
       <div v-if="tab === 'members'" class="card stack">
         <ul class="list">
           <li v-for="m in members" :key="m.id" class="row" style="padding: 8px 0">
-            <strong>{{ m.username }}</strong> <span class="badge badge-neutral">{{ m.role }}</span>
+            <strong>{{ m.username }}</strong> <span class="badge badge-neutral">{{ t(`role.${m.role}`) }}</span>
             <span class="spacer" />
-            <button v-if="isOwner" class="btn-small btn-danger" @click="removeMember(m)">Remove</button>
+            <button v-if="isOwner" class="btn-small btn-danger" @click="removeMember(m)">{{ t('common.remove') }}</button>
           </li>
         </ul>
         <form v-if="isOwner" class="row" @submit.prevent="addMember">
-          <input v-model="memberForm.username" placeholder="Username" required style="flex: 1; min-width: 160px" />
-          <AppSelect v-model="memberForm.role" :options="ROLE_OPTIONS" aria-label="Role" inline />
-          <button class="btn-primary">Add</button>
+          <input v-model="memberForm.username" :placeholder="t('members.username')" required style="flex: 1; min-width: 160px" />
+          <AppSelect v-model="memberForm.role" :options="roleOptions" :aria-label="t('members.role')" inline />
+          <button class="btn-primary">{{ t('common.add') }}</button>
         </form>
-        <p class="muted small">Managers can record gifts and manage guests. Accounts are created by an administrator in Django admin.</p>
-        <div v-if="isOwner"><button class="btn-danger btn-small" @click="deleteEvent">Delete event</button></div>
+        <p class="muted small">{{ t('members.help') }}</p>
+        <div v-if="isOwner"><button class="btn-danger btn-small" @click="deleteEvent">{{ t('members.deleteEvent') }}</button></div>
       </div>
     </template>
   </div>

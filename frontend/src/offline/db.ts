@@ -24,8 +24,13 @@ export interface GiftTransaction {
   note: string
   createdAt: string
   deviceId: string
-  /** Username of the manager who recorded it; only that user's session uploads it. */
+  /** Username of the manager who recorded it, as of the last rename seen on this device (for display). */
   recordedBy: string
+  /**
+   * User id of the manager who recorded it; only that user's session uploads it.
+   * Missing on records saved before ids were stored: those match by `recordedBy` until adopted.
+   */
+  recordedById?: number | null
   status: TxnStatus
   attempts: number
   /** Epoch ms; a pending record is not retried before this. */

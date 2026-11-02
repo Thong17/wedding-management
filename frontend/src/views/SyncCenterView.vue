@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/endpoints'
 import AppSelect from '@/components/AppSelect.vue'
 import TransactionList from '@/components/TransactionList.vue'
@@ -9,6 +10,7 @@ import { getCachedGuests } from '@/offline/guestCache'
 import { createGuestSearcher } from '@/offline/guestSearch'
 import {
   GiftValidationError,
+  isRecordedBy,
   listTransactions,
   pruneSynced,
   retryFailed,
@@ -17,29 +19,33 @@ import {
 } from '@/offline/transactionRepo'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
-import { downloadFile, formatDateTime, formatRelative, METHOD_OPTIONS } from '@/utils/format'
+import { downloadFile, formatDateTime, formatRelative, methodOptions } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
 const sync = useSyncStore()
 const auth = useAuthStore()
+const { t } = useI18n()
 const filter = ref<TxnStatus | 'unsynced' | 'all'>('unsynced')
-const FILTER_OPTIONS: { value: TxnStatus | 'unsynced' | 'all'; label: string }[] = [
-  { value: 'unsynced', label: 'Not yet synced' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'pending', label: 'Waiting' },
-  { value: 'synced', label: 'Synced' },
-  { value: 'all', label: 'All on this device' },
-]
+const filterOptions = computed<{ value: TxnStatus | 'unsynced' | 'all'; label: string }[]>(() => [
+  { value: 'unsynced', label: t('sync.filterUnsynced') },
+  { value: 'failed', label: t('sync.filterFailed') },
+  { value: 'pending', label: t('sync.filterPending') },
+  { value: 'synced', label: t('sync.filterSynced') },
+  { value: 'all', label: t('sync.filterAll') },
+])
+const STATE_KEYS = { idle: 'idle', syncing: 'syncing', offline: 'offline', 'auth-required': 'authRequired', error: 'error' } as const
+const stateLabel = computed(() => t(`sync.states.${STATE_KEYS[sync.state]}`))
 const rows = ref<GiftTransaction[]>([])
 const serverCheck = ref<null | boolean>(null)
 
 const visible = computed(() => {
   if (filter.value === 'all') return rows.value
-  if (filter.value === 'unsynced') return rows.value.filter((t) => t.status !== 'synced')
-  return rows.value.filter((t) => t.status === filter.value)
+  if (filter.value === 'unsynced') return rows.value.filter((txn) => txn.status !== 'synced')
+  return rows.value.filter((txn) => txn.status === filter.value)
 })
 const otherUsers = computed(() => {
-  const names = new Set(rows.value.filter((t) => t.status !== 'synced' && t.recordedBy !== auth.username).map((t) => t.recordedBy))
+  const me = auth.recorder
+  const names = new Set(rows.value.filter((txn) => txn.status !== 'synced' && (!me || !isRecordedBy(txn, me))).map((txn) => txn.recordedBy))
   return [...names]
 })
 
@@ -53,9 +59,9 @@ onMounted(() => {
 })
 onBeforeUnmount(() => unsubscribe?.())
 
-async function retry(t?: GiftTransaction) {
-  const n = await retryFailed(t ? [t.txnId] : undefined)
-  toast(`${n} transaction(s) queued for retry`, 'info')
+async function retry(txn?: GiftTransaction) {
+  const n = await retryFailed(txn ? [txn.txnId] : undefined)
+  toast(t('sync.retryQueued', { n }), 'info')
   await sync.syncNow()
 }
 
@@ -72,8 +78,8 @@ function exportRows(kind: 'json' | 'csv') {
 }
 
 async function prune() {
-  if (!confirm('Remove gifts that the server confirmed more than 30 days ago from this device? Unsynced gifts are never removed.')) return
-  toast(`Removed ${await pruneSynced(30)} old synced record(s) from this device`, 'info')
+  if (!confirm(t('sync.pruneConfirm'))) return
+  toast(t('sync.pruned', { n: await pruneSynced(30) }), 'info')
 }
 
 // Edit & retry
@@ -84,19 +90,19 @@ const editQuery = ref('')
 const editErrors = ref<Record<string, string>>({})
 const editResults = computed(() => createGuestSearcher(editGuests.value).search(editQuery.value, 6))
 
-async function startEdit(t: GiftTransaction) {
-  editing.value = t
+async function startEdit(txn: GiftTransaction) {
+  editing.value = txn
   editErrors.value = {}
   Object.assign(editForm, {
-    amount: t.amount,
-    method: t.method,
-    note: t.note,
-    walkInName: t.walkInName,
-    guestId: t.guestId,
-    guestName: t.guestId != null ? t.guestNameSnapshot : '',
+    amount: txn.amount,
+    method: txn.method,
+    note: txn.note,
+    walkInName: txn.walkInName,
+    guestId: txn.guestId,
+    guestName: txn.guestId != null ? txn.guestNameSnapshot : '',
   })
   editQuery.value = ''
-  editGuests.value = await getCachedGuests(t.eventId)
+  editGuests.value = await getCachedGuests(txn.eventId)
 }
 watch(editQuery, () => (editErrors.value = {}))
 
@@ -105,7 +111,7 @@ async function saveEdit() {
   try {
     await updateFailedTransaction(editing.value.txnId, { ...editForm })
     editing.value = null
-    toast('Saved. Uploading…', 'info')
+    toast(t('sync.savedUploading'), 'info')
     await sync.syncNow()
   } catch (err) {
     if (err instanceof GiftValidationError) editErrors.value = err.errors as Record<string, string>
@@ -116,61 +122,61 @@ async function saveEdit() {
 
 <template>
   <div class="container stack">
-    <h1>Sync center</h1>
+    <h1>{{ t('sync.title') }}</h1>
 
     <div class="card stack">
       <div class="stats">
-        <div class="stat"><span class="badge badge-pending">Waiting</span><strong>{{ sync.counts.pending }}</strong></div>
-        <div class="stat"><span class="badge badge-syncing">Uploading</span><strong>{{ sync.counts.syncing }}</strong></div>
-        <div class="stat"><span class="badge badge-failed">Failed</span><strong>{{ sync.counts.failed }}</strong></div>
-        <div class="stat"><span class="badge badge-synced">Synced</span><strong>{{ sync.counts.synced }}</strong></div>
+        <div class="stat"><span class="badge badge-pending">{{ t('sync.waiting') }}</span><strong>{{ sync.counts.pending }}</strong></div>
+        <div class="stat"><span class="badge badge-syncing">{{ t('sync.uploading') }}</span><strong>{{ sync.counts.syncing }}</strong></div>
+        <div class="stat"><span class="badge badge-failed">{{ t('sync.failed') }}</span><strong>{{ sync.counts.failed }}</strong></div>
+        <div class="stat"><span class="badge badge-synced">{{ t('sync.synced') }}</span><strong>{{ sync.counts.synced }}</strong></div>
       </div>
       <div class="small muted">
-        Browser reports {{ sync.browserOnline ? 'online' : 'offline' }} · sync state: <strong>{{ sync.state }}</strong> · last successful sync
-        {{ formatRelative(sync.snapshot.lastSyncAt) }}
+        {{ t('sync.browser', { state: sync.browserOnline ? t('sync.online') : t('sync.offline') }) }} · {{ t('sync.state') }}: <strong>{{ stateLabel }}</strong> ·
+        {{ t('sync.lastSync', { when: formatRelative(sync.snapshot.lastSyncAt) }) }}
         <span v-if="sync.snapshot.lastSyncAt">({{ formatDateTime(sync.snapshot.lastSyncAt) }})</span>
       </div>
-      <div v-if="sync.snapshot.lastError" class="banner banner-warn small">Last problem: {{ sync.snapshot.lastError }}</div>
-      <div v-if="sync.state === 'auth-required'" class="banner banner-danger small">
-        Uploading is paused until you <RouterLink :to="{ name: 'login', query: { next: '/sync' } }">log in again</RouterLink>. Nothing is lost.
-      </div>
+      <div v-if="sync.snapshot.lastError" class="banner banner-warn small">{{ t('sync.lastProblem', { error: sync.snapshot.lastError }) }}</div>
+      <i18n-t v-if="sync.state === 'auth-required'" keypath="sync.paused" tag="div" class="banner banner-danger small">
+        <template #link><RouterLink :to="{ name: 'login', query: { next: '/sync' } }">{{ t('sync.pausedLink') }}</RouterLink></template>
+      </i18n-t>
       <div v-if="otherUsers.length" class="banner banner-info small">
-        Some unsynced gifts were recorded by {{ otherUsers.join(', ') }}. They upload when that user logs in on this device.
+        {{ t('sync.otherUsers', { names: otherUsers.join(', ') }) }}
       </div>
       <div class="row">
-        <button class="btn-primary" @click="sync.syncNow()" :disabled="sync.state === 'syncing'">⟳ Sync now</button>
-        <button @click="retry()" :disabled="!sync.counts.failed">Retry all failed</button>
-        <button @click="checkServer">Check server</button>
+        <button class="btn-primary" @click="sync.syncNow()" :disabled="sync.state === 'syncing'">{{ t('sync.syncNow') }}</button>
+        <button @click="retry()" :disabled="!sync.counts.failed">{{ t('sync.retryAll') }}</button>
+        <button @click="checkServer">{{ t('sync.checkServer') }}</button>
         <span v-if="serverCheck !== null" class="badge" :class="serverCheck ? 'badge-synced' : 'badge-failed'">
-          {{ serverCheck ? 'Server reachable' : 'Server unreachable' }}
+          {{ serverCheck ? t('sync.reachable') : t('sync.unreachable') }}
         </span>
       </div>
     </div>
 
     <div class="card stack">
       <div class="row">
-        <AppSelect v-model="filter" :options="FILTER_OPTIONS" aria-label="Filter records" inline />
-        <span class="muted small">{{ visible.length }} record(s)</span>
+        <AppSelect v-model="filter" :options="filterOptions" :aria-label="t('sync.filter')" inline />
+        <span class="muted small">{{ t('sync.records', { n: visible.length }) }}</span>
         <span class="spacer" />
-        <button class="btn-small" @click="exportRows('csv')" :disabled="!visible.length">Export CSV</button>
-        <button class="btn-small" @click="exportRows('json')" :disabled="!visible.length">Export JSON</button>
-        <button class="btn-small" @click="prune">Clear old synced</button>
+        <button class="btn-small" @click="exportRows('csv')" :disabled="!visible.length">{{ t('common.exportCsv') }}</button>
+        <button class="btn-small" @click="exportRows('json')" :disabled="!visible.length">{{ t('sync.exportJson') }}</button>
+        <button class="btn-small" @click="prune">{{ t('sync.clearOld') }}</button>
       </div>
 
       <TransactionList :items="visible" show-event>
         <template #actions="{ item }">
           <div v-if="item.status === 'failed'" class="row">
-            <button class="btn-small" @click="retry(item)">Retry</button>
-            <button class="btn-small" @click="startEdit(item)">Edit &amp; retry</button>
+            <button class="btn-small" @click="retry(item)">{{ t('common.retry') }}</button>
+            <button class="btn-small" @click="startEdit(item)">{{ t('sync.editRetry') }}</button>
             <span class="muted small mono">{{ item.errorCode }} · {{ item.txnId.slice(0, 8) }}</span>
           </div>
           <form v-if="editing?.txnId === item.txnId" class="card stack edit" @submit.prevent="saveEdit">
             <div class="row">
-              <strong>Guest:</strong>
-              <span v-if="editForm.guestId != null">{{ editForm.guestName }} <button type="button" class="btn-small" @click="editForm.guestId = null">Change</button></span>
+              <strong>{{ t('sync.guest') }}</strong>
+              <span v-if="editForm.guestId != null">{{ editForm.guestName }} <button type="button" class="btn-small" @click="editForm.guestId = null">{{ t('common.change') }}</button></span>
               <template v-else>
-                <input v-model="editQuery" placeholder="Search guest…" style="flex: 1; min-width: 160px" />
-                <input v-model="editForm.walkInName" placeholder="…or walk-in name" style="flex: 1; min-width: 160px" />
+                <input v-model="editQuery" :placeholder="t('sync.searchGuest')" style="flex: 1; min-width: 160px" />
+                <input v-model="editForm.walkInName" :placeholder="t('sync.walkInName')" style="flex: 1; min-width: 160px" />
               </template>
             </div>
             <div v-if="editForm.guestId == null && editResults.length" class="row">
@@ -180,16 +186,16 @@ async function saveEdit() {
             </div>
             <span class="field-error" v-if="editErrors.guest">{{ editErrors.guest }}</span>
             <div class="row">
-              <label style="flex: 1">Amount <input v-model="editForm.amount" inputmode="decimal" /></label>
-              <label style="flex: 1">Method
-                <AppSelect v-model="editForm.method" :options="METHOD_OPTIONS" />
+              <label style="flex: 1">{{ t('sync.amount') }} <input v-model="editForm.amount" inputmode="decimal" /></label>
+              <label style="flex: 1">{{ t('sync.method') }}
+                <AppSelect v-model="editForm.method" :options="methodOptions()" />
               </label>
             </div>
             <span class="field-error" v-if="editErrors.amount">{{ editErrors.amount }}</span>
-            <label>Note <input v-model="editForm.note" maxlength="500" /></label>
+            <label>{{ t('sync.note') }} <input v-model="editForm.note" maxlength="500" /></label>
             <div class="row">
-              <button class="btn-primary btn-small">Save &amp; retry</button>
-              <button type="button" class="btn-small" @click="editing = null">Cancel</button>
+              <button class="btn-primary btn-small">{{ t('sync.saveRetry') }}</button>
+              <button type="button" class="btn-small" @click="editing = null">{{ t('common.cancel') }}</button>
             </div>
           </form>
         </template>

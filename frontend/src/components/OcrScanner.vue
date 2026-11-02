@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ocrCandidateLines } from '@/offline/guestSearch'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{ text: [text: string] }>()
 const busy = ref(false)
@@ -28,7 +31,7 @@ async function startCamera() {
     }
   } catch (err) {
     stopCamera()
-    error.value = `Camera unavailable: ${err instanceof Error ? err.message : String(err)}. Camera access needs HTTPS (or localhost) and permission. You can still use "Photo / upload".`
+    error.value = t('ocr.cameraUnavailable', { error: err instanceof Error ? err.message : String(err) })
   }
 }
 
@@ -83,12 +86,12 @@ async function recognize(image: Blob) {
     try {
       const { data } = await worker.recognize(image)
       lines.value = ocrCandidateLines(data.text)
-      if (!lines.value.length) error.value = 'No readable text found. Try a closer, well-lit photo of the name.'
+      if (!lines.value.length) error.value = t('ocr.noText')
     } finally {
       await worker.terminate()
     }
   } catch (err) {
-    error.value = `Text scanning failed: ${err instanceof Error ? err.message : String(err)}. The OCR engine is downloaded the first time it is used, so open it once while online.`
+    error.value = t('ocr.failed', { error: err instanceof Error ? err.message : String(err) })
   } finally {
     busy.value = false
   }
@@ -108,21 +111,21 @@ onBeforeUnmount(() => {
     </div>
     <div class="row">
       <template v-if="cameraOn">
-        <button class="btn-primary" :disabled="busy" @click="capture">📸 Capture</button>
-        <button @click="stopCamera">Stop camera</button>
+        <button class="btn-primary" :disabled="busy" @click="capture">{{ t('ocr.capture') }}</button>
+        <button @click="stopCamera">{{ t('ocr.stopCamera') }}</button>
       </template>
-      <button v-else class="btn-primary" :disabled="busy" @click="startCamera">📷 Start camera</button>
+      <button v-else class="btn-primary" :disabled="busy" @click="startCamera">{{ t('ocr.startCamera') }}</button>
       <label class="btn file-btn" :class="{ disabled: busy }">
-        🖼️ Photo / upload
+        {{ t('ocr.upload') }}
         <input type="file" accept="image/*" capture="environment" @change="onFile" :disabled="busy" hidden />
       </label>
     </div>
-    <span v-if="cameraOn" class="muted small">Fit the guest's name inside the box, then tap Capture.</span>
-    <img v-if="preview && !cameraOn" :src="preview" alt="Scanned card" class="preview" />
-    <p v-if="busy" class="muted small">Reading text… {{ progress }}%</p>
+    <span v-if="cameraOn" class="muted small">{{ t('ocr.fitHint') }}</span>
+    <img v-if="preview && !cameraOn" :src="preview" :alt="t('ocr.scannedAlt')" class="preview" />
+    <p v-if="busy" class="muted small">{{ t('ocr.reading', { n: progress }) }}</p>
     <p v-if="error" class="banner banner-warn small">{{ error }}</p>
     <div v-if="lines.length" class="stack">
-      <span class="muted small">Tap the line with the guest's name:</span>
+      <span class="muted small">{{ t('ocr.tapLine') }}</span>
       <div class="row">
         <button v-for="l in lines" :key="l" class="btn-small" @click="emit('text', l)">{{ l }}</button>
       </div>

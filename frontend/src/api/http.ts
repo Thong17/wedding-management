@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios'
+import { t } from '@/i18n'
 
 export const API_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
@@ -33,7 +34,7 @@ export const tokens = {
 /** The session can no longer be refreshed; the user has to log in again. */
 export class AuthExpiredError extends Error {
   constructor() {
-    super('Your session has expired. Please log in again.')
+    super(t('errors.sessionExpired'))
     this.name = 'AuthExpiredError'
   }
 }
@@ -100,14 +101,14 @@ http.interceptors.response.use(undefined, async (error: AxiosError) => {
 export function errorMessage(err: unknown): string {
   if (err instanceof AuthExpiredError) return err.message
   if (axios.isAxiosError(err)) {
-    if (!err.response) return 'Cannot reach the server.'
+    if (!err.response) return t('errors.unreachable')
     const data = err.response.data as Record<string, unknown> | undefined
     if (data && typeof data === 'object') {
       if (typeof data.detail === 'string') return data.detail
       const first = Object.entries(data)[0]
       if (first) return `${first[0]}: ${Array.isArray(first[1]) ? first[1].join(' ') : String(first[1])}`
     }
-    return `Server error (${err.response.status}).`
+    return t('errors.server', { status: err.response.status })
   }
   return err instanceof Error ? err.message : String(err)
 }

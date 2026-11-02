@@ -5,6 +5,14 @@ export interface ApiUser {
   username: string
   first_name: string
   last_name: string
+  /** Absolute URL of the profile picture, or null. Missing on users cached before pictures existed. */
+  avatar_url?: string | null
+}
+
+export interface ProfileUpdate {
+  username?: string
+  /** New picture; `null` removes the current one. */
+  avatar?: Blob | null
 }
 
 export interface ApiEvent {

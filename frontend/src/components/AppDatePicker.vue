@@ -21,14 +21,17 @@ import {
   DatePickerTrigger,
 } from 'reka-ui'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import { intlLocale, type Locale } from '@/i18n'
 
 /** ISO date string (YYYY-MM-DD), the same shape a native date input and the API use. */
 const model = defineModel<string>({ default: '' })
 defineProps<{ required?: boolean; name?: string }>()
 
-// Segment order and format follow the device's locale, like the native input did.
-const locale = typeof navigator !== 'undefined' ? navigator.language : 'en'
+const { t, locale: uiLocale } = useI18n()
+// Segment order, month names and weekdays follow the chosen UI language.
+const locale = computed(() => intlLocale(uiLocale.value as Locale))
 
 const value = computed<DateValue | undefined>({
   get: () => {
@@ -53,16 +56,16 @@ const value = computed<DateValue | undefined>({
             <DatePickerInput v-else :part="item.part" class="segment">{{ item.value }}</DatePickerInput>
           </template>
         </div>
-        <DatePickerTrigger class="trigger" aria-label="Open calendar"><AppIcon name="calendar" :size="18" /></DatePickerTrigger>
+        <DatePickerTrigger class="trigger" :aria-label="t('datePicker.open')"><AppIcon name="calendar" :size="18" /></DatePickerTrigger>
       </DatePickerField>
     </DatePickerAnchor>
 
     <DatePickerContent class="app-date-content" side="bottom" align="start" :side-offset="6">
       <DatePickerCalendar v-slot="{ weekDays, grid }">
         <DatePickerHeader class="cal-header">
-          <DatePickerPrev class="nav" aria-label="Previous month"><AppIcon name="chevron-left" :size="18" /></DatePickerPrev>
+          <DatePickerPrev class="nav" :aria-label="t('datePicker.prev')"><AppIcon name="chevron-left" :size="18" /></DatePickerPrev>
           <DatePickerHeading class="cal-heading" />
-          <DatePickerNext class="nav" aria-label="Next month"><AppIcon name="chevron-right" :size="18" /></DatePickerNext>
+          <DatePickerNext class="nav" :aria-label="t('datePicker.next')"><AppIcon name="chevron-right" :size="18" /></DatePickerNext>
         </DatePickerHeader>
         <DatePickerGrid v-for="month in grid" :key="month.value.toString()" class="cal-grid">
           <DatePickerGridHead>

@@ -31,6 +31,17 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
+            // Profile pictures, so the navbar avatar still shows offline. Every upload gets a
+            // new file name, so a cached picture is never stale.
+            urlPattern: ({ url }) => url.pathname.startsWith('/media/avatars/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'avatars',
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             // Tesseract worker/core (wasm) and language data, cached on first use.
             urlPattern: ({ url }) =>
               (url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('tesseract')) ||

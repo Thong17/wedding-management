@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import { getCachedEvent } from '@/offline/guestCache'
@@ -9,6 +10,7 @@ import { useEventsStore } from '@/stores/events'
 const route = useRoute()
 const router = useRouter()
 const events = useEventsStore()
+const { t } = useI18n()
 
 const eventId = computed(() => (route.params.id ? Number(route.params.id) : null))
 const fetchedName = ref<string | null>(null)
@@ -26,7 +28,7 @@ watch(
 )
 
 const eventName = computed(
-  () => events.events.find((e) => e.id === eventId.value)?.name ?? fetchedName.value ?? 'Event',
+  () => events.events.find((e) => e.id === eventId.value)?.name ?? fetchedName.value ?? t('crumb.event'),
 )
 
 /** Walk the parent chain from the current route up to the root. */
@@ -37,7 +39,7 @@ const crumbs = computed(() => {
     const target = router.resolve({ name, params: route.params })
     const label = target.meta.crumb
     if (!label) break
-    list.unshift({ label: label === EVENT_CRUMB ? eventName.value : label, to: target })
+    list.unshift({ label: label === EVENT_CRUMB ? eventName.value : t(label), to: target })
     name = target.meta.parent
   }
   return list
@@ -47,8 +49,8 @@ const parent = computed(() => crumbs.value.at(-2))
 </script>
 
 <template>
-  <nav v-if="parent" class="container row crumbs no-print" aria-label="Breadcrumb">
-    <RouterLink class="btn btn-icon back" :to="parent.to" :title="`Back to ${parent.label}`" :aria-label="`Back to ${parent.label}`">
+  <nav v-if="parent" class="container row crumbs no-print" :aria-label="t('crumb.nav')">
+    <RouterLink class="btn btn-icon back" :to="parent.to" :title="t('crumb.back', { page: parent.label })" :aria-label="t('crumb.back', { page: parent.label })">
       <AppIcon name="chevron-left" />
     </RouterLink>
     <ol class="row">

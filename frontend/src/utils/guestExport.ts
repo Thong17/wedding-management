@@ -1,7 +1,8 @@
 import QRCode from 'qrcode'
 import type { ApiEvent, ApiGuest } from '@/api/types'
 import { qrPayloadForGuest } from '@/offline/guestSearch'
-import { downloadFile, SIDE_LABELS } from '@/utils/format'
+import { t } from '@/i18n'
+import { downloadFile, sideLabel } from '@/utils/format'
 
 const QR_PX = 110
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -11,18 +12,19 @@ export async function exportGuestsXlsx(event: Pick<ApiEvent, 'id' | 'name'>, gue
   // exceljs is large, so it is only loaded when someone actually exports.
   const { default: ExcelJS } = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
-  const sheet = workbook.addWorksheet('Guests', { views: [{ state: 'frozen', ySplit: 1 }] })
+  // Headers and side labels follow the current UI language.
+  const sheet = workbook.addWorksheet(t('export.sheet'), { views: [{ state: 'frozen', ySplit: 1 }] })
 
   sheet.columns = [
-    { header: 'QR', key: 'qr', width: 17 },
-    { header: 'Full name', key: 'full_name', width: 28 },
-    { header: 'Nickname', key: 'nickname', width: 16 },
-    { header: 'Phone', key: 'phone', width: 16 },
-    { header: 'Side', key: 'side', width: 10 },
-    { header: 'Group', key: 'group', width: 18 },
-    { header: 'Table', key: 'table_no', width: 8 },
-    { header: 'QR code text', key: 'qr_text', width: 46 },
-    { header: 'Guest ID', key: 'id', width: 10 },
+    { header: t('export.qr'), key: 'qr', width: 17 },
+    { header: t('export.fullName'), key: 'full_name', width: 28 },
+    { header: t('export.nickname'), key: 'nickname', width: 16 },
+    { header: t('export.phone'), key: 'phone', width: 16 },
+    { header: t('export.side'), key: 'side', width: 14 },
+    { header: t('export.group'), key: 'group', width: 18 },
+    { header: t('export.table'), key: 'table_no', width: 8 },
+    { header: t('export.qrText'), key: 'qr_text', width: 46 },
+    { header: t('export.guestId'), key: 'id', width: 12 },
   ]
   sheet.getRow(1).font = { bold: true }
 
@@ -33,7 +35,7 @@ export async function exportGuestsXlsx(event: Pick<ApiEvent, 'id' | 'name'>, gue
       full_name: g.full_name,
       nickname: g.nickname,
       phone: g.phone,
-      side: SIDE_LABELS[g.side] ?? g.side,
+      side: sideLabel(g.side),
       group: g.group,
       table_no: g.table_no,
       qr_text: payload,

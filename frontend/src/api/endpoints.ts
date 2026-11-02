@@ -10,6 +10,7 @@ import type {
   EventReport,
   GuestInput,
   GuestListResponse,
+  ProfileUpdate,
   SyncItemPayload,
   SyncItemResult,
 } from './types'
@@ -20,6 +21,13 @@ export const authApi = {
     tokens.set(data.access, data.refresh)
   },
   me: () => http.get<ApiUser>('/auth/me/').then((r) => r.data),
+  updateMe(update: ProfileUpdate) {
+    const form = new FormData()
+    if (update.username !== undefined) form.append('username', update.username)
+    if (update.avatar) form.append('avatar', update.avatar, 'avatar.jpg')
+    else if (update.avatar === null) form.append('remove_avatar', 'true')
+    return http.patch<ApiUser>('/auth/me/', form).then((r) => r.data)
+  },
   /** Unauthenticated reachability check; `navigator.onLine` does not prove the API is up. */
   async health(): Promise<boolean> {
     try {

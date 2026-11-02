@@ -1,9 +1,10 @@
+import { intlLocale, t } from '@/i18n'
 import type { GiftMethod, GuestSide } from '@/offline/db'
 
 export function formatMoney(amount: string | number | null | undefined, currency: string): string {
   const n = Number(amount ?? 0)
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(n)
+    return new Intl.NumberFormat(intlLocale(), { style: 'currency', currency }).format(n)
   } catch {
     return `${n.toFixed(2)} ${currency}`
   }
@@ -11,16 +12,16 @@ export function formatMoney(amount: string | number | null | undefined, currency
 
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export function formatRelative(iso: string | null | undefined): string {
-  if (!iso) return 'never'
+  if (!iso) return t('time.never')
   const s = Math.round((Date.now() - Date.parse(iso)) / 1000)
-  if (s < 10) return 'just now'
-  if (s < 60) return `${s}s ago`
-  if (s < 3600) return `${Math.round(s / 60)} min ago`
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`
+  if (s < 10) return t('time.justNow')
+  if (s < 60) return t('time.seconds', { n: s })
+  if (s < 3600) return t('time.minutes', { n: Math.round(s / 60) })
+  if (s < 86400) return t('time.hours', { n: Math.round(s / 3600) })
   return formatDateTime(iso)
 }
 
@@ -33,12 +34,12 @@ export function downloadFile(filename: string, content: BlobPart, type: string):
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export const METHOD_LABELS: Record<GiftMethod, string> = { cash: 'Cash', transfer: 'Bank transfer', other: 'Other' }
-export const SIDE_LABELS: Record<GuestSide, string> = { bride: 'Bride', groom: 'Groom', both: 'Both' }
+const METHODS: GiftMethod[] = ['cash', 'transfer', 'other']
+const SIDES: GuestSide[] = ['bride', 'groom', 'both']
 
-/** Turn a label map into AppSelect options, keeping the map's order. */
-export function labelOptions<T extends string>(labels: Record<T, string>): { value: T; label: string }[] {
-  return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }))
-}
-export const METHOD_OPTIONS = labelOptions(METHOD_LABELS)
-export const SIDE_OPTIONS = labelOptions(SIDE_LABELS)
+export const methodLabel = (m: GiftMethod): string => t(`method.${m}`)
+export const sideLabel = (s: GuestSide): string => t(`side.${s}`)
+
+// Functions, not constants, so labels follow a language switch when called from a template.
+export const methodOptions = () => METHODS.map((value) => ({ value, label: methodLabel(value) }))
+export const sideOptions = () => SIDES.map((value) => ({ value, label: sideLabel(value) }))

@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { uuid } from '@/utils/uuid'
 import { notifyTransactionsChanged } from './changes'
 import { getDB, type GiftMethod, type GiftTransaction, type TxnStatus } from './db'
@@ -6,6 +7,17 @@ export const GIFT_METHODS: GiftMethod[] = ['cash', 'transfer', 'other']
 const MAX_AMOUNT = 9_999_999_999.99
 const BACKOFF_BASE_MS = 5_000
 const BACKOFF_MAX_MS = 5 * 60_000
+
+/** The manager a record belongs to. Matched by id, which never changes; usernames can be renamed. */
+export interface Recorder {
+  id: number | null
+  username: string
+}
+
+export function isRecordedBy(rec: Pick<GiftTransaction, 'recordedBy' | 'recordedById'>, user: Recorder): boolean {
+  if (rec.recordedById != null && user.id != null) return rec.recordedById === user.id
+  return rec.recordedBy === user.username
+}
 
 export interface GiftInput {
   eventId: number
@@ -38,14 +50,14 @@ export function normalizeAmount(value: string | number): string | null {
 
 export function validateGiftInput(input: GiftInput): ValidationErrors {
   const errors: ValidationErrors = {}
-  if (!Number.isInteger(input.eventId) || input.eventId <= 0) errors.event = 'Event is missing.'
+  if (!Number.isInteger(input.eventId) || input.eventId <= 0) errors.event = t('validation.event')
   const walkIn = (input.walkInName ?? '').trim()
-  if (input.guestId == null && !walkIn) errors.guest = 'Select a guest or enter a walk-in name.'
-  if (walkIn.length > 200) errors.guest = 'Name is too long.'
-  if (normalizeAmount(input.amount) === null) errors.amount = 'Enter an amount greater than 0 with at most 2 decimals.'
-  if (!GIFT_METHODS.includes(input.method)) errors.method = 'Choose a payment method.'
-  if ((input.note ?? '').length > 500) errors.note = 'Note must be 500 characters or fewer.'
-  if (!/^[A-Z]{3}$/.test(input.currency)) errors.currency = 'Invalid currency.'
+  if (input.guestId == null && !walkIn) errors.guest = t('validation.guest')
+  if (walkIn.length > 200) errors.guest = t('validation.nameTooLong')
+  if (normalizeAmount(input.amount) === null) errors.amount = t('validation.amount')
+  if (!GIFT_METHODS.includes(input.method)) errors.method = t('validation.method')
+  if ((input.note ?? '').length > 500) errors.note = t('validation.note')
+  if (!/^[A-Z]{3}$/.test(input.currency)) errors.currency = t('validation.currency')
   return errors
 }
 
@@ -57,7 +69,7 @@ export function backoffDelay(attempts: number, random: () => number = Math.rando
 /** Save a gift locally. Resolves as soon as IndexedDB has committed it. */
 export async function addTransaction(
   input: GiftInput,
-  ctx: { deviceId: string; recordedBy: string; now?: Date },
+  ctx: { deviceId: string; recordedBy: Recorder; now?: Date },
 ): Promise<GiftTransaction> {
   const errors = validateGiftInput(input)
   if (Object.keys(errors).length) throw new GiftValidationError(errors)
@@ -75,7 +87,8 @@ export async function addTransaction(
     note: (input.note ?? '').trim(),
     createdAt: now.toISOString(),
     deviceId: ctx.deviceId,
-    recordedBy: ctx.recordedBy,
+    recordedBy: ctx.recordedBy.username,
+    recordedById: ctx.recordedBy.id,
     status: 'pending',
     attempts: 0,
     nextAttemptAt: 0,
@@ -131,19 +144,44 @@ export async function countByStatus(eventId?: number): Promise<StatusCounts> {
 }
 
 /** Earliest `nextAttemptAt` among pending records of this user, if any. */
-export async function nextRetryAt(recordedBy: string): Promise<number | null> {
+export async function nextRetryAt(user: Recorder): Promise<number | null> {
   const pending = await (await getDB()).getAllFromIndex('transactions', 'byStatus', 'pending')
-  const times = pending.filter((t) => t.recordedBy === recordedBy).map((t) => t.nextAttemptAt)
+  const times = pending.filter((t) => isRecordedBy(t, user)).map((t) => t.nextAttemptAt)
   return times.length ? Math.min(...times) : null
 }
 
 /**
- * Atomically move up to `limit` due pending records of `recordedBy` to `syncing`.
+ * Tag this user's records with their id and current username: records saved before ids
+ * were stored (matched by `username` or any of `previousNames`), and records of theirs
+ * still showing an old name after a rename. Returns how many records changed.
+ */
+export async function adoptRecords(user: Recorder & { id: number }, previousNames: string[] = []): Promise<number> {
+  const names = new Set([user.username, ...previousNames])
+  const db = await getDB()
+  const tx = db.transaction('transactions', 'readwrite')
+  let changed = 0
+  let cursor = await tx.store.openCursor()
+  while (cursor) {
+    const rec = cursor.value
+    const mine = rec.recordedById != null ? rec.recordedById === user.id : names.has(rec.recordedBy)
+    if (mine && (rec.recordedById !== user.id || rec.recordedBy !== user.username)) {
+      await cursor.update({ ...rec, recordedById: user.id, recordedBy: user.username })
+      changed++
+    }
+    cursor = await cursor.continue()
+  }
+  await tx.done
+  if (changed) notifyTransactionsChanged()
+  return changed
+}
+
+/**
+ * Atomically move up to `limit` due pending records of `user` to `syncing`.
  * Done in one readwrite transaction so two callers can never claim the same record.
  */
 export async function claimBatch(
   limit: number,
-  opts: { recordedBy: string; now?: number; ignoreBackoff?: boolean },
+  opts: { user: Recorder; now?: number; ignoreBackoff?: boolean },
 ): Promise<GiftTransaction[]> {
   const now = opts.now ?? Date.now()
   const db = await getDB()
@@ -152,7 +190,7 @@ export async function claimBatch(
   let cursor = await tx.store.index('byStatus').openCursor('pending')
   while (cursor && claimed.length < limit) {
     const rec = cursor.value
-    if (rec.recordedBy === opts.recordedBy && (opts.ignoreBackoff || rec.nextAttemptAt <= now)) {
+    if (isRecordedBy(rec, opts.user) && (opts.ignoreBackoff || rec.nextAttemptAt <= now)) {
       const updated: GiftTransaction = { ...rec, status: 'syncing', syncStartedAt: now, updatedAt: now }
       await cursor.update(updated)
       claimed.push(updated)

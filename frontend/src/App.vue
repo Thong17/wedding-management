@@ -1,50 +1,40 @@
 <script setup lang="ts">
-import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import AppBreadcrumbs from '@/components/AppBreadcrumbs.vue'
+import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
+import ThemeSwitch from '@/components/ThemeSwitch.vue'
+import UserMenu from '@/components/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useSyncStore } from '@/stores/sync'
 import { toasts } from '@/utils/toast'
 
 const auth = useAuthStore()
-const sync = useSyncStore()
 const route = useRoute()
-const router = useRouter()
-
-function logout() {
-  const unsynced = sync.unsynced + sync.counts.failed
-  if (
-    unsynced > 0 &&
-    !confirm(
-      `${unsynced} gift(s) on this device are not on the server yet. They stay saved on this device and upload after you log in again. Log out?`,
-    )
-  )
-    return
-  auth.logout()
-  router.push({ name: 'login' })
-}
+const { t } = useI18n()
 </script>
 
 <template>
   <header class="app-header no-print" v-if="route.name !== 'login'">
     <div class="container row header-inner">
-      <RouterLink to="/" class="brand">💝 Gift Desk</RouterLink>
+      <RouterLink to="/" class="brand">💝 {{ t('app.brand') }}</RouterLink>
       <nav class="row">
-        <RouterLink to="/">Events</RouterLink>
-        <RouterLink to="/sync">Sync</RouterLink>
+        <RouterLink to="/">{{ t('app.events') }}</RouterLink>
+        <RouterLink to="/sync">{{ t('app.sync') }}</RouterLink>
       </nav>
       <span class="spacer" />
       <SyncStatusBadge />
-      <span v-if="auth.user" class="muted small user">{{ auth.user.username }}</span>
-      <button v-if="auth.user" class="btn-small" @click="logout">Log out</button>
+      <ThemeSwitch />
+      <LanguageSwitch />
+      <UserMenu />
     </div>
   </header>
 
   <div v-if="auth.sessionExpired && route.name !== 'login'" class="container no-print">
     <div class="banner banner-warn row">
-      <span>Your session expired. Gifts keep saving on this device, but uploading is paused.</span>
+      <span>{{ t('app.sessionExpired') }}</span>
       <span class="spacer" />
-      <RouterLink class="btn btn-small" :to="{ name: 'login', query: { next: route.fullPath } }">Log in again</RouterLink>
+      <RouterLink class="btn btn-small" :to="{ name: 'login', query: { next: route.fullPath } }">{{ t('app.loginAgain') }}</RouterLink>
     </div>
   </div>
 
@@ -54,7 +44,7 @@ function logout() {
   </main>
 
   <div class="toasts" aria-live="polite">
-    <div v-for="t in toasts" :key="t.id" class="toast" :class="`toast-${t.kind}`">{{ t.message }}</div>
+    <div v-for="msg in toasts" :key="msg.id" class="toast" :class="`toast-${msg.kind}`">{{ msg.message }}</div>
   </div>
 </template>
 
@@ -70,7 +60,6 @@ function logout() {
 .brand { font-weight: 700; text-decoration: none; color: var(--c-text); margin-right: 8px; }
 nav a { text-decoration: none; color: var(--c-muted); padding: 6px 8px; border-radius: var(--radius-sm); }
 nav a.router-link-exact-active { color: var(--c-primary); background: var(--c-primary-soft); }
-@media (max-width: 540px) { .user { display: none; } }
 .toasts {
   position: fixed;
   left: 50%;
@@ -83,7 +72,7 @@ nav a.router-link-exact-active { color: var(--c-primary); background: var(--c-pr
   width: min(420px, calc(100vw - 32px));
 }
 .toast { padding: 12px 16px; border-radius: var(--radius); font-weight: 600; box-shadow: 0 4px 16px rgb(0 0 0 / 0.18); }
-.toast-ok { background: var(--c-ok); color: #fff; }
-.toast-info { background: var(--c-info); color: #fff; }
-.toast-error { background: var(--c-danger); color: #fff; }
+.toast-ok { background: var(--c-ok); color: var(--c-toast-ink); }
+.toast-info { background: var(--c-info); color: var(--c-toast-ink); }
+.toast-error { background: var(--c-danger); color: var(--c-toast-ink); }
 </style>

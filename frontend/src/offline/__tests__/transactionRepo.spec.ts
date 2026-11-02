@@ -16,7 +16,7 @@ import {
   updateFailedTransaction,
   validateGiftInput,
 } from '@/offline/transactionRepo'
-import { addGift, giftInput, resetDB, simulateReload } from '@/test/helpers'
+import { addGift, DEMO_USER, giftInput, resetDB, simulateReload } from '@/test/helpers'
 
 beforeEach(resetDB)
 
@@ -67,7 +67,7 @@ describe('local storage of gifts', () => {
 describe('queue state transitions', () => {
   it('claims each pending record only once, even with concurrent claims', async () => {
     for (let i = 0; i < 5; i++) await addGift()
-    const [a, b] = await Promise.all([claimBatch(3, { recordedBy: 'demo' }), claimBatch(3, { recordedBy: 'demo' })])
+    const [a, b] = await Promise.all([claimBatch(3, { user: DEMO_USER }), claimBatch(3, { user: DEMO_USER })])
     const ids = [...a, ...b].map((t) => t.txnId)
     expect(ids).toHaveLength(5)
     expect(new Set(ids).size).toBe(5)
@@ -77,11 +77,11 @@ describe('queue state transitions', () => {
   it('only claims records of the current user that are due', async () => {
     const mine = await addGift()
     await addGift({}, 'someone-else')
-    const [claimed] = await claimBatch(10, { recordedBy: 'demo' })
+    const [claimed] = await claimBatch(10, { user: DEMO_USER })
     expect(claimed.txnId).toBe(mine.txnId)
     await releaseForRetry([mine.txnId], 'offline')
-    expect(await claimBatch(10, { recordedBy: 'demo' })).toHaveLength(0) // backing off
-    expect(await claimBatch(10, { recordedBy: 'demo', ignoreBackoff: true })).toHaveLength(1)
+    expect(await claimBatch(10, { user: DEMO_USER })).toHaveLength(0) // backing off
+    expect(await claimBatch(10, { user: DEMO_USER, ignoreBackoff: true })).toHaveLength(1)
   })
 
   it('does not overwrite a record that is no longer syncing', async () => {
@@ -92,7 +92,7 @@ describe('queue state transitions', () => {
 
   it('recovers records stuck in syncing back to pending', async () => {
     await addGift()
-    await claimBatch(10, { recordedBy: 'demo' })
+    await claimBatch(10, { user: DEMO_USER })
     await simulateReload()
     expect(await recoverStaleSyncing()).toBe(1)
     expect((await countByStatus()).pending).toBe(1)
@@ -108,12 +108,12 @@ describe('queue state transitions', () => {
   it('lets the user retry or fix failed records only', async () => {
     const t = await addGift()
     await expect(updateFailedTransaction(t.txnId, { ...giftInput(), amount: '10' })).rejects.toThrow(/Only failed/)
-    await claimBatch(1, { recordedBy: 'demo' })
+    await claimBatch(1, { user: DEMO_USER })
     await markFailed(t.txnId, { code: 'guest_not_found', message: 'Guest not found' })
     const fixed = await updateFailedTransaction(t.txnId, { guestId: null, guestName: '', walkInName: 'Walk In', amount: '75', method: 'transfer' })
     expect(fixed).toMatchObject({ status: 'pending', amount: '75.00', guestId: null, walkInName: 'Walk In', txnId: t.txnId })
 
-    await claimBatch(1, { recordedBy: 'demo' })
+    await claimBatch(1, { user: DEMO_USER })
     await markFailed(t.txnId, { code: 'x', message: 'x' })
     expect(await retryFailed()).toBe(1)
     expect((await countByStatus()).pending).toBe(1)
@@ -122,7 +122,7 @@ describe('queue state transitions', () => {
   it('pruning only ever removes old synced records', async () => {
     const synced = await addGift()
     const other = await addGift()
-    await claimBatch(10, { recordedBy: 'demo' })
+    await claimBatch(10, { user: DEMO_USER })
     await markSynced(synced.txnId, 1)
     await releaseForRetry([other.txnId], 'offline')
     const db = await getDB()

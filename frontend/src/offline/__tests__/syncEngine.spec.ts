@@ -5,8 +5,8 @@ import { giftsApi } from '@/api/endpoints'
 import { API_URL, tokens } from '@/api/http'
 import type { SyncItemPayload, SyncItemResult } from '@/api/types'
 import { SyncEngine } from '@/offline/syncEngine'
-import { claimBatch, countByStatus, getTransaction, listTransactions, retryFailed } from '@/offline/transactionRepo'
-import { addGift, resetDB, simulateReload } from '@/test/helpers'
+import { adoptRecords, claimBatch, countByStatus, getTransaction, listTransactions, retryFailed, type Recorder } from '@/offline/transactionRepo'
+import { addGift, DEMO_USER, resetDB, simulateReload } from '@/test/helpers'
 
 const SYNC_URL = `${API_URL}/gifts/sync/`
 const REFRESH_URL = `${API_URL}/auth/token/refresh/`
@@ -34,7 +34,7 @@ const okHandler = mswHttp.post(SYNC_URL, async ({ request }) => {
 
 const server = setupServer(okHandler)
 
-function makeEngine(user: string | null = 'demo', online = true) {
+function makeEngine(user: Recorder | null = DEMO_USER, online = true) {
   return new SyncEngine({ send: giftsApi.sync, currentUser: () => user, isOnline: () => online, batchSize: 50 })
 }
 
@@ -67,7 +67,7 @@ describe('SyncEngine', () => {
 
   it('does nothing when the browser reports offline, and keeps the record', async () => {
     await addGift()
-    const engine = makeEngine('demo', false)
+    const engine = makeEngine(DEMO_USER, false)
     await engine.sync()
     expect(requests).toHaveLength(0)
     expect(engine.status.state).toBe('offline')
@@ -117,7 +117,7 @@ describe('SyncEngine', () => {
 
   it('re-sends safely after a crash mid-upload without duplicating', async () => {
     const t = await addGift()
-    await claimBatch(10, { recordedBy: 'demo' }) // tab closed while "syncing"
+    await claimBatch(10, { user: DEMO_USER }) // tab closed while "syncing"
     serverGifts.set(t.txnId, 7) // ...after the server had stored it
     await simulateReload()
     await makeEngine().sync()
@@ -223,15 +223,33 @@ describe('SyncEngine', () => {
 
   it('uploads in batches', async () => {
     for (let i = 0; i < 7; i++) await addGift()
-    await new SyncEngine({ send: giftsApi.sync, currentUser: () => 'demo', batchSize: 3 }).sync()
+    await new SyncEngine({ send: giftsApi.sync, currentUser: () => DEMO_USER, batchSize: 3 }).sync()
     expect(requests.map((r) => r.items.length)).toEqual([3, 3, 1])
   })
 
   it("leaves another user's records for that user", async () => {
     const other = await addGift({}, 'other-manager')
-    await makeEngine('demo').sync()
+    const otherWithId = await addGift({}, { id: 2, username: 'second' })
+    await makeEngine().sync()
     expect(requests).toHaveLength(0)
     expect((await getTransaction(other.txnId))?.status).toBe('pending')
+    expect((await getTransaction(otherWithId.txnId))?.status).toBe('pending')
+  })
+
+  it('still uploads my gifts after I rename myself', async () => {
+    const t = await addGift()
+    await makeEngine({ id: DEMO_USER.id, username: 'demo-renamed' }).sync()
+    expect((await getTransaction(t.txnId))?.status).toBe('synced')
+  })
+
+  it('adopts records saved before ids by name, including a previous name', async () => {
+    const legacy = await addGift({}, 'demo')
+    const oldName = await addGift({}, 'old-demo')
+    const someoneElse = await addGift({}, 'stranger')
+    expect(await adoptRecords({ id: 1, username: 'demo' }, ['old-demo'])).toBe(2)
+    expect(await getTransaction(legacy.txnId)).toMatchObject({ recordedById: 1, recordedBy: 'demo' })
+    expect(await getTransaction(oldName.txnId)).toMatchObject({ recordedById: 1, recordedBy: 'demo' })
+    expect((await getTransaction(someoneElse.txnId))?.recordedById).toBeNull()
   })
 
   it('a failed record can be retried and then syncs', async () => {

@@ -74,6 +74,11 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+# User uploads (profile pictures). Served by Django only while DEBUG is on;
+# in production the web server must serve MEDIA_ROOT at MEDIA_URL.
+MEDIA_URL = "media/"
+MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {

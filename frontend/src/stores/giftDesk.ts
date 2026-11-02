@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { errorMessage } from '@/api/http'
+import { t } from '@/i18n'
 import { onTransactionsChanged } from '@/offline/changes'
 import { getDeviceId, type CachedGuest, type GiftTransaction } from '@/offline/db'
 import { getCachedGuests, getGuestCacheTime, refreshGuestCache } from '@/offline/guestCache'
@@ -55,8 +56,8 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
       await loadLocal()
     } catch (err) {
       guestRefreshError.value = guests.value.length
-        ? `Using saved guest list (${errorMessage(err)})`
-        : `Guest list not available offline yet: ${errorMessage(err)}`
+        ? t('desk.usingSaved', { error: errorMessage(err) })
+        : t('desk.notOffline', { error: errorMessage(err) })
     } finally {
       refreshingGuests.value = false
     }
@@ -64,12 +65,12 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
 
   /** Record a gift locally; resolves once IndexedDB has committed it. Upload happens in the background. */
   async function recordGift(input: Omit<GiftInput, 'eventId'>): Promise<GiftTransaction> {
-    if (eventId.value == null) throw new Error('No event open.')
+    if (eventId.value == null) throw new Error(t('desk.noEvent'))
     const auth = useAuthStore()
-    if (!auth.username) throw new Error('Not logged in.')
+    if (!auth.recorder) throw new Error(t('desk.notLoggedIn'))
     const record = await addTransaction(
       { ...input, eventId: eventId.value },
-      { deviceId: await getDeviceId(), recordedBy: auth.username },
+      { deviceId: await getDeviceId(), recordedBy: auth.recorder },
     )
     transactions.value = [record, ...transactions.value]
     void useSyncStore().syncSoon()

@@ -1,1 +1,7 @@
 import 'fake-indexeddb/auto'
+import { config } from '@vue/test-utils'
+import { i18n, setLocale } from '@/i18n'
+
+// Components use useI18n(), so every mounted test component gets the plugin; tests assert English text.
+setLocale('en')
+config.global.plugins = [...(config.global.plugins ?? []), i18n]

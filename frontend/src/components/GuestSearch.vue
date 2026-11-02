@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { CachedGuest } from '@/offline/db'
 import type { GuestSearcher } from '@/offline/guestSearch'
-import { SIDE_LABELS } from '@/utils/format'
+import { sideLabel } from '@/utils/format'
 
 const PAGE_SIZE = 10
 
 const props = defineProps<{ searcher: GuestSearcher; giftedGuestIds: Set<number | null>; selectedId?: number | null }>()
 const emit = defineEmits<{ select: [guest: CachedGuest] }>()
 const query = defineModel<string>({ default: '' })
+const { t } = useI18n()
 const active = ref(0)
 const page = ref(1)
 const input = ref<HTMLInputElement | null>(null)
@@ -22,7 +24,7 @@ const results = computed(() => matches.value.slice((page.value - 1) * PAGE_SIZE,
 const rangeText = computed(() => {
   if (!matches.value.length) return ''
   const start = (page.value - 1) * PAGE_SIZE + 1
-  return `${start}–${start + results.value.length - 1} of ${matches.value.length}`
+  return t('search.range', { start, end: start + results.value.length - 1, total: matches.value.length })
 })
 
 watch([query, () => props.searcher], () => (page.value = 1))
@@ -58,7 +60,7 @@ defineExpose({ focus: () => input.value?.focus() })
       ref="input"
       v-model="query"
       type="search"
-      placeholder="Search name, nickname or phone…"
+      :placeholder="t('search.placeholder')"
       autocomplete="off"
       autocapitalize="off"
       enterkeyhint="search"
@@ -76,20 +78,20 @@ defineExpose({ focus: () => input.value?.focus() })
           <strong>{{ g.full_name }}</strong>
           <span v-if="g.nickname" class="muted small">“{{ g.nickname }}”</span>
           <span class="spacer" />
-          <span v-if="giftedGuestIds.has(g.id)" class="badge badge-synced" title="A gift is already recorded on this device">✓ gift recorded</span>
+          <span v-if="giftedGuestIds.has(g.id)" class="badge badge-synced" :title="t('search.giftedTitle')">{{ t('search.gifted') }}</span>
         </div>
         <div class="muted small">
-          {{ SIDE_LABELS[g.side] }}<span v-if="g.group"> · {{ g.group }}</span><span v-if="g.table_no"> · Table {{ g.table_no }}</span><span v-if="g.phone"> · {{ g.phone }}</span>
+          {{ sideLabel(g.side) }}<span v-if="g.group"> · {{ g.group }}</span><span v-if="g.table_no"> · {{ t('common.table', { n: g.table_no }) }}</span><span v-if="g.phone"> · {{ g.phone }}</span>
         </div>
       </li>
       <li v-if="!results.length" class="muted small empty">
-        {{ query.trim() ? 'No matching guest. You can record it as a walk-in guest.' : 'No guests saved on this device yet.' }}
+        {{ query.trim() ? t('search.noMatch') : t('search.noGuests') }}
       </li>
     </ul>
     <div v-if="matches.length > PAGE_SIZE" class="row pager">
-      <button type="button" class="btn-small" :disabled="page === 1" @click="goTo(page - 1)" aria-label="Previous page">‹ Prev</button>
-      <span class="muted small">Page {{ page }} / {{ pageCount }}</span>
-      <button type="button" class="btn-small" :disabled="page === pageCount" @click="goTo(page + 1)" aria-label="Next page">Next ›</button>
+      <button type="button" class="btn-small" :disabled="page === 1" @click="goTo(page - 1)" :aria-label="t('search.prevPage')">{{ t('search.prev') }}</button>
+      <span class="muted small">{{ t('search.page', { page, count: pageCount }) }}</span>
+      <button type="button" class="btn-small" :disabled="page === pageCount" @click="goTo(page + 1)" :aria-label="t('search.nextPage')">{{ t('search.next') }}</button>
       <span class="spacer" />
       <span class="muted small">{{ rangeText }}</span>
     </div>

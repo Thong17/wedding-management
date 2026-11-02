@@ -1,26 +1,28 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
 import { useEventsStore } from '@/stores/events'
 
 const store = useEventsStore()
+const { t } = useI18n()
 onMounted(() => store.load())
 </script>
 
 <template>
   <div class="container stack">
     <div class="row">
-      <h1>Events</h1>
+      <h1>{{ t('events.title') }}</h1>
       <span class="spacer" />
-      <RouterLink class="btn btn-primary" to="/events/new" v-if="!store.fromCache">+ New event</RouterLink>
+      <RouterLink class="btn btn-primary" to="/events/new" v-if="!store.fromCache"><AppIcon name="plus" />{{ t('events.new') }}</RouterLink>
     </div>
-    <div v-if="store.fromCache" class="banner banner-info">Offline: showing events saved on this device.</div>
+    <div v-if="store.fromCache" class="banner banner-info">{{ t('events.offline') }}</div>
     <div v-if="store.error" class="banner banner-danger">{{ store.error }}</div>
-    <p v-if="store.loading && !store.events.length" class="muted">Loading…</p>
-    <p v-else-if="!store.events.length && !store.error" class="muted">No events yet. Create one to start.</p>
+    <p v-if="store.loading && !store.events.length" class="muted">{{ t('common.loading') }}</p>
+    <p v-else-if="!store.events.length && !store.error" class="muted">{{ t('events.empty') }}</p>
     <div class="events">
       <div v-for="e in store.events" :key="e.id" class="card stack event">
-        <RouterLink class="btn btn-icon report" :to="`/events/${e.id}/report`" title="Report" aria-label="Report">
+        <RouterLink class="btn btn-icon report" :to="`/events/${e.id}/report`" :title="t('events.report')" :aria-label="t('events.report')">
           <AppIcon name="chart" />
         </RouterLink>
         <div class="event-head">
@@ -28,8 +30,8 @@ onMounted(() => store.load())
           <div class="muted small">{{ e.date }}<span v-if="e.venue"> · {{ e.venue }}</span> · {{ e.currency }}</div>
         </div>
         <div class="row">
-          <RouterLink class="btn btn-primary" :to="`/events/${e.id}/desk`"><AppIcon name="gift" />Open gift desk</RouterLink>
-          <RouterLink class="btn" :to="`/events/${e.id}`"><AppIcon name="settings" />Manage</RouterLink>
+          <RouterLink class="btn btn-primary" :to="`/events/${e.id}/desk`"><AppIcon name="gift" />{{ t('events.openDesk') }}</RouterLink>
+          <RouterLink class="btn" :to="`/events/${e.id}`"><AppIcon name="settings" />{{ t('events.manage') }}</RouterLink>
         </div>
       </div>
     </div>

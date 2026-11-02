@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Html5Qrcode } from 'html5-qrcode'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{ scan: [text: string] }>()
 const regionId = `qr-region-${Math.random().toString(36).slice(2)}`
@@ -38,7 +41,7 @@ async function start() {
     )
     running.value = true
   } catch (err) {
-    error.value = `Camera unavailable: ${err instanceof Error ? err.message : String(err)}. Camera access needs HTTPS (or localhost) and permission.`
+    error.value = t('qr.unavailable', { error: err instanceof Error ? err.message : String(err) })
     running.value = false
   } finally {
     starting.value = false
@@ -63,11 +66,11 @@ onBeforeUnmount(stop)
 <template>
   <div class="stack">
     <div :id="regionId" class="region" v-show="running || starting" />
-    <p v-if="starting" class="muted small">Starting camera…</p>
+    <p v-if="starting" class="muted small">{{ t('qr.starting') }}</p>
     <div class="row">
-      <button v-if="!running" class="btn-primary" :disabled="starting" @click="start">📷 Start camera</button>
-      <button v-else @click="stop">Stop camera</button>
-      <span class="muted small">Scan the guest's invitation QR code or barcode.</span>
+      <button v-if="!running" class="btn-primary" :disabled="starting" @click="start">{{ t('qr.start') }}</button>
+      <button v-else @click="stop">{{ t('qr.stop') }}</button>
+      <span class="muted small">{{ t('qr.hint') }}</span>
     </div>
     <p v-if="error" class="banner banner-danger small">{{ error }}</p>
   </div>

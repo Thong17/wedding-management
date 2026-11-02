@@ -1,41 +1,37 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { GiftTransaction } from '@/offline/db'
-import { formatDateTime, formatMoney, METHOD_LABELS } from '@/utils/format'
+import { formatDateTime, formatMoney, methodLabel } from '@/utils/format'
 
 defineProps<{ items: GiftTransaction[]; showEvent?: boolean }>()
 defineSlots<{ actions?: (props: { item: GiftTransaction }) => unknown }>()
 
-const LABELS: Record<GiftTransaction['status'], string> = {
-  pending: 'Saved locally',
-  syncing: 'Uploading…',
-  synced: 'Synced',
-  failed: 'Failed',
-}
+const { t } = useI18n()
 </script>
 
 <template>
   <ul class="list">
-    <li v-for="t in items" :key="t.txnId" class="item">
+    <li v-for="item in items" :key="item.txnId" class="item">
       <div class="row">
-        <strong>{{ t.guestNameSnapshot }}</strong>
-        <span v-if="t.guestId == null" class="badge badge-neutral">walk-in</span>
+        <strong>{{ item.guestNameSnapshot }}</strong>
+        <span v-if="item.guestId == null" class="badge badge-neutral">{{ t('common.walkIn') }}</span>
         <span class="spacer" />
-        <strong class="nowrap">{{ formatMoney(t.amount, t.currency) }}</strong>
+        <strong class="nowrap">{{ formatMoney(item.amount, item.currency) }}</strong>
       </div>
       <div class="row small muted">
-        <span>{{ formatDateTime(t.createdAt) }} · {{ METHOD_LABELS[t.method] }}</span>
-        <span v-if="showEvent">· event #{{ t.eventId }}</span>
-        <span v-if="t.note">· {{ t.note }}</span>
+        <span>{{ formatDateTime(item.createdAt) }} · {{ methodLabel(item.method) }}</span>
+        <span v-if="showEvent">· {{ t('txn.event', { id: item.eventId }) }}</span>
+        <span v-if="item.note">· {{ item.note }}</span>
         <span class="spacer" />
-        <span class="badge" :class="`badge-${t.status}`" :title="t.lastError ?? ''">{{ LABELS[t.status] }}</span>
+        <span class="badge" :class="`badge-${item.status}`" :title="item.lastError ?? ''">{{ t(`status.${item.status}`) }}</span>
       </div>
-      <div v-if="t.status === 'failed' || (t.status === 'pending' && t.lastError)" class="small" :class="t.status === 'failed' ? 'field-error' : 'muted'">
-        {{ t.status === 'failed' ? '⚠ ' : 'Last attempt: ' }}{{ t.lastError }}
-        <span v-if="t.attempts" class="muted">({{ t.attempts }} attempt{{ t.attempts > 1 ? 's' : '' }})</span>
+      <div v-if="item.status === 'failed' || (item.status === 'pending' && item.lastError)" class="small" :class="item.status === 'failed' ? 'field-error' : 'muted'">
+        {{ item.status === 'failed' ? `⚠ ${item.lastError}` : t('txn.lastAttempt', { error: item.lastError }) }}
+        <span v-if="item.attempts" class="muted">{{ t('txn.attempts', item.attempts) }}</span>
       </div>
-      <slot name="actions" :item="t" />
+      <slot name="actions" :item="item" />
     </li>
-    <li v-if="!items.length" class="muted small item">Nothing here.</li>
+    <li v-if="!items.length" class="muted small item">{{ t('common.nothing') }}</li>
   </ul>
 </template>
 

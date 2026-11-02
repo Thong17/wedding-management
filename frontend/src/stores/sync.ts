@@ -15,7 +15,7 @@ export const useSyncStore = defineStore('sync', () => {
 
   const engine = new SyncEngine({
     send: giftsApi.sync,
-    currentUser: () => auth.username,
+    currentUser: () => auth.recorder,
     isOnline: () => navigator.onLine,
   })
   engine.subscribe((s) => (snapshot.value = s))
@@ -40,7 +40,7 @@ export const useSyncStore = defineStore('sync', () => {
     stopAuto = startAutoSync(engine, { hasPending: async () => (await countByStatus()).pending > 0 })
     // Resume uploading as soon as the user logs back in.
     watch(
-      () => [auth.username, auth.sessionExpired] as const,
+      () => [auth.user?.id, auth.sessionExpired] as const,
       ([name, expired]) => {
         if (name && !expired) {
           engine.resumeAfterAuth()
