@@ -1,15 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref } from 'vue'
 import type { Html5Qrcode } from 'html5-qrcode'
 
 const emit = defineEmits<{ scan: [text: string] }>()
 const regionId = `qr-region-${Math.random().toString(36).slice(2)}`
 const running = ref(false)
+const starting = ref(false)
 const error = ref<string | null>(null)
 let scanner: Html5Qrcode | null = null
 
 async function start() {
   error.value = null
+  // Show the region before starting: html5-qrcode sizes the preview from the
+  // container's width, which is 0 while it is hidden.
+  starting.value = true
+  await nextTick()
   try {
     const { Html5Qrcode, Html5QrcodeSupportedFormats: F } = await import('html5-qrcode')
     scanner = new Html5Qrcode(regionId, {
@@ -18,7 +23,13 @@ async function start() {
     })
     await scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: (w, h) => ({ width: Math.min(w, h) * 0.7, height: Math.min(w, h) * 0.7 }) },
+      {
+        fps: 10,
+        qrbox: (w, h) => {
+          const size = Math.max(150, Math.floor(Math.min(w, h) * 0.7))
+          return { width: size, height: size }
+        },
+      },
       (text) => {
         emit('scan', text)
         void stop()
@@ -29,6 +40,8 @@ async function start() {
   } catch (err) {
     error.value = `Camera unavailable: ${err instanceof Error ? err.message : String(err)}. Camera access needs HTTPS (or localhost) and permission.`
     running.value = false
+  } finally {
+    starting.value = false
   }
 }
 
@@ -49,9 +62,10 @@ onBeforeUnmount(stop)
 
 <template>
   <div class="stack">
-    <div :id="regionId" class="region" v-show="running" />
+    <div :id="regionId" class="region" v-show="running || starting" />
+    <p v-if="starting" class="muted small">Starting camera…</p>
     <div class="row">
-      <button v-if="!running" class="btn-primary" @click="start">📷 Start camera</button>
+      <button v-if="!running" class="btn-primary" :disabled="starting" @click="start">📷 Start camera</button>
       <button v-else @click="stop">Stop camera</button>
       <span class="muted small">Scan the guest's invitation QR code or barcode.</span>
     </div>
@@ -60,5 +74,6 @@ onBeforeUnmount(stop)
 </template>
 
 <style scoped>
-.region { width: 100%; max-width: 420px; border-radius: 8px; overflow: hidden; }
+.region { width: 100%; max-width: 420px; min-height: 240px; border-radius: var(--radius-md); overflow: hidden; background: #000; }
+.region :deep(video) { width: 100% !important; height: auto !important; display: block; object-fit: cover; }
 </style>

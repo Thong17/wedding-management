@@ -48,7 +48,7 @@ onMounted(async () => {
 
 <style scoped>
 .sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-.tag { border: 1px dashed var(--c-border); border-radius: 8px; padding: 10px; text-align: center; display: flex; flex-direction: column; align-items: center; break-inside: avoid; background: #fff; color: #000; }
+.tag { border: 1px dashed var(--c-border); border-radius: var(--radius-md); padding: 10px; text-align: center; display: flex; flex-direction: column; align-items: center; break-inside: avoid; background: #fff; color: #000; }
 .qr { width: 130px; height: 130px; }
 .qr :deep(svg) { width: 100%; height: 100%; }
 </style>

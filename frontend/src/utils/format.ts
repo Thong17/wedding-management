@@ -22,7 +22,7 @@ export function formatRelative(iso: string | null | undefined): string {
   return formatDateTime(iso)
 }
 
-export function downloadFile(filename: string, content: string, type: string): void {
+export function downloadFile(filename: string, content: BlobPart, type: string): void {
   const url = URL.createObjectURL(new Blob([content], { type }))
   const a = document.createElement('a')
   a.href = url

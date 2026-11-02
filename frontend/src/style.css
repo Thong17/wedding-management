@@ -15,7 +15,9 @@
   --c-danger-soft: #fbe3e6;
   --c-info: #2a5ea8;
   --c-info-soft: #e3ecfa;
-  --radius: 10px;
+  --radius: 18px;     /* cards, toasts */
+  --radius-md: 12px;  /* buttons, inputs, panels */
+  --radius-sm: 8px;   /* small chips, nav links */
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 2px 8px rgb(0 0 0 / 0.04);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Khmer', sans-serif;
   color: var(--c-text);
@@ -53,7 +55,7 @@ h1 { font-size: 1.4rem; }
 h2 { font-size: 1.15rem; }
 h3 { font-size: 1rem; }
 
-.container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.container { max-width: 2000px; margin: 0 auto; padding: 16px; }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .spacer { flex: 1; }
@@ -79,7 +81,7 @@ input, select, textarea {
   font: inherit;
   padding: 10px 12px;
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--c-surface);
   color: var(--c-text);
   min-height: 44px;
@@ -97,7 +99,7 @@ button, .btn {
   gap: 6px;
   min-height: 44px;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--c-border);
   background: var(--c-surface);
   color: var(--c-text);
@@ -109,6 +111,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-danger { color: var(--c-danger); border-color: var(--c-danger); }
 .btn-small { min-height: 34px; padding: 4px 10px; font-size: 0.85rem; }
 .btn-block { width: 100%; }
+.btn-icon { width: 44px; padding: 0; }
 
 .badge {
   display: inline-flex;
@@ -120,13 +123,21 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* Squircle corners where supported (Chromium 139+); other browsers keep the plain rounded corners.
+   A squircle curve reads tighter than a circular one, so the radii are scaled up to match. */
+@supports (corner-shape: squircle) {
+  :root { --radius: 28px; --radius-md: 18px; --radius-sm: 12px; }
+  *, *::before, *::after { corner-shape: squircle; }
+  .badge { corner-shape: round; }
+}
 .badge-pending { background: var(--c-warn-soft); color: var(--c-warn); }
 .badge-syncing { background: var(--c-info-soft); color: var(--c-info); }
 .badge-synced { background: var(--c-ok-soft); color: var(--c-ok); }
 .badge-failed { background: var(--c-danger-soft); color: var(--c-danger); }
 .badge-neutral { background: var(--c-primary-soft); color: var(--c-primary); }
 
-.banner { padding: 10px 14px; border-radius: 8px; font-size: 0.92rem; }
+.banner { padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.92rem; }
 .banner-warn { background: var(--c-warn-soft); color: var(--c-warn); }
 .banner-danger { background: var(--c-danger-soft); color: var(--c-danger); }
 .banner-info { background: var(--c-info-soft); color: var(--c-info); }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
+import AppBreadcrumbs from '@/components/AppBreadcrumbs.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
@@ -48,6 +49,7 @@ function logout() {
   </div>
 
   <main>
+    <AppBreadcrumbs v-if="route.name !== 'login'" />
     <RouterView />
   </main>
 
@@ -64,9 +66,9 @@ function logout() {
   top: 0;
   z-index: 10;
 }
-.header-inner { padding-top: 8px; padding-bottom: 8px; }
+.header-inner { padding-top: 16px; padding-bottom: 16px; }
 .brand { font-weight: 700; text-decoration: none; color: var(--c-text); margin-right: 8px; }
-nav a { text-decoration: none; color: var(--c-muted); padding: 6px 8px; border-radius: 6px; }
+nav a { text-decoration: none; color: var(--c-muted); padding: 6px 8px; border-radius: var(--radius-sm); }
 nav a.router-link-exact-active { color: var(--c-primary); background: var(--c-primary-soft); }
 @media (max-width: 540px) { .user { display: none; } }
 .toasts {
@@ -80,7 +82,7 @@ nav a.router-link-exact-active { color: var(--c-primary); background: var(--c-pr
   z-index: 50;
   width: min(420px, calc(100vw - 32px));
 }
-.toast { padding: 12px 16px; border-radius: 10px; font-weight: 600; box-shadow: 0 4px 16px rgb(0 0 0 / 0.18); }
+.toast { padding: 12px 16px; border-radius: var(--radius); font-weight: 600; box-shadow: 0 4px 16px rgb(0 0 0 / 0.18); }
 .toast-ok { background: var(--c-ok); color: #fff; }
 .toast-info { background: var(--c-info); color: #fff; }
 .toast-error { background: var(--c-danger); color: #fff; }

@@ -98,7 +98,7 @@ defineExpose({ focus: () => input.value?.focus() })
 </template>
 
 <style scoped>
-.results { border: 1px solid var(--c-border); border-radius: 8px; }
+.results { border: 1px solid var(--c-border); border-radius: var(--radius-md); }
 .results li { padding: 10px 12px; cursor: pointer; }
 .results li.active { background: var(--c-primary-soft); }
 .results li.selected { box-shadow: inset 3px 0 0 var(--c-primary); }

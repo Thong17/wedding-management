@@ -6,6 +6,7 @@ import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiEvent, ApiGift, ApiGuest, ApiMember, GuestInput } from '@/api/types'
 import { formatDateTime, formatMoney, METHOD_LABELS, SIDE_LABELS } from '@/utils/format'
+import { exportGuestsXlsx } from '@/utils/guestExport'
 import { toast } from '@/utils/toast'
 
 const props = defineProps<{ id: string }>()
@@ -46,6 +47,19 @@ async function load() {
   }
 }
 const loadGuests = async () => (guests.value = (await guestsApi.list(eventId.value)).results)
+
+const exporting = ref(false)
+async function exportGuests() {
+  if (!event.value) return
+  exporting.value = true
+  try {
+    await exportGuestsXlsx(event.value, guests.value)
+  } catch (err) {
+    toast(`Export failed: ${errorMessage(err)}`, 'error')
+  } finally {
+    exporting.value = false
+  }
+}
 const loadGifts = async () => (gifts.value = await giftsApi.list(eventId.value))
 const loadMembers = async () => (members.value = await eventsApi.members(eventId.value))
 
@@ -172,6 +186,7 @@ async function deleteEvent() {
         <RouterLink class="btn btn-primary" :to="`/events/${event.id}/desk`">Gift desk</RouterLink>
         <RouterLink class="btn" :to="`/events/${event.id}/report`">Report</RouterLink>
         <RouterLink class="btn" :to="`/events/${event.id}/qr`">QR sheet</RouterLink>
+        <button :disabled="exporting || !guests.length" @click="exportGuests">{{ exporting ? 'Exporting…' : 'Export guests' }}</button>
         <RouterLink v-if="isOwner" class="btn" :to="`/events/${event.id}/edit`">Edit</RouterLink>
       </div>
 

@@ -118,7 +118,7 @@ async function onSubmit() {
 </template>
 
 <style scoped>
-.selected { padding: 12px; border-radius: 8px; background: var(--c-primary-soft); }
+.selected { padding: 12px; border-radius: var(--radius-md); background: var(--c-primary-soft); }
 .name { font-size: 1.15rem; }
 .amount { font-size: 1.6rem; font-weight: 700; }
 .methods { gap: 6px; }
@@ -128,7 +128,7 @@ async function onSubmit() {
   justify-content: center;
   padding: 10px;
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   min-width: 90px;
 }
