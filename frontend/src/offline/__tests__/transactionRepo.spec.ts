@@ -134,3 +134,33 @@ describe('queue state transitions', () => {
     expect(left[0].status).toBe('pending')
   })
 })
+
+describe('item gifts (non-money, e.g. a watch)', () => {
+  const item = (overrides = {}) => giftInput({ method: 'item', amount: '', item: '  Gold watch ', ...overrides })
+
+  it('needs a description, never an amount', () => {
+    expect(validateGiftInput(item())).toEqual({})
+    expect(validateGiftInput(item({ item: '   ' }))).toHaveProperty('item')
+    expect(validateGiftInput(item({ item: 'x'.repeat(201) }))).toHaveProperty('item')
+    // An item ignores whatever is in the amount field; a money gift still needs one.
+    expect(validateGiftInput(item({ amount: 'abc' }))).toEqual({})
+    expect(validateGiftInput(giftInput({ method: 'cash', amount: '' }))).toHaveProperty('amount')
+  })
+
+  it('is stored with no amount and a trimmed description, and uploads that way', async () => {
+    const rec = await addGift({ method: 'item', amount: '99', item: '  Gold watch ' })
+    expect(rec).toMatchObject({ method: 'item', amount: null, item: 'Gold watch' })
+    const money = await addGift({ item: 'ignored' })
+    expect(money).toMatchObject({ amount: '50.00', item: '' })
+    const { toPayload } = await import('@/offline/syncEngine')
+    expect(toPayload(rec)).toMatchObject({ method: 'item', amount: null, item: 'Gold watch' })
+  })
+
+  it('a failed gift can be corrected between money and item', async () => {
+    const rec = await addGift()
+    await claimBatch(1, { user: DEMO_USER })
+    await markFailed(rec.txnId, { code: 'validation', message: 'x' })
+    const asItem = await updateFailedTransaction(rec.txnId, { ...item(), guestId: rec.guestId, guestName: 'Sokha Chan' })
+    expect(asItem).toMatchObject({ method: 'item', amount: null, item: 'Gold watch', status: 'pending' })
+  })
+})

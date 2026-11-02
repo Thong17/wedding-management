@@ -1,5 +1,6 @@
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -221,3 +222,62 @@ class GiftEditTests(SyncTestBase):
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.data["voided"])
         self.assertEqual(self.client.get(f"/api/events/{self.event.pk}/gifts/").data, [])
+
+
+class ItemGiftTests(SyncTestBase):
+    """Non-money gifts (e.g. a watch): described, never given an amount, kept out of money totals."""
+
+    def item_txn(self, **overrides):
+        return make_txn(self.event, self.guest, **{"method": "item", "amount": None, "item": "  Gold watch ", **overrides})
+
+    def test_syncs_an_item_without_amount(self):
+        res = self.sync(self.item_txn())
+        self.assertEqual(res.data["results"][0]["status"], "created", res.data)
+        gift = Gift.objects.get()
+        self.assertEqual((gift.method, gift.item, gift.amount), ("item", "Gold watch", None))
+
+    def test_item_rules(self):
+        cases = [
+            self.item_txn(item=""),  # item needs a description
+            self.item_txn(amount="10.00"),  # item can't have an amount
+            make_txn(self.event, self.guest, amount=None),  # money needs an amount
+            make_txn(self.event, self.guest, amount="0"),  # ...greater than zero
+            make_txn(self.event, self.guest, item="Watch"),  # money gifts have no item text
+        ]
+        results = self.sync(*cases).data["results"]
+        self.assertEqual([r["status"] for r in results], ["rejected"] * len(cases))
+        self.assertEqual(Gift.objects.count(), 0)
+
+    def test_database_enforces_item_rules(self):
+        base = dict(event=self.event, guest=self.guest, currency="USD", client_created_at=timezone.now(), recorded_by=self.user)
+        with self.assertRaises(IntegrityError):
+            Gift.objects.create(client_txn_id=uuid.uuid4(), method="item", amount=None, item="", **base)
+
+    def test_report_keeps_items_out_of_money_totals(self):
+        self.sync(make_txn(self.event, self.guest, amount="50.00"), self.item_txn())
+        self.sync(make_txn(self.event, None, method="item", amount=None, item="Rice cooker", walk_in_name="Uncle Bo"))
+        report = self.client.get(f"/api/events/{self.event.pk}/report/").data
+        self.assertEqual((report["count"], Decimal(report["total"])), (3, Decimal("50")))
+        self.assertEqual(
+            report["items"],
+            [
+                {"guest_id": self.guest.pk, "name": "Sokha Chan", "item": "Gold watch"},
+                {"guest_id": None, "name": "Uncle Bo", "item": "Rice cooker"},
+            ],
+        )
+        row = next(g for g in report["by_guest"] if g["id"] == self.guest.pk)
+        self.assertEqual((row["gift_count"], Decimal(row["gift_total"])), (2, Decimal("50")))
+
+    def test_edit_between_money_and_item(self):
+        self.sync(make_txn(self.event, self.guest, amount="30.00"))
+        gift = Gift.objects.get()
+        url = f"/api/events/{self.event.pk}/gifts/{gift.pk}/"
+        res = self.client.patch(url, {"method": "item", "item": "Watch", "updated_at": gift.updated_at.isoformat()}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual((res.data["amount"], res.data["item"]), (None, "Watch"))
+        gift.refresh_from_db()
+        res = self.client.patch(url, {"method": "cash", "updated_at": gift.updated_at.isoformat()}, format="json")
+        self.assertEqual(res.status_code, 400)  # back to money needs an amount
+        res = self.client.patch(url, {"method": "cash", "amount": "25", "updated_at": gift.updated_at.isoformat()}, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual((res.data["amount"], res.data["item"]), ("25.00", ""))

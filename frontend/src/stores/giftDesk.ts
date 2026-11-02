@@ -20,7 +20,8 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
   const refreshingGuests = ref(false)
 
   const giftedGuestIds = computed(() => new Set(transactions.value.map((t) => t.guestId).filter((id) => id != null)))
-  const localTotal = computed(() => transactions.value.reduce((sum, t) => sum + Number(t.amount), 0))
+  // Money only: item gifts have no amount.
+  const localTotal = computed(() => transactions.value.reduce((sum, t) => sum + (t.amount ? Number(t.amount) : 0), 0))
 
   let unsubscribe: (() => void) | null = null
 

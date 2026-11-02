@@ -171,6 +171,9 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .banner-danger { background: var(--c-danger-soft); color: var(--c-danger); }
 .banner-info { background: var(--c-info-soft); color: var(--c-info); }
 
+/* Buttons in a table cell's actions column: spaced, right-aligned, never wrapping apart. */
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+
 table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 th, td { padding: 8px 10px; border-bottom: 1px solid var(--c-border); text-align: left; vertical-align: top; }
 th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--c-muted); }

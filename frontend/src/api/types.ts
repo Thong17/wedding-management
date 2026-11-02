@@ -21,12 +21,14 @@ export interface ApiEvent {
   date: string
   venue: string
   currency: string
+  /** Invitation QR base: a web link (e.g. Google Maps) or a bank KHQR string; '' for plain guest QRs. */
+  invite_qr: string
   role: 'owner' | 'manager' | null
   created_at: string
   updated_at: string
 }
 
-export type EventInput = Pick<ApiEvent, 'name' | 'date' | 'venue' | 'currency'>
+export type EventInput = Pick<ApiEvent, 'name' | 'date' | 'venue' | 'currency' | 'invite_qr'>
 
 export interface ApiMember {
   id: number
@@ -64,9 +66,11 @@ export interface ApiGift {
   guest: number | null
   guest_name: string
   walk_in_name: string
-  amount: string
+  /** null for an item gift. */
+  amount: string | null
   currency: string
   method: GiftMethod
+  item: string
   note: string
   client_created_at: string
   recorded_by_username: string
@@ -80,9 +84,11 @@ export interface SyncItemPayload {
   event_id: number
   guest_id: number | null
   walk_in_name: string
-  amount: string
+  /** null for an item gift. */
+  amount: string | null
   currency: string
   method: GiftMethod
+  item: string
   note: string
   client_created_at: string
   device_id: string
@@ -99,11 +105,15 @@ export interface SyncItemResult {
 export interface EventReport {
   event_id: number
   currency: string
+  /** All gifts, money and items. */
   count: number
+  /** Money only: item gifts have no amount. */
   total: string | number
-  by_method: { method: GiftMethod; count: number; total: string }[]
-  by_side: { side: GuestSide; count: number; total: string }[]
+  by_method: { method: GiftMethod; count: number; total: string | null }[]
+  by_side: { side: GuestSide; count: number; total: string | null }[]
   walk_in: { count: number; total: string | number }
+  /** Item gifts, oldest first. */
+  items: { guest_id: number | null; name: string; item: string }[]
   guests_total: number
   guests_with_gift: number
   by_guest: { id: number; full_name: string; side: GuestSide; group: string; gift_count: number; gift_total: string | null }[]

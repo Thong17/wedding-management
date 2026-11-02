@@ -7,13 +7,13 @@ import OcrScanner from '@/components/OcrScanner.vue'
 import QrScanner from '@/components/QrScanner.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import type { CachedEvent, CachedGuest } from '@/offline/db'
-import { findGuestByQrToken } from '@/offline/guestCache'
+import { findGuestByQrRef } from '@/offline/guestCache'
 import { parseScannedCode } from '@/offline/guestSearch'
 import type { GiftInput } from '@/offline/transactionRepo'
 import type { ApiEvent } from '@/api/types'
 import { useEventsStore } from '@/stores/events'
 import { useGiftDeskStore } from '@/stores/giftDesk'
-import { formatMoney, formatRelative } from '@/utils/format'
+import { formatGiftValue, formatMoney, formatRelative } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
 const props = defineProps<{ id: string }>()
@@ -56,8 +56,8 @@ function clearGuest() {
 
 async function onScan(text: string) {
   const parsed = parseScannedCode(text)
-  if (parsed.kind === 'token') {
-    const guest = await findGuestByQrToken(eventId, parsed.token)
+  if (parsed.kind !== 'text') {
+    const guest = parsed.kind === 'other' ? undefined : await findGuestByQrRef(eventId, parsed)
     if (guest) {
       selectGuest(guest)
       toast(t('desk.found', { name: guest.full_name }), 'info', 2000)
@@ -76,7 +76,7 @@ function onSearchText(text: string) {
 
 async function submit(input: Omit<GiftInput, 'eventId'>) {
   const record = await desk.recordGift(input)
-  toast(t('desk.saved', { amount: formatMoney(record.amount, record.currency), name: record.guestNameSnapshot }))
+  toast(t('desk.saved', { amount: formatGiftValue(record), name: record.guestNameSnapshot }))
   clearGuest()
 }
 </script>

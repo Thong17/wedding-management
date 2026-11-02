@@ -78,7 +78,7 @@ export const guestsApi = {
 
 export const giftsApi = {
   list: (eventId: number) => http.get<ApiGift[]>(`/events/${eventId}/gifts/`).then((r) => r.data),
-  update: (eventId: number, id: number, data: Partial<Pick<ApiGift, 'amount' | 'method' | 'note'>> & { updated_at: string }) =>
+  update: (eventId: number, id: number, data: Partial<Pick<ApiGift, 'amount' | 'method' | 'item' | 'note'>> & { updated_at: string }) =>
     http.patch<ApiGift>(`/events/${eventId}/gifts/${id}/`, data).then((r) => r.data),
   void: (eventId: number, id: number, updatedAt: string) =>
     http.post<ApiGift>(`/events/${eventId}/gifts/${id}/void/`, { updated_at: updatedAt }).then((r) => r.data),

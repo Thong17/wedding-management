@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { GiftTransaction } from '@/offline/db'
-import { formatDateTime, formatMoney, methodLabel } from '@/utils/format'
+import { formatDateTime, formatGiftValue, methodLabel } from '@/utils/format'
 
 defineProps<{ items: GiftTransaction[]; showEvent?: boolean }>()
 defineSlots<{ actions?: (props: { item: GiftTransaction }) => unknown }>()
@@ -16,7 +16,7 @@ const { t } = useI18n()
         <strong>{{ item.guestNameSnapshot }}</strong>
         <span v-if="item.guestId == null" class="badge badge-neutral">{{ t('common.walkIn') }}</span>
         <span class="spacer" />
-        <strong class="nowrap">{{ formatMoney(item.amount, item.currency) }}</strong>
+        <strong :class="{ nowrap: item.method !== 'item' }">{{ formatGiftValue(item) }}</strong>
       </div>
       <div class="row small muted">
         <span>{{ formatDateTime(item.createdAt) }} · {{ methodLabel(item.method) }}</span>

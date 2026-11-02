@@ -1,6 +1,7 @@
 import { guestsApi } from '@/api/endpoints'
 import type { ApiEvent, ApiGuest, GuestListResponse } from '@/api/types'
 import { getDB, type CachedEvent, type CachedGuest } from './db'
+import { tokenPrefixFromShort, type GuestRef } from './inviteQr'
 
 type GuestFetcher = (eventId: number, updatedSince?: string) => Promise<GuestListResponse>
 
@@ -55,6 +56,16 @@ export async function getCachedGuests(eventId: number): Promise<CachedGuest[]> {
 export async function findGuestByQrToken(eventId: number, token: string): Promise<CachedGuest | undefined> {
   const matches = await (await getDB()).getAllFromIndex('guests', 'byQr', token.toLowerCase())
   return matches.find((g) => g.eventId === eventId)
+}
+
+/** Find a guest from a scanned reference: a full token, or the 16-hex-char prefix a bank QR carries. */
+export async function findGuestByQrRef(eventId: number, ref: GuestRef): Promise<CachedGuest | undefined> {
+  if (ref.kind === 'token') return findGuestByQrToken(eventId, ref.token)
+  const start = tokenPrefixFromShort(ref.prefix)
+  const matches = await (await getDB()).getAllFromIndex('guests', 'byQr', IDBKeyRange.bound(start, start + '￿'))
+  // 64 bits of a random token: a clash within one event is practically impossible, but never guess between two.
+  const inEvent = matches.filter((g) => g.eventId === eventId)
+  return inEvent.length === 1 ? inEvent[0] : undefined
 }
 
 export async function getGuestCacheTime(eventId: number): Promise<string | null> {

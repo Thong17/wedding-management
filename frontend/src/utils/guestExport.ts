@@ -7,8 +7,19 @@ import { downloadFile, sideLabel } from '@/utils/format'
 const QR_PX = 110
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
+/** Columns the guest CSV import reads (CSV_FIELDS in backend/events/views.py). Names stay English in every language. */
+export const GUEST_CSV_COLUMNS = ['full_name', 'nickname', 'phone', 'side', 'group', 'table_no'] as const
+
+/**
+ * Empty import template: just the header row, so no sample row can be imported as a real guest.
+ * The BOM makes Excel open it as UTF-8, keeping Khmer names intact; the import accepts it.
+ */
+export function downloadGuestCsvTemplate(): void {
+  downloadFile('guests-template.csv', '﻿' + GUEST_CSV_COLUMNS.join(',') + '\r\n', 'text/csv')
+}
+
 /** One row per guest with every field plus a scannable QR image (same payload as the printed QR sheet). */
-export async function exportGuestsXlsx(event: Pick<ApiEvent, 'id' | 'name'>, guests: ApiGuest[]): Promise<void> {
+export async function exportGuestsXlsx(event: Pick<ApiEvent, 'id' | 'name' | 'invite_qr'>, guests: ApiGuest[]): Promise<void> {
   // exceljs is large, so it is only loaded when someone actually exports.
   const { default: ExcelJS } = await import('exceljs')
   const workbook = new ExcelJS.Workbook()
@@ -30,7 +41,7 @@ export async function exportGuestsXlsx(event: Pick<ApiEvent, 'id' | 'name'>, gue
 
   const active = guests.filter((g) => !g.is_deleted)
   for (const [i, g] of active.entries()) {
-    const payload = qrPayloadForGuest(g)
+    const payload = qrPayloadForGuest(g, event.invite_qr)
     const row = sheet.addRow({
       full_name: g.full_name,
       nickname: g.nickname,

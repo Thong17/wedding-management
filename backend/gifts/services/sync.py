@@ -128,6 +128,7 @@ def process_item(user, raw: Any, member_event_ids: set[int]) -> ItemResult:
                 amount=data["amount"],
                 currency=currency,
                 method=data["method"],
+                item=data["item"],
                 note=data.get("note", ""),
                 client_created_at=data["client_created_at"],
                 device_id=data.get("device_id", ""),

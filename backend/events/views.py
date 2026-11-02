@@ -12,6 +12,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
+from gifts.models import Gift
+
 from .models import Event, EventMembership, Guest
 from .permissions import IsEventMember, IsEventOwnerOrReadOnly, is_owner
 from .serializers import (
@@ -84,6 +86,11 @@ class EventViewSet(viewsets.ModelViewSet):
             .order_by("guest__side")
         )
         walk_in = gifts.filter(guest__isnull=True).aggregate(count=Count("id"), total=Sum("amount"))
+        # Item gifts have no amount, so every Sum above is money only; list the items separately.
+        items = [
+            {"guest_id": g.guest_id, "name": g.guest.full_name if g.guest_id else g.walk_in_name, "item": g.item}
+            for g in gifts.filter(method=Gift.Method.ITEM).select_related("guest").order_by("client_created_at")
+        ]
         guests = event.guests.filter(is_deleted=False)
         by_guest = list(
             guests.annotate(
@@ -102,6 +109,7 @@ class EventViewSet(viewsets.ModelViewSet):
                 "by_method": by_method,
                 "by_side": [{"side": r["guest__side"], "count": r["count"], "total": r["total"]} for r in by_side],
                 "walk_in": {"count": walk_in["count"], "total": walk_in["total"] or 0},
+                "items": items,
                 "guests_total": guests.count(),
                 "guests_with_gift": sum(1 for g in by_guest if g["gift_count"]),
                 "by_guest": by_guest,

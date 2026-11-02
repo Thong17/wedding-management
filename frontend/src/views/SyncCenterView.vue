@@ -84,7 +84,7 @@ async function prune() {
 
 // Edit & retry
 const editing = ref<GiftTransaction | null>(null)
-const editForm = reactive({ amount: '', method: 'cash' as GiftMethod, note: '', walkInName: '', guestId: null as number | null, guestName: '' })
+const editForm = reactive({ amount: '', method: 'cash' as GiftMethod, item: '', note: '', walkInName: '', guestId: null as number | null, guestName: '' })
 const editGuests = ref<CachedGuest[]>([])
 const editQuery = ref('')
 const editErrors = ref<Record<string, string>>({})
@@ -94,8 +94,9 @@ async function startEdit(txn: GiftTransaction) {
   editing.value = txn
   editErrors.value = {}
   Object.assign(editForm, {
-    amount: txn.amount,
+    amount: txn.amount ?? '',
     method: txn.method,
+    item: txn.item ?? '',
     note: txn.note,
     walkInName: txn.walkInName,
     guestId: txn.guestId,
@@ -186,12 +187,16 @@ async function saveEdit() {
             </div>
             <span class="field-error" v-if="editErrors.guest">{{ editErrors.guest }}</span>
             <div class="row">
-              <label style="flex: 1">{{ t('sync.amount') }} <input v-model="editForm.amount" inputmode="decimal" /></label>
               <label style="flex: 1">{{ t('sync.method') }}
                 <AppSelect v-model="editForm.method" :options="methodOptions()" />
               </label>
+              <label v-if="editForm.method === 'item'" style="flex: 2">{{ t('giftForm.itemLabel') }}
+                <input v-model="editForm.item" maxlength="200" :placeholder="t('giftForm.itemPlaceholder')" />
+              </label>
+              <label v-else style="flex: 1">{{ t('sync.amount') }} <input v-model="editForm.amount" inputmode="decimal" /></label>
             </div>
             <span class="field-error" v-if="editErrors.amount">{{ editErrors.amount }}</span>
+            <span class="field-error" v-if="editErrors.item">{{ editErrors.item }}</span>
             <label>{{ t('sync.note') }} <input v-model="editForm.note" maxlength="500" /></label>
             <div class="row">
               <button class="btn-primary btn-small">{{ t('sync.saveRetry') }}</button>

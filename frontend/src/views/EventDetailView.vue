@@ -6,9 +6,10 @@ import { useRouter } from 'vue-router'
 import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiEvent, ApiGift, ApiGuest, ApiMember, GuestInput } from '@/api/types'
+import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
-import { formatDateTime, formatMoney, methodLabel, methodOptions, sideLabel, sideOptions } from '@/utils/format'
-import { exportGuestsXlsx } from '@/utils/guestExport'
+import { formatDateTime, formatGiftValue, methodLabel, methodOptions, sideLabel, sideOptions } from '@/utils/format'
+import { downloadGuestCsvTemplate, exportGuestsXlsx } from '@/utils/guestExport'
 import { toast } from '@/utils/toast'
 
 const props = defineProps<{ id: string }>()
@@ -35,7 +36,7 @@ const filteredGuests = computed(() => {
 
 // Gifts
 const gifts = ref<ApiGift[]>([])
-const editingGift = ref<{ gift: ApiGift; amount: string; method: ApiGift['method']; note: string } | null>(null)
+const editingGift = ref<{ gift: ApiGift; amount: string; method: ApiGift['method']; item: string; note: string } | null>(null)
 
 // Members
 const members = ref<ApiMember[]>([])
@@ -111,15 +112,17 @@ async function importCsv(e: Event) {
 }
 
 function startGiftEdit(g: ApiGift) {
-  editingGift.value = { gift: g, amount: g.amount, method: g.method, note: g.note }
+  editingGift.value = { gift: g, amount: g.amount ?? '', method: g.method, item: g.item, note: g.note }
 }
 async function saveGiftEdit() {
   const edit = editingGift.value
   if (!edit) return
   try {
+    const isItem = edit.method === 'item'
     await giftsApi.update(eventId.value, edit.gift.id, {
-      amount: edit.amount,
+      amount: isItem ? null : edit.amount,
       method: edit.method,
+      item: isItem ? edit.item : '',
       note: edit.note,
       updated_at: edit.gift.updated_at,
     })
@@ -131,7 +134,7 @@ async function saveGiftEdit() {
   }
 }
 async function voidGift(g: ApiGift) {
-  if (!confirm(t('gifts.voidConfirm', { amount: formatMoney(g.amount, g.currency), name: g.guest_name }))) return
+  if (!confirm(t('gifts.voidConfirm', { amount: formatGiftValue(g), name: g.guest_name }))) return
   try {
     await giftsApi.void(eventId.value, g.id, g.updated_at)
     toast(t('gifts.voided'))
@@ -143,7 +146,7 @@ async function voidGift(g: ApiGift) {
 function handleGiftConflict(err: unknown) {
   if (axios.isAxiosError(err) && err.response?.status === 409) {
     const current = err.response.data.current as ApiGift
-    toast(t('gifts.conflict', { amount: formatMoney(current.amount, current.currency) }), 'error', 6000)
+    toast(t('gifts.conflict', { amount: formatGiftValue(current) }), 'error', 6000)
     editingGift.value = null
     void loadGifts()
   } else {
@@ -218,9 +221,11 @@ async function deleteEvent() {
                   <td>{{ sideLabel(g.side) }}</td>
                   <td>{{ g.group }}<span v-if="g.table_no"> · {{ t('guests.tableShort', { n: g.table_no }) }}</span></td>
                   <td class="nowrap">{{ g.phone }}</td>
-                  <td class="nowrap right">
-                    <button class="btn-small" @click="editGuest(g)">{{ t('common.edit') }}</button>
-                    <button class="btn-small btn-danger" :aria-label="t('common.remove')" @click="deleteGuest(g)">✕</button>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn-small" @click="editGuest(g)">{{ t('common.edit') }}</button>
+                      <button class="btn-small btn-danger" :aria-label="t('common.remove')" @click="deleteGuest(g)">✕</button>
+                    </div>
                   </td>
                 </tr>
                 <tr v-if="!filteredGuests.length"><td colspan="5" class="muted">{{ t('guests.none') }}</td></tr>
@@ -249,8 +254,13 @@ async function deleteEvent() {
             </div>
           </form>
           <div class="card stack">
-            <h2>{{ t('guests.importTitle') }}</h2>
+            <div class="row">
+              <h2>{{ t('guests.importTitle') }}</h2>
+              <span class="spacer" />
+              <button type="button" class="btn-small" @click="downloadGuestCsvTemplate"><AppIcon name="download" :size="16" />{{ t('guests.downloadTemplate') }}</button>
+            </div>
             <p class="muted small">{{ t('guests.importHelp') }} <span class="mono">full_name</span> {{ t('guests.required') }}, <span class="mono">nickname, phone, side (bride/groom/both), group, table_no</span>.</p>
+            <p class="muted small">{{ t('guests.templateHelp') }}</p>
             <input type="file" accept=".csv,text/csv" @change="importCsv" />
             <div v-if="importResult" class="small">
               {{ t('guests.created', { n: importResult.created }) }}
@@ -273,20 +283,33 @@ async function deleteEvent() {
                 <template v-if="editingGift?.gift.id === g.id">
                   <td class="small">{{ formatDateTime(g.client_created_at) }}</td>
                   <td>{{ g.guest_name }}</td>
-                  <td><input v-model="editingGift.amount" inputmode="decimal" style="width: 110px" /></td>
+                  <td>
+                    <input v-if="editingGift.method === 'item'" v-model="editingGift.item" maxlength="200" :placeholder="t('giftForm.itemPlaceholder')" :aria-label="t('giftForm.itemLabel')" style="min-width: 140px" />
+                    <input v-else v-model="editingGift.amount" inputmode="decimal" :aria-label="t('gifts.amount')" style="width: 110px" />
+                  </td>
                   <td><AppSelect v-model="editingGift.method" :options="methodOptions()" :aria-label="t('gifts.method')" /></td>
                   <td><input v-model="editingGift.note" maxlength="500" /></td>
                   <td></td>
-                  <td class="nowrap"><button class="btn-small btn-primary" @click="saveGiftEdit">{{ t('common.save') }}</button> <button class="btn-small" @click="editingGift = null">{{ t('common.cancel') }}</button></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn-small btn-primary" @click="saveGiftEdit">{{ t('common.save') }}</button>
+                      <button class="btn-small" @click="editingGift = null">{{ t('common.cancel') }}</button>
+                    </div>
+                  </td>
                 </template>
                 <template v-else>
                   <td class="small nowrap">{{ formatDateTime(g.client_created_at) }}</td>
                   <td>{{ g.guest_name }}<span v-if="!g.guest" class="badge badge-neutral">{{ t('common.walkIn') }}</span></td>
-                  <td class="right nowrap">{{ formatMoney(g.amount, g.currency) }}</td>
+                  <td class="right" :class="{ nowrap: g.method !== 'item' }">{{ formatGiftValue(g) }}</td>
                   <td>{{ methodLabel(g.method) }}</td>
                   <td class="small">{{ g.note }}</td>
                   <td class="small">{{ g.recorded_by_username }}</td>
-                  <td class="nowrap right"><button class="btn-small" @click="startGiftEdit(g)">{{ t('common.edit') }}</button> <button class="btn-small btn-danger" @click="voidGift(g)">{{ t('gifts.void') }}</button></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn-small" @click="startGiftEdit(g)">{{ t('common.edit') }}</button>
+                      <button class="btn-small btn-danger" @click="voidGift(g)">{{ t('gifts.void') }}</button>
+                    </div>
+                  </td>
                 </template>
               </tr>
               <tr v-if="!gifts.length"><td colspan="7" class="muted">{{ t('gifts.none') }}</td></tr>

@@ -66,6 +66,7 @@ export function toPayload(t: GiftTransaction): SyncItemPayload {
     amount: t.amount,
     currency: t.currency,
     method: t.method,
+    item: t.item ?? '',
     note: t.note,
     client_created_at: t.createdAt,
     device_id: t.deviceId,

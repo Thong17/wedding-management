@@ -2,7 +2,8 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { uuid } from '@/utils/uuid'
 
 export type TxnStatus = 'pending' | 'syncing' | 'synced' | 'failed'
-export type GiftMethod = 'cash' | 'transfer' | 'other'
+/** How a gift was given. 'item' is a non-money gift (e.g. a watch): described, with no amount. */
+export type GiftMethod = 'cash' | 'transfer' | 'other' | 'item'
 export type GuestSide = 'bride' | 'groom' | 'both'
 
 /**
@@ -17,8 +18,10 @@ export interface GiftTransaction {
   walkInName: string
   /** Guest name at the time of recording, so the record stays readable if the guest cache changes. */
   guestNameSnapshot: string
-  /** Decimal string with two places, e.g. "50.00". */
-  amount: string
+  /** Decimal string with two places, e.g. "50.00"; null for an item gift. */
+  amount: string | null
+  /** What an item gift is (e.g. "Gold watch"); '' or missing for money gifts and older records. */
+  item?: string
   currency: string
   method: GiftMethod
   note: string

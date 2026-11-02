@@ -103,6 +103,52 @@ class GuestTests(APITestCase):
         self.assertEqual([e["row"] for e in res.data["errors"]], [3, 5])
         self.assertEqual(set(Guest.objects.values_list("full_name", flat=True)), {"Alice", "Bob"})
 
+    def test_csv_import_accepts_downloadable_template(self):
+        # Exactly what the frontend template download produces (BOM + header + CRLF),
+        # filled in the way Excel saves it, with a Khmer name and a blank side.
+        template = "﻿full_name,nickname,phone,side,group,table_no\r\n"
+        filled = template + "សុខា ចាន់,Sokha,012345678,,Family,3\r\nDara,,,groom,,\r\n"
+        upload = SimpleUploadedFile("guests-template.csv", filled.encode("utf-8"), content_type="text/csv")
+        res = self.client.post(f"{self.url}import/", {"file": upload}, format="multipart")
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual((res.data["created"], res.data["errors"]), (2, []))
+        sokha = Guest.objects.get(nickname="Sokha")
+        self.assertEqual((sokha.full_name, sokha.side, sokha.phone), ("សុខា ចាន់", "both", "012345678"))
+
     def test_csv_requires_full_name_header(self):
         upload = SimpleUploadedFile("g.csv", b"name\nA\n", content_type="text/csv")
         self.assertEqual(self.client.post(f"{self.url}import/", {"file": upload}, format="multipart").status_code, 400)
+
+
+class InviteQrTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user("owner", password="pw-123456")
+        self.client.force_authenticate(self.owner)
+
+    def save(self, invite_qr):
+        return self.client.post(
+            "/api/events/",
+            {"name": "Wedding", "date": "2026-11-01", "currency": "usd", "invite_qr": invite_qr},
+            format="json",
+        )
+
+    def test_crc_matches_frontend(self):
+        from events.invite_qr import crc16
+
+        self.assertEqual(crc16("123456789"), "29B1")  # same check value as the frontend test
+
+    def test_accepts_blank_link_and_valid_bank_qr(self):
+        from events.invite_qr import crc16
+
+        body = "00020101021129190015sokha_chan@aclb5204599953038405802KH5910SOKHA CHAN6010Phnom Penh6304"
+        for value in ["", "https://www.google.com/maps/search/?api=1&query=11.55,104.92", body + crc16(body)]:
+            res = self.save(value)
+            self.assertEqual(res.status_code, 201, (value, res.data))
+            self.assertEqual(res.data["invite_qr"], value)
+
+    def test_rejects_bad_checksum_and_non_links(self):
+        body = "00020101021129190015sokha_chan@aclb5204599953038405802KH5910SOKHA CHAN6010Phnom Penh6304"
+        for value in [body + "0000", "ftp://example.com", "just text", "maps.google.com/x"]:
+            res = self.save(value)
+            self.assertEqual(res.status_code, 400, value)
+            self.assertIn("invite_qr", res.data)

@@ -20,11 +20,23 @@ const { t } = useI18n()
 const amount = ref('')
 const method = ref<GiftMethod>('cash')
 const note = ref('')
+const item = ref('')
+const isItem = computed(() => method.value === 'item')
 const walkInName = ref('')
 const errors = ref<ValidationErrors>({})
 const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountInput = ref<HTMLInputElement | null>(null)
+const itemInput = ref<HTMLInputElement | null>(null)
+const METHODS = ['cash', 'transfer', 'item', 'other'] as const
+
+// Switching to Item moves the cursor to the description, and back to money to the amount.
+watch(isItem, async (on) => {
+  delete errors.value.amount
+  delete errors.value.item
+  await nextTick()
+  ;(on ? itemInput : amountInput).value?.focus()
+})
 
 const quickAmounts = computed(() => (props.currency === 'KHR' ? [20000, 40000, 50000, 100000] : [10, 20, 50, 100]))
 
@@ -35,7 +47,7 @@ watch(
     if (id != null) {
       walkInName.value = ''
       await nextTick()
-      amountInput.value?.focus()
+      ;(isItem.value ? itemInput : amountInput).value?.focus()
     }
   },
 )
@@ -48,6 +60,7 @@ function buildInput(): Omit<GiftInput, 'eventId'> {
     amount: amount.value,
     currency: props.currency,
     method: method.value,
+    item: item.value,
     note: note.value,
   }
 }
@@ -62,6 +75,7 @@ async function onSubmit() {
   try {
     await props.submit(input)
     amount.value = ''
+    item.value = ''
     note.value = ''
     walkInName.value = ''
     method.value = 'cash'
@@ -96,21 +110,29 @@ async function onSubmit() {
       <span class="field-error" v-if="errors.guest">{{ errors.guest }}</span>
     </label>
 
-    <label>
-      {{ t('giftForm.amount', { currency }) }}
-      <input ref="amountInput" v-model="amount" inputmode="decimal" placeholder="0.00" class="amount" autocomplete="off" />
-      <span class="field-error" v-if="errors.amount">{{ errors.amount }}</span>
-    </label>
-    <div class="row">
-      <button v-for="q in quickAmounts" :key="q" type="button" class="btn-small" @click="amount = String(q)">{{ q.toLocaleString(intlLocale()) }}</button>
-    </div>
-
     <div class="row methods" role="radiogroup" :aria-label="t('giftForm.methodLabel')">
-      <label v-for="m in (['cash', 'transfer', 'other'] as const)" :key="m" class="method" :class="{ on: method === m }">
+      <label v-for="m in METHODS" :key="m" class="method" :class="{ on: method === m }">
         <input type="radio" :value="m" v-model="method" hidden />
         {{ t(`giftForm.${m}`) }}
       </label>
     </div>
+
+    <label v-if="isItem">
+      {{ t('giftForm.itemLabel') }}
+      <input ref="itemInput" v-model="item" maxlength="200" :placeholder="t('giftForm.itemPlaceholder')" class="amount" autocomplete="off" />
+      <span class="muted small">{{ t('giftForm.itemHint') }}</span>
+      <span class="field-error" v-if="errors.item">{{ errors.item }}</span>
+    </label>
+    <template v-else>
+      <label>
+        {{ t('giftForm.amount', { currency }) }}
+        <input ref="amountInput" v-model="amount" inputmode="decimal" placeholder="0.00" class="amount" autocomplete="off" />
+        <span class="field-error" v-if="errors.amount">{{ errors.amount }}</span>
+      </label>
+      <div class="row">
+        <button v-for="q in quickAmounts" :key="q" type="button" class="btn-small" @click="amount = String(q)">{{ q.toLocaleString(intlLocale()) }}</button>
+      </div>
+    </template>
 
     <label>{{ t('giftForm.note') }} <input v-model="note" maxlength="500" :placeholder="t('giftForm.notePlaceholder')" /></label>
     <span class="field-error" v-if="errors.note">{{ errors.note }}</span>

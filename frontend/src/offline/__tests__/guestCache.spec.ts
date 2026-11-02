@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApiGuest, GuestListResponse } from '@/api/types'
-import { findGuestByQrToken, getCachedGuests, getGuestCacheTime, refreshGuestCache } from '@/offline/guestCache'
+import { findGuestByQrRef, findGuestByQrToken, getCachedGuests, getGuestCacheTime, refreshGuestCache } from '@/offline/guestCache'
 import { resetDB } from '@/test/helpers'
 
 beforeEach(resetDB)
@@ -54,5 +54,15 @@ describe('guest cache', () => {
     expect((await getCachedGuests(2)).map((g) => g.full_name)).toEqual(['Eve'])
     expect((await findGuestByQrToken(1, guest(1, '').qr_token.toUpperCase()))?.full_name).toBe('Alice')
     expect(await findGuestByQrToken(2, guest(1, '').qr_token)).toBeUndefined()
+  })
+
+  it('finds a guest from the short code a bank QR carries, only within the event', async () => {
+    const token = '0f8fad5b-d9cb-469f-a165-70867728950e'
+    await refreshGuestCache(1, { fetcher: async () => ({ server_time: 'T', full: true, results: [guest(1, 'Alice', { qr_token: token })] }) })
+    await refreshGuestCache(2, { fetcher: async () => ({ server_time: 'T', full: true, results: [guest(2, 'Bob')] }) })
+    expect((await findGuestByQrRef(1, { kind: 'prefix', prefix: '0f8fad5bd9cb469f' }))?.full_name).toBe('Alice')
+    expect(await findGuestByQrRef(2, { kind: 'prefix', prefix: '0f8fad5bd9cb469f' })).toBeUndefined()
+    expect(await findGuestByQrRef(1, { kind: 'prefix', prefix: 'ffffffffffffffff' })).toBeUndefined()
+    expect((await findGuestByQrRef(1, { kind: 'token', token }))?.full_name).toBe('Alice')
   })
 })

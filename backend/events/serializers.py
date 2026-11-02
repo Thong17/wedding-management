@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from .invite_qr import invite_qr_error
 from .models import Event, EventMembership, Guest
 
 
@@ -9,7 +10,7 @@ class EventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Event
-        fields = ["id", "name", "date", "venue", "currency", "role", "created_at", "updated_at"]
+        fields = ["id", "name", "date", "venue", "currency", "invite_qr", "role", "created_at", "updated_at"]
         read_only_fields = ["id", "role", "created_at", "updated_at"]
 
     def get_role(self, obj):
@@ -26,6 +27,12 @@ class EventSerializer(serializers.ModelSerializer):
         if len(value) != 3 or not value.isalpha():
             raise serializers.ValidationError("Use a 3-letter ISO currency code.")
         return value
+
+    def validate_invite_qr(self, value):
+        error = invite_qr_error(value)
+        if error:
+            raise serializers.ValidationError(error)
+        return value.strip()
 
 
 class MembershipSerializer(serializers.ModelSerializer):

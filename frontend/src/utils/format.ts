@@ -34,7 +34,12 @@ export function downloadFile(filename: string, content: BlobPart, type: string):
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const METHODS: GiftMethod[] = ['cash', 'transfer', 'other']
+/** A gift as shown in lists: its money amount, or "🎁 Gold watch" for an item gift. */
+export function formatGiftValue(g: { method: GiftMethod; amount: string | null; item?: string; currency: string }): string {
+  return g.method === 'item' ? `🎁 ${g.item ?? ''}` : formatMoney(g.amount, g.currency)
+}
+
+const METHODS: GiftMethod[] = ['cash', 'transfer', 'other', 'item']
 const SIDES: GuestSide[] = ['bride', 'groom', 'both']
 
 export const methodLabel = (m: GiftMethod): string => t(`method.${m}`)

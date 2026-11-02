@@ -1,5 +1,6 @@
 import Fuse from 'fuse.js'
 import type { CachedGuest } from './db'
+import { guestQrPayload, readGuestRef, type GuestRef } from './inviteQr'
 
 /** Lowercase and strip accents so "Garcia" finds "García" and "nguyen" finds "Nguyễn". */
 export function normalizeText(s: string): string {
@@ -71,18 +72,20 @@ export function createGuestSearcher(guests: CachedGuest[]): GuestSearcher {
   }
 }
 
-export const QR_PREFIX = 'WMS-GUEST:'
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-export function qrPayloadForGuest(g: Pick<CachedGuest, 'qr_token'>): string {
-  return `${QR_PREFIX}${g.qr_token}`
+/** A guest's QR content, embedded in the event's invitation link or bank QR when it has one. */
+export function qrPayloadForGuest(g: Pick<CachedGuest, 'qr_token'>, inviteBase?: string | null): string {
+  return guestQrPayload(g.qr_token, inviteBase)
 }
 
-/** Interpret a scanned code: our guest QR token, or free text to search for. */
-export function parseScannedCode(text: string): { kind: 'token'; token: string } | { kind: 'text'; text: string } {
+/**
+ * Interpret a scanned code: one of our guest QR formats, some other link / bank QR (not a guest),
+ * or free text (e.g. a barcode with a name) to search for.
+ */
+export function parseScannedCode(text: string): GuestRef | { kind: 'other' } | { kind: 'text'; text: string } {
+  const ref = readGuestRef(text)
+  if (ref) return ref
   const raw = text.trim()
-  const candidate = raw.toUpperCase().startsWith(QR_PREFIX) ? raw.slice(QR_PREFIX.length) : raw
-  if (UUID_RE.test(candidate)) return { kind: 'token', token: candidate.toLowerCase() }
+  if (raw.startsWith('000201') || /^https?:\/\//i.test(raw)) return { kind: 'other' }
   return { kind: 'text', text: raw }
 }
 

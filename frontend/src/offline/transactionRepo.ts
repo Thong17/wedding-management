@@ -3,7 +3,8 @@ import { uuid } from '@/utils/uuid'
 import { notifyTransactionsChanged } from './changes'
 import { getDB, type GiftMethod, type GiftTransaction, type TxnStatus } from './db'
 
-export const GIFT_METHODS: GiftMethod[] = ['cash', 'transfer', 'other']
+export const GIFT_METHODS: GiftMethod[] = ['cash', 'transfer', 'other', 'item']
+const MAX_ITEM_LENGTH = 200
 const MAX_AMOUNT = 9_999_999_999.99
 const BACKOFF_BASE_MS = 5_000
 const BACKOFF_MAX_MS = 5 * 60_000
@@ -24,13 +25,23 @@ export interface GiftInput {
   guestId: number | null
   guestName: string
   walkInName?: string
+  /** Ignored for item gifts. */
   amount: string | number
   currency: string
   method: GiftMethod
+  /** Required for item gifts (e.g. "Gold watch"), ignored otherwise. */
+  item?: string
   note?: string
 }
 
-export type ValidationErrors = Partial<Record<'guest' | 'amount' | 'method' | 'note' | 'currency' | 'event', string>>
+export type ValidationErrors = Partial<Record<'guest' | 'amount' | 'item' | 'method' | 'note' | 'currency' | 'event', string>>
+
+/** Amount and item as stored: item gifts keep their description and no amount; money gifts the reverse. */
+function amountAndItem(input: Pick<GiftInput, 'amount' | 'method' | 'item'>): { amount: string | null; item: string } {
+  return input.method === 'item'
+    ? { amount: null, item: (input.item ?? '').trim() }
+    : { amount: normalizeAmount(input.amount), item: '' }
+}
 
 export class GiftValidationError extends Error {
   constructor(public errors: ValidationErrors) {
@@ -54,7 +65,11 @@ export function validateGiftInput(input: GiftInput): ValidationErrors {
   const walkIn = (input.walkInName ?? '').trim()
   if (input.guestId == null && !walkIn) errors.guest = t('validation.guest')
   if (walkIn.length > 200) errors.guest = t('validation.nameTooLong')
-  if (normalizeAmount(input.amount) === null) errors.amount = t('validation.amount')
+  if (input.method === 'item') {
+    const item = (input.item ?? '').trim()
+    if (!item) errors.item = t('validation.item')
+    else if (item.length > MAX_ITEM_LENGTH) errors.item = t('validation.itemTooLong')
+  } else if (normalizeAmount(input.amount) === null) errors.amount = t('validation.amount')
   if (!GIFT_METHODS.includes(input.method)) errors.method = t('validation.method')
   if ((input.note ?? '').length > 500) errors.note = t('validation.note')
   if (!/^[A-Z]{3}$/.test(input.currency)) errors.currency = t('validation.currency')
@@ -81,7 +96,7 @@ export async function addTransaction(
     guestId: input.guestId,
     walkInName,
     guestNameSnapshot: input.guestId == null ? walkInName : input.guestName,
-    amount: normalizeAmount(input.amount)!,
+    ...amountAndItem(input),
     currency: input.currency,
     method: input.method,
     note: (input.note ?? '').trim(),
@@ -302,7 +317,7 @@ export async function retryFailed(txnIds?: string[]): Promise<number> {
 /** Fix a failed record (e.g. wrong amount or guest) and queue it again. */
 export async function updateFailedTransaction(
   txnId: string,
-  patch: Pick<GiftInput, 'guestId' | 'guestName' | 'walkInName' | 'amount' | 'method' | 'note'>,
+  patch: Pick<GiftInput, 'guestId' | 'guestName' | 'walkInName' | 'amount' | 'method' | 'item' | 'note'>,
 ): Promise<GiftTransaction> {
   const db = await getDB()
   const tx = db.transaction('transactions', 'readwrite')
@@ -317,7 +332,7 @@ export async function updateFailedTransaction(
     guestId: patch.guestId,
     walkInName,
     guestNameSnapshot: patch.guestId == null ? walkInName : patch.guestName,
-    amount: normalizeAmount(patch.amount)!,
+    ...amountAndItem(patch),
     method: patch.method,
     note: (patch.note ?? '').trim(),
     status: 'pending',
@@ -351,7 +366,7 @@ export async function pruneSynced(olderThanDays: number): Promise<number> {
 
 export function toCsv(rows: GiftTransaction[]): string {
   const cols: (keyof GiftTransaction)[] = [
-    'txnId', 'eventId', 'guestId', 'guestNameSnapshot', 'amount', 'currency', 'method', 'note',
+    'txnId', 'eventId', 'guestId', 'guestNameSnapshot', 'amount', 'currency', 'method', 'item', 'note',
     'createdAt', 'recordedBy', 'status', 'attempts', 'errorCode', 'lastError', 'serverGiftId', 'syncedAt',
   ]
   const esc = (v: unknown) => {

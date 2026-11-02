@@ -9,6 +9,9 @@ class Event(models.Model):
     date = models.DateField()
     venue = models.CharField(max_length=255, blank=True)
     currency = models.CharField(max_length=3, default="USD")
+    # Invitation QR base: a web link (e.g. Google Maps) or a bank KHQR string. Each guest's QR is this
+    # with the guest's code embedded (see frontend/src/offline/inviteQr.ts). Blank = plain guest QR.
+    invite_qr = models.CharField(max_length=1000, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_events"
     )

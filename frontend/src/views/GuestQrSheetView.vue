@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { errorMessage } from '@/api/http'
-import { guestsApi } from '@/api/endpoints'
+import { eventsApi, guestsApi } from '@/api/endpoints'
 import type { ApiGuest } from '@/api/types'
 import { qrPayloadForGuest } from '@/offline/guestSearch'
 
@@ -16,11 +16,11 @@ const { t } = useI18n()
 
 onMounted(async () => {
   try {
-    const { results } = await guestsApi.list(eventId)
+    const [{ results }, event] = await Promise.all([guestsApi.list(eventId), eventsApi.get(eventId)])
     items.value = await Promise.all(
       results.map(async (guest) => ({
         guest,
-        svg: await QRCode.toString(qrPayloadForGuest(guest), { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }),
+        svg: await QRCode.toString(qrPayloadForGuest(guest, event.invite_qr), { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }),
       })),
     )
   } catch (err) {
