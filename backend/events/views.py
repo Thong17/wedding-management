@@ -7,75 +7,106 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import status, viewsets
-from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.decorators import action, api_view
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from gifts.models import Gift
 
-from .models import Event, EventMembership, Guest
-from .permissions import IsEventMember, IsEventOwnerOrReadOnly, is_owner
-from .serializers import (
-    AddMemberSerializer,
-    EventSerializer,
-    GuestSerializer,
-    MembershipSerializer,
-)
+from . import access
+from .models import DEFAULT_ROLE_NAME, Event, EventAssignment, Guest, Permission, Role
+from .serializers import AssignmentSerializer, AssignSerializer, EventSerializer, GuestSerializer, RoleSerializer
 
 CSV_FIELDS = ["full_name", "nickname", "phone", "side", "group", "table_no"]
 
 
 class EventViewSet(viewsets.ModelViewSet):
+    """Events the user can see (access.visible_events). Hidden events are 404, not 403."""
+
     serializer_class = EventSerializer
-    permission_classes = [IsEventOwnerOrReadOnly]
 
     def get_queryset(self):
-        return (
-            Event.objects.filter(memberships__user=self.request.user)
-            .prefetch_related("memberships")
-            .distinct()
-        )
+        return access.visible_events(self.request.user).select_related("client")
 
-    @transaction.atomic
     def perform_create(self, serializer):
-        event = serializer.save(created_by=self.request.user)
-        EventMembership.objects.create(
-            event=event, user=self.request.user, role=EventMembership.Role.OWNER
-        )
+        user = self.request.user
+        if not access.can_create_events(user):
+            raise PermissionDenied("Only client admins and the platform admin can create events.")
+        if access.is_platform_admin(user):
+            serializer.save(created_by=user)  # client chosen in the request (or none)
+        else:
+            serializer.save(created_by=user, client_id=access.client_admin_of(user))
+
+    def perform_update(self, serializer):
+        access.require(self.request.user, serializer.instance, full=True)
+        serializer.save()
 
     def perform_destroy(self, instance):
+        access.require(self.request.user, instance, full=True)
         if instance.gifts.exists():
             raise ValidationError({"detail": "Cannot delete an event that has recorded gifts."})
         instance.delete()
 
+    # --- People on the event. `assignments` is the API; `members` keeps the current Managers tab working.
+
+    def _assignments(self, event):
+        return EventAssignment.objects.filter(event=event).select_related("user", "role").order_by("user__username")
+
+    def _assign(self, request, event):
+        access.require(request.user, event, full=True)
+        ser = AssignSerializer(data=request.data, context={"request": request, "event": event})
+        ser.is_valid(raise_exception=True)
+        assignment, _ = EventAssignment.objects.update_or_create(
+            event=event,
+            user=ser.validated_data["user"],
+            defaults={"role": ser.validated_data["role"], "assigned_by": request.user},
+        )
+        return Response(AssignmentSerializer(assignment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get", "post"])
+    def assignments(self, request, pk=None):
+        event = self.get_object()
+        if request.method == "POST":
+            return self._assign(request, event)
+        access.require(request.user, event, full=True)
+        return Response(AssignmentSerializer(self._assignments(event), many=True).data)
+
+    @action(detail=True, methods=["patch", "delete"], url_path=r"assignments/(?P<assignment_id>\d+)")
+    def assignment_detail(self, request, pk=None, assignment_id=None):
+        event = self.get_object()
+        access.require(request.user, event, full=True)
+        assignment = get_object_or_404(EventAssignment, pk=assignment_id, event=event)
+        if request.method == "DELETE":
+            assignment.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        ser = AssignSerializer(
+            data={"user_id": assignment.user_id, **request.data}, context={"request": request, "event": event}
+        )
+        ser.is_valid(raise_exception=True)
+        assignment.role = ser.validated_data["role"]
+        assignment.assigned_by = request.user
+        assignment.save(update_fields=["role", "assigned_by"])
+        return Response(AssignmentSerializer(assignment).data)
+
     @action(detail=True, methods=["get", "post"])
     def members(self, request, pk=None):
         event = self.get_object()
-        if request.method == "GET":
-            return Response(MembershipSerializer(event.memberships.select_related("user"), many=True).data)
-        if not is_owner(request.user, event.pk):
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        ser = AddMemberSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        membership, _ = EventMembership.objects.update_or_create(
-            event=event, user=ser.validated_data["username"], defaults={"role": ser.validated_data["role"]}
-        )
-        return Response(MembershipSerializer(membership).data, status=status.HTTP_201_CREATED)
+        if request.method == "POST":
+            return self._assign(request, event)
+        return Response(AssignmentSerializer(self._assignments(event), many=True).data)
 
     @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>\d+)")
     def remove_member(self, request, pk=None, user_id=None):
         event = self.get_object()
-        if not is_owner(request.user, event.pk):
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        if int(user_id) == request.user.id:
-            raise ValidationError({"detail": "You cannot remove yourself."})
-        EventMembership.objects.filter(event=event, user_id=user_id).delete()
+        access.require(request.user, event, full=True)
+        EventAssignment.objects.filter(event=event, user_id=user_id).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get"])
     def report(self, request, pk=None):
         event = self.get_object()
+        access.require(request.user, event, permission=Permission.REPORT_VIEW)
         gifts = event.gifts.filter(voided=False)
         totals = gifts.aggregate(count=Count("id"), total=Sum("amount"))
         by_method = list(gifts.values("method").annotate(count=Count("id"), total=Sum("amount")).order_by("method"))
@@ -118,12 +149,25 @@ class EventViewSet(viewsets.ModelViewSet):
 
 
 class GuestViewSet(viewsets.ModelViewSet):
+    """Reading guests needs any access to the event (the gift desk needs the list); changes need the role's permission."""
+
     serializer_class = GuestSerializer
-    permission_classes = [IsEventMember]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+    ACTION_PERMISSIONS = {
+        "create": Permission.GUEST_ADD,
+        "update": Permission.GUEST_EDIT,
+        "partial_update": Permission.GUEST_EDIT,
+        "destroy": Permission.GUEST_DELETE,
+        "import_csv": Permission.GUEST_IMPORT,
+    }
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)  # authentication, lock check
+        self.event = get_object_or_404(Event, pk=self.kwargs["event_pk"])
+        access.require(request.user, self.event, permission=self.ACTION_PERMISSIONS.get(self.action))
 
     def get_event(self):
-        return get_object_or_404(Event, pk=self.kwargs["event_pk"])
+        return self.event
 
     def get_queryset(self):
         return Guest.objects.filter(event_id=self.kwargs["event_pk"])
@@ -188,3 +232,63 @@ class GuestViewSet(viewsets.ModelViewSet):
                 else:
                     errors.append({"row": line_no, "errors": ser.errors})
         return Response({"created": created, "errors": errors}, status=status.HTTP_201_CREATED)
+
+
+class RoleViewSet(viewsets.ModelViewSet):
+    """Platform admin: global roles and every client's roles (to fix mistakes). Client admin: uses global
+    roles, fully manages their own. Customers have no access."""
+
+    serializer_class = RoleSerializer
+
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if not (access.is_platform_admin(request.user) or access.client_admin_of(request.user)):
+            raise PermissionDenied("Only client admins and the platform admin can manage roles.")
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = Role.objects.select_related("client", "updated_by").annotate(usage_count=Count("assignments"))
+        if not access.is_platform_admin(user):
+            qs = qs.filter(Q(client__isnull=True) | Q(client_id=access.client_admin_of(user)))
+        scope = self.request.query_params.get("client")
+        if scope == "global":
+            qs = qs.filter(client__isnull=True)
+        elif scope:
+            qs = qs.filter(Q(client__isnull=True) | Q(client_id=scope))
+        return qs
+
+    def _check_editable(self, role):
+        user = self.request.user
+        if access.is_platform_admin(user):
+            return
+        if role.client_id is None or role.client_id != access.client_admin_of(user):
+            raise PermissionDenied("Only the platform admin can change global roles.")
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if access.is_platform_admin(user):
+            serializer.save(updated_by=user)
+        else:
+            serializer.save(updated_by=user, client_id=access.client_admin_of(user))
+
+    def perform_update(self, serializer):
+        role = serializer.instance
+        self._check_editable(role)
+        if role.client_id is None and role.name == DEFAULT_ROLE_NAME and serializer.validated_data.get("name", role.name) != role.name:
+            raise ValidationError({"name": "The built-in Default role can't be renamed."})
+        serializer.save(updated_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        self._check_editable(instance)
+        if instance.client_id is None and instance.name == DEFAULT_ROLE_NAME:
+            raise ValidationError({"detail": "The built-in Default role can't be deleted."})
+        in_use = instance.assignments.count()
+        if in_use:
+            raise ValidationError({"detail": f"This role is used by {in_use} assignment(s). Move them to another role first."})
+        instance.delete()
+
+
+@api_view(["GET"])
+def permission_catalog(request):
+    """The permissions a role can include, with English labels (the app translates them)."""
+    return Response([{"code": code, "label": label} for code, label in Permission.choices])

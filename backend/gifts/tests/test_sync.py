@@ -11,7 +11,8 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from events.models import Event, EventMembership, Guest
+from events.models import Event, Guest
+from events.tests.factories import make_client, make_client_admin
 from gifts.models import Gift
 
 User = get_user_model()
@@ -37,9 +38,9 @@ class SyncTestBase(APITestCase):
     url = reverse("gift-sync")
 
     def setUp(self):
-        self.user = User.objects.create_user("manager", password="pw-123456")
-        self.event = Event.objects.create(name="W", date="2026-10-24", currency="USD", created_by=self.user)
-        EventMembership.objects.create(event=self.event, user=self.user, role="owner")
+        self.org = make_client()
+        self.user = make_client_admin("manager", self.org)
+        self.event = Event.objects.create(name="W", date="2026-10-24", currency="USD", created_by=self.user, client=self.org)
         self.guest = Guest.objects.create(event=self.event, full_name="Sokha Chan")
         self.client.force_authenticate(self.user)
 
@@ -82,8 +83,7 @@ class GiftSyncTests(SyncTestBase):
         self.assertEqual(self.sync(t1).data["results"][0]["status"], "duplicate")
 
     def test_reused_id_with_different_identity_is_conflict(self):
-        other_event = Event.objects.create(name="W2", date="2026-10-25", currency="USD", created_by=self.user)
-        EventMembership.objects.create(event=other_event, user=self.user)
+        other_event = Event.objects.create(name="W2", date="2026-10-25", currency="USD", created_by=self.user, client=self.org)
         t1 = make_txn(self.event, self.guest)
         self.sync(t1)
         clash = make_txn(other_event, walk_in_name="X", guest_id=None, client_txn_id=t1["client_txn_id"])

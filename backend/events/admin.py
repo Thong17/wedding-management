@@ -1,18 +1,26 @@
 from django.contrib import admin
 
-from .models import Event, EventMembership, Guest
+from .models import Event, EventAssignment, Guest, Role
 
 
-class MembershipInline(admin.TabularInline):
-    model = EventMembership
+class AssignmentInline(admin.TabularInline):
+    model = EventAssignment
     extra = 0
+    raw_id_fields = ["user", "assigned_by"]
 
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ["name", "date", "venue", "currency"]
+    list_display = ["name", "date", "client", "venue", "currency"]
+    list_filter = ["client"]
     search_fields = ["name", "venue"]
-    inlines = [MembershipInline]
+    inlines = [AssignmentInline]
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ["name", "client", "updated_by", "updated_at"]
+    list_filter = ["client"]
 
 
 @admin.register(Guest)

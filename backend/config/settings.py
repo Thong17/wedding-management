@@ -57,7 +57,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": Path(os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3")),
     }
 }
 
@@ -79,14 +79,22 @@ STATIC_URL = "static/"
 # in production the web server must serve MEDIA_ROOT at MEDIA_URL.
 MEDIA_URL = "media/"
 MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
+# Sensitive uploads (client documents). Never served at a URL; only via authenticated download views.
+PRIVATE_MEDIA_ROOT = Path(os.environ.get("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
+
+# New clients and standalone customers start with a trial of this many days.
+DEFAULT_TRIAL_DAYS = 14
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    # Every endpoint refuses locked logins unless it opts out (gift upload) or allows reads (GET /me).
+    # Views that set their own permission_classes must keep both of these.
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
+        "events.access.NotLocked",
     ],
     "DEFAULT_PAGINATION_CLASS": None,
 }

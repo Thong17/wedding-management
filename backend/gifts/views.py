@@ -1,13 +1,16 @@
 from django.conf import settings
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
+from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from events.permissions import IsEventMember
+from events import access
+from events.models import Event, Permission
 
 from .models import Gift
 from .serializers import GiftSerializer
@@ -34,8 +37,16 @@ class GiftViewSet(
     """Online gift list and corrections. Gifts are created only through `/gifts/sync/`."""
 
     serializer_class = GiftSerializer
-    permission_classes = [IsEventMember]
     http_method_names = ["get", "patch", "post", "head", "options"]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)  # authentication, lock check
+        event = get_object_or_404(Event, pk=self.kwargs["event_pk"])
+        if self.action in ("list", "retrieve"):
+            # The server's gift list is for reconciling: people who can correct gifts or see the report.
+            access.require(request.user, event, any_of=(Permission.GIFT_EDIT, Permission.REPORT_VIEW))
+        else:
+            access.require(request.user, event, permission=Permission.GIFT_EDIT)
 
     def get_queryset(self):
         qs = Gift.objects.filter(event_id=self.kwargs["event_pk"]).select_related("guest", "recorded_by")
@@ -87,7 +98,13 @@ class GiftViewSet(
 
 
 class GiftSyncView(APIView):
-    """POST {"transactions": [...]} → 200 {"results": [...]} with one result per item."""
+    """POST {"transactions": [...]} → 200 {"results": [...]} with one result per item.
+
+    Deliberately allowed for locked logins (no NotLocked): gifts already recorded on a device must
+    always be able to upload, so a trial ending never loses data.
+    """
+
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         items = request.data.get("transactions") if isinstance(request.data, dict) else None

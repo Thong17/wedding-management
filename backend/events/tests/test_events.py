@@ -4,7 +4,8 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 
-from events.models import Event, EventMembership, Guest
+from events.models import Event, Guest
+from events.tests.factories import make_client, make_client_admin, make_user
 from gifts.models import Gift
 
 User = get_user_model()
@@ -12,9 +13,10 @@ User = get_user_model()
 
 class EventTests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user("owner", password="pw-123456")
-        self.manager = User.objects.create_user("helper", password="pw-123456")
-        self.outsider = User.objects.create_user("outsider", password="pw-123456")
+        self.org = make_client()
+        self.owner = make_client_admin("owner", self.org)
+        self.manager = make_user("helper", client=self.org)
+        self.outsider = make_user("outsider", client=make_client("Other Co"))
         self.client.force_authenticate(self.owner)
 
     def create_event(self):
@@ -22,22 +24,24 @@ class EventTests(APITestCase):
         self.assertEqual(res.status_code, 201, res.data)
         return res.data
 
-    def test_create_makes_owner_membership(self):
+    def test_client_admin_creates_event_for_their_client(self):
         data = self.create_event()
-        self.assertEqual(data["role"], "owner")
+        self.assertEqual((data["role"], data["full_access"], data["client"]), ("owner", True, self.org.pk))
         self.assertEqual(data["currency"], "USD")
-        self.assertTrue(EventMembership.objects.filter(event_id=data["id"], user=self.owner, role="owner").exists())
+        self.assertEqual(len(data["permissions"]), 8)
 
     def test_outsider_cannot_see_event(self):
         data = self.create_event()
         self.client.force_authenticate(self.outsider)
         self.assertEqual(self.client.get("/api/events/").data, [])
         self.assertEqual(self.client.get(f"/api/events/{data['id']}/").status_code, 404)
-        self.assertEqual(self.client.get(f"/api/events/{data['id']}/guests/").status_code, 403)
+        self.assertEqual(self.client.get(f"/api/events/{data['id']}/guests/").status_code, 404)
 
     def test_manager_can_read_but_not_edit_event(self):
         data = self.create_event()
-        self.client.post(f"/api/events/{data['id']}/members/", {"username": "helper"}, format="json")
+        res = self.client.post(f"/api/events/{data['id']}/members/", {"username": "helper"}, format="json")
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data["role_name"], "Default")
         self.client.force_authenticate(self.manager)
         self.assertEqual(self.client.get(f"/api/events/{data['id']}/").data["role"], "manager")
         self.assertEqual(self.client.patch(f"/api/events/{data['id']}/", {"name": "X"}, format="json").status_code, 403)
@@ -63,9 +67,9 @@ class EventTests(APITestCase):
 
 class GuestTests(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user("owner", password="pw-123456")
-        self.event = Event.objects.create(name="W", date="2026-10-24", created_by=self.user)
-        EventMembership.objects.create(event=self.event, user=self.user, role="owner")
+        org = make_client()
+        self.user = make_client_admin("owner", org)
+        self.event = Event.objects.create(name="W", date="2026-10-24", created_by=self.user, client=org)
         self.client.force_authenticate(self.user)
         self.url = f"/api/events/{self.event.pk}/guests/"
 
@@ -122,7 +126,7 @@ class GuestTests(APITestCase):
 
 class InviteQrTests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user("owner", password="pw-123456")
+        self.owner = make_client_admin("owner", make_client())
         self.client.force_authenticate(self.owner)
 
     def save(self, invite_qr):

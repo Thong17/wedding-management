@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from events.models import Event, EventMembership, Guest
+from events.models import Event, Guest
 
 GUESTS = [
     ("Sokha Chan", "Sokha", "012345678", "bride", "Family"),
@@ -39,7 +39,7 @@ class Command(BaseCommand):
                 "created_by": user,
             },
         )
-        EventMembership.objects.get_or_create(event=event, user=user, defaults={"role": "owner"})
+        # demo is a superuser, so it is the platform admin and has full access without an assignment.
         for full_name, nickname, phone, side, group in GUESTS:
             Guest.objects.get_or_create(
                 event=event,

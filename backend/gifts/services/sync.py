@@ -13,7 +13,8 @@ from typing import Any
 
 from django.db import IntegrityError, transaction
 
-from events.models import Event, EventMembership, Guest
+from events import access
+from events.models import Event, Guest, Permission
 
 from ..models import Gift
 from ..serializers import GiftSyncItemSerializer
@@ -86,7 +87,7 @@ def process_item(user, raw: Any, member_event_ids: set[int]) -> ItemResult:
 
     if data["event_id"] not in member_event_ids:
         return ItemResult(
-            txn_id, REJECTED, code="forbidden", errors={"event_id": ["You are not a manager of this event."]}
+            txn_id, REJECTED, code="forbidden", errors={"event_id": ["Your role on this event doesn't allow recording gifts."]}
         )
 
     existing = Gift.objects.filter(client_txn_id=data["client_txn_id"]).first()
@@ -144,7 +145,5 @@ def process_item(user, raw: Any, member_event_ids: set[int]) -> ItemResult:
 
 
 def sync_transactions(user, items: list[Any]) -> list[dict[str, Any]]:
-    member_event_ids = set(
-        EventMembership.objects.filter(user=user).values_list("event_id", flat=True)
-    )
+    member_event_ids = access.event_ids_with(user, Permission.GIFT_DESK)
     return [process_item(user, raw, member_event_ids).as_dict() for raw in items]

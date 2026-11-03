@@ -1,6 +1,25 @@
 # Clients, users, roles and trials — plan
 
-Status: agreed design, not yet built. Decisions below were made with the product owner on 2026-11-02.
+Status: step 1 (backend) built; steps 2–4 (screens) not yet. Decisions below were made with the product owner on 2026-11-02.
+
+## Backend API (step 1)
+
+All rules live in `backend/events/access.py`. Hidden events answer 404; a locked login gets
+403 `{"code": "account_locked", "reason": "suspended" | "trial_ended"}` everywhere except `GET /api/auth/me/`
+and `POST /api/gifts/sync/`.
+
+| Endpoint | Who |
+|---|---|
+| `GET/PATCH /api/auth/me/` — adds `user_type`, `client`, `lock_reason`, `access_ends_at` | everyone |
+| `POST /api/auth/password/` `{current_password, new_password}` | everyone |
+| `GET /api/permissions/` — permission codes and labels | everyone |
+| `/api/events/` — each event has `client`, `full_access`, `permissions` (codes), `role` (compat) | by visibility |
+| `/api/events/{id}/assignments/` (+ `/{assignment_id}/` PATCH `role_id` / DELETE) | full access |
+| `/api/events/{id}/members/` — old Managers tab, now backed by assignments with the Default role | full access |
+| `/api/clients/` (+ `?status=`, `?search=`) | platform admin; client admin reads own |
+| `/api/clients/{id}/documents/` (+ `/{doc}/download/`) — multipart upload, PDF/JPEG/PNG/WebP ≤ 10 MB | platform admin; client admin reads own |
+| `/api/users/` (+ `?client=`/`none`, `?type=`, `?active=`, `?search=`, `/{id}/reset-password/`) | platform admin; client admin: own client's customers |
+| `/api/roles/` (+ `?client=global` / `{id}`) — `usage_count`, `editable`, `updated_by_username` | platform admin; client admin: global (read) + own |
 
 ## People
 
