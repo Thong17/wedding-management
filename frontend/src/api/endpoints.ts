@@ -2,16 +2,21 @@ import axios from 'axios'
 import { API_URL, http, tokens } from './http'
 import type {
   ApiAssignment,
+  ApiClient,
+  ApiClientDocument,
   ApiEvent,
   ApiGift,
   ApiGuest,
   ApiManagedUser,
   ApiRole,
   ApiUser,
+  ClientInput,
+  DocumentInput,
   EventInput,
   EventReport,
   GuestInput,
   GuestListResponse,
+  ManagedUserInput,
   ProfileUpdate,
   RoleInput,
   SyncItemPayload,
@@ -24,6 +29,8 @@ export const authApi = {
     tokens.set(data.access, data.refresh)
   },
   me: () => http.get<ApiUser>('/auth/me/').then((r) => r.data),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    http.post('/auth/password/', { current_password: currentPassword, new_password: newPassword }),
   updateMe(update: ProfileUpdate) {
     const form = new FormData()
     if (update.username !== undefined) form.append('username', update.username)
@@ -74,10 +81,40 @@ export const usersApi = {
   /** Logins the signed-in admin can manage (a client admin sees only their own client's). */
   list: (params: { type?: 'client_admin' | 'customer'; client?: number | 'none'; active?: 0 | 1; search?: string } = {}) =>
     http.get<ApiManagedUser[]>('/users/', { params }).then((r) => r.data),
+  create: (data: ManagedUserInput) => http.post<ApiManagedUser>('/users/', data).then((r) => r.data),
+  update: (id: number, data: ManagedUserInput) => http.patch<ApiManagedUser>(`/users/${id}/`, data).then((r) => r.data),
+  resetPassword: (id: number, password: string) => http.post(`/users/${id}/reset-password/`, { password }),
 }
 
 export const clientsApi = {
-  list: () => http.get<{ id: number; business_name: string }[]>('/clients/').then((r) => r.data),
+  list: (params: { status?: string; search?: string } = {}) => http.get<ApiClient[]>('/clients/', { params }).then((r) => r.data),
+  get: (id: number) => http.get<ApiClient>(`/clients/${id}/`).then((r) => r.data),
+  create: (data: ClientInput) => http.post<ApiClient>('/clients/', data).then((r) => r.data),
+  update: (id: number, data: ClientInput) => http.patch<ApiClient>(`/clients/${id}/`, data).then((r) => r.data),
+  remove: (id: number) => http.delete(`/clients/${id}/`),
+}
+
+/** A client's documents. Downloads go through the authenticated API: documents have no public link. */
+export const documentsApi = {
+  list: (clientId: number) => http.get<ApiClientDocument[]>(`/clients/${clientId}/documents/`).then((r) => r.data),
+  create: (clientId: number, data: DocumentInput) =>
+    http.post<ApiClientDocument>(`/clients/${clientId}/documents/`, documentForm(data)).then((r) => r.data),
+  update: (clientId: number, id: number, data: Partial<DocumentInput>) =>
+    http.patch<ApiClientDocument>(`/clients/${clientId}/documents/${id}/`, documentForm(data)).then((r) => r.data),
+  remove: (clientId: number, id: number) => http.delete(`/clients/${clientId}/documents/${id}/`),
+  download: (clientId: number, id: number) =>
+    http.get<Blob>(`/clients/${clientId}/documents/${id}/download/`, { responseType: 'blob', timeout: 60_000 }).then((r) => r.data),
+}
+
+function documentForm(data: Partial<DocumentInput>): FormData {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(data)) {
+    if (value instanceof File) form.append(key, value)
+    else if (value != null) form.append(key, String(value))
+  }
+  // Blank dates must be sent as empty strings to clear them.
+  for (const key of ['issued_on', 'expires_on'] as const) if (key in data && data[key] == null) form.append(key, '')
+  return form
 }
 
 export const guestsApi = {

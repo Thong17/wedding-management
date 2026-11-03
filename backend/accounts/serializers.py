@@ -46,9 +46,9 @@ class ClientSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # A new client on trial gets the default trial length unless a date is given.
-        if validated_data.get("status", Client.Status.TRIAL) == Client.Status.TRIAL:
-            validated_data.setdefault("trial_ends_at", default_trial_end())
+        # A new client on trial gets the default trial length unless a date is given (missing or blank).
+        if validated_data.get("status", Client.Status.TRIAL) == Client.Status.TRIAL and not validated_data.get("trial_ends_at"):
+            validated_data["trial_ends_at"] = default_trial_end()
         return super().create(validated_data)
 
 
@@ -175,8 +175,9 @@ class UserSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"trial_ends_at": "Logins under a client follow the client's trial."})
             if client is not None:
                 profile_data["trial_ends_at"] = None
-            elif self.instance is None:
-                profile_data.setdefault("trial_ends_at", default_trial_end())
+            elif self.instance is None and not profile_data.get("trial_ends_at"):
+                # A new standalone customer gets the default access length unless a date is given.
+                profile_data["trial_ends_at"] = default_trial_end()
         else:
             # Client admins only manage customers of their own client, and can't set dates or types.
             for key in ("user_type", "client", "trial_ends_at"):

@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { errorMessage } from '@/api/http'
 import AppAvatar from '@/components/AppAvatar.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import ChangePassword from '@/components/ChangePassword.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
 import { toast } from '@/utils/toast'
@@ -125,9 +126,11 @@ async function save() {
         <button v-if="dirty" type="button" :disabled="busy" @click="reset">{{ t('common.cancel') }}</button>
       </div>
     </form>
+    <ChangePassword class="password" />
   </div>
 </template>
 
 <style scoped>
 .picture { gap: 16px; align-items: center; flex-wrap: nowrap; }
+.password { margin-top: 16px; }
 </style>

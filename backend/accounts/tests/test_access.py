@@ -312,6 +312,14 @@ class ClientApiTests(Base):
         self.assertEqual(res.data["status"], "trial")
         self.assertEqual(res.data["trial_ends_at"], str(timezone.localdate() + timedelta(days=14)))
 
+    def test_blank_trial_date_gets_the_default_like_the_forms_send_it(self):
+        self.as_(self.root)
+        default = str(timezone.localdate() + timedelta(days=14))
+        res = self.client.post("/api/clients/", {"business_name": "Blank", "trial_ends_at": None, "billing_period": "", "subscription_price": None}, format="json")
+        self.assertEqual((res.status_code, res.data["trial_ends_at"]), (201, default))
+        res = self.client.post("/api/users/", {"username": "walkin2", "password": "Long-enough-9", "user_type": "customer", "client": None, "trial_ends_at": None}, format="json")
+        self.assertEqual((res.status_code, res.data["trial_ends_at"]), (201, default))
+
     def test_client_admin_sees_only_their_client_read_only(self):
         self.as_(self.admin)
         data = self.client.get("/api/clients/").data

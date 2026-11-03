@@ -62,9 +62,84 @@ export interface ApiManagedUser {
   first_name: string
   last_name: string
   is_active: boolean
-  user_type: Exclude<UserType, 'platform_admin'>
+  user_type: UserType
   client: number | null
   client_name: string | null
+  /** Own access end (standalone customers only). */
+  trial_ends_at: string | null
+  lock_reason: 'suspended' | 'trial_ended' | null
+  is_platform_admin: boolean
+  assignment_count: number
+  last_login: string | null
+  date_joined: string
+}
+
+export interface ManagedUserInput {
+  username?: string
+  first_name?: string
+  last_name?: string
+  is_active?: boolean
+  password?: string
+  /** Platform admin only. */
+  user_type?: 'client_admin' | 'customer'
+  client?: number | null
+  trial_ends_at?: string | null
+}
+
+export type ClientStatus = 'trial' | 'active' | 'suspended'
+export type BillingPeriod = 'monthly' | 'yearly' | 'per_event' | ''
+
+export interface ApiClient {
+  id: number
+  business_name: string
+  contact_name: string
+  phone: string
+  email: string
+  address: string
+  status: ClientStatus
+  /** Last day of the trial (inclusive), or null for no end. */
+  trial_ends_at: string | null
+  subscription_price: string | null
+  subscription_currency: string
+  billing_period: BillingPeriod
+  subscription_start: string | null
+  notes: string
+  /** Why its logins are locked right now, or null. */
+  lock_reason: 'suspended' | 'trial_ended' | null
+  admin_count: number
+  customer_count: number
+  event_count: number
+  document_count: number
+  created_at: string
+  updated_at: string
+}
+
+export type ClientInput = Partial<Omit<ApiClient, 'id' | 'lock_reason' | 'admin_count' | 'customer_count' | 'event_count' | 'document_count' | 'created_at' | 'updated_at'>>
+
+export type DocumentType = 'business_license' | 'id_card' | 'contract' | 'other'
+
+export interface ApiClientDocument {
+  id: number
+  client: number
+  doc_type: DocumentType
+  number: string
+  issued_on: string | null
+  expires_on: string | null
+  notes: string
+  original_name: string
+  content_type: string
+  size: number | null
+  uploaded_by_username: string | null
+  uploaded_at: string
+}
+
+export interface DocumentInput {
+  doc_type: DocumentType
+  number: string
+  issued_on: string | null
+  expires_on: string | null
+  notes: string
+  file?: File
 }
 
 export interface ProfileUpdate {

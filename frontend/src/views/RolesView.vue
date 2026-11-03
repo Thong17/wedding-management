@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { clientsApi, rolesApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiRole } from '@/api/types'
@@ -19,8 +20,9 @@ const roles = ref<ApiRole[]>([])
 const clients = ref<{ id: number; business_name: string }[]>([])
 const error = ref<string | null>(null)
 const loading = ref(true)
-// Platform admin only: which roles to show ('all', 'global' or a client id).
-const scope = ref('all')
+// Platform admin only: which roles to show ('all', 'global' or a client id). A client page links here with ?client=<id>.
+const route = useRoute()
+const scope = ref(typeof route.query.client === 'string' ? route.query.client : 'all')
 
 const clientOptions = computed(() => clients.value.map((c) => ({ value: String(c.id), label: c.business_name })))
 const scopeOptions = computed(() => [{ value: 'all', label: t('roles.scopeAll') }, { value: 'global', label: t('roles.global') }, ...clientOptions.value])
