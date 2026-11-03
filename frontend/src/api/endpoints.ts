@@ -1,16 +1,19 @@
 import axios from 'axios'
 import { API_URL, http, tokens } from './http'
 import type {
+  ApiAssignment,
   ApiEvent,
   ApiGift,
   ApiGuest,
-  ApiMember,
+  ApiManagedUser,
+  ApiRole,
   ApiUser,
   EventInput,
   EventReport,
   GuestInput,
   GuestListResponse,
   ProfileUpdate,
+  RoleInput,
   SyncItemPayload,
   SyncItemResult,
 } from './types'
@@ -45,11 +48,36 @@ export const eventsApi = {
   create: (data: EventInput) => http.post<ApiEvent>('/events/', data).then((r) => r.data),
   update: (id: number, data: Partial<EventInput>) => http.patch<ApiEvent>(`/events/${id}/`, data).then((r) => r.data),
   remove: (id: number) => http.delete(`/events/${id}/`),
-  members: (id: number) => http.get<ApiMember[]>(`/events/${id}/members/`).then((r) => r.data),
-  addMember: (id: number, username: string, role: 'owner' | 'manager') =>
-    http.post<ApiMember>(`/events/${id}/members/`, { username, role }).then((r) => r.data),
-  removeMember: (id: number, userId: number) => http.delete(`/events/${id}/members/${userId}/`),
   report: (id: number) => http.get<EventReport>(`/events/${id}/report/`).then((r) => r.data),
+}
+
+/** Customers on an event and their roles (client admins and the platform admin only). */
+export const assignmentsApi = {
+  list: (eventId: number) => http.get<ApiAssignment[]>(`/events/${eventId}/assignments/`).then((r) => r.data),
+  add: (eventId: number, userId: number, roleId: number) =>
+    http.post<ApiAssignment>(`/events/${eventId}/assignments/`, { user_id: userId, role_id: roleId }).then((r) => r.data),
+  setRole: (eventId: number, id: number, roleId: number) =>
+    http.patch<ApiAssignment>(`/events/${eventId}/assignments/${id}/`, { role_id: roleId }).then((r) => r.data),
+  remove: (eventId: number, id: number) => http.delete(`/events/${eventId}/assignments/${id}/`),
+}
+
+export const rolesApi = {
+  /** `client`: a client id (global roles + that client's), or 'global'. Omit for everything you can see. */
+  list: (client?: number | 'global') =>
+    http.get<ApiRole[]>('/roles/', { params: client != null ? { client } : undefined }).then((r) => r.data),
+  create: (data: RoleInput) => http.post<ApiRole>('/roles/', data).then((r) => r.data),
+  update: (id: number, data: Partial<RoleInput>) => http.patch<ApiRole>(`/roles/${id}/`, data).then((r) => r.data),
+  remove: (id: number) => http.delete(`/roles/${id}/`),
+}
+
+export const usersApi = {
+  /** Logins the signed-in admin can manage (a client admin sees only their own client's). */
+  list: (params: { type?: 'client_admin' | 'customer'; client?: number | 'none'; active?: 0 | 1; search?: string } = {}) =>
+    http.get<ApiManagedUser[]>('/users/', { params }).then((r) => r.data),
+}
+
+export const clientsApi = {
+  list: () => http.get<{ id: number; business_name: string }[]>('/clients/').then((r) => r.data),
 }
 
 export const guestsApi = {

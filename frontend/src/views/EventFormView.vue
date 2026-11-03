@@ -4,11 +4,13 @@ import QRCode from 'qrcode'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { eventsApi } from '@/api/endpoints'
+import { clientsApi, eventsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { EventInput } from '@/api/types'
 import AppDatePicker from '@/components/AppDatePicker.vue'
+import AppSelect from '@/components/AppSelect.vue'
 import { classifyInviteBase, guestQrPayload } from '@/offline/inviteQr'
+import { useAuthStore } from '@/stores/auth'
 
 // A made-up guest code, only for the preview QR below.
 const SAMPLE_TOKEN = '00000000-0000-4000-8000-000000000000'
@@ -21,6 +23,11 @@ const fieldErrors = ref<Record<string, string[]>>({})
 const error = ref<string | null>(null)
 const busy = ref(false)
 
+// Only the platform admin chooses the client; a client admin's events always belong to their own client.
+const auth = useAuthStore()
+const clientChoice = ref('none')
+const clientOptions = ref<{ value: string; label: string }[]>([])
+
 const invite = computed(() => classifyInviteBase(form.invite_qr))
 const samplePayload = computed(() => (invite.value.kind === 'url' || invite.value.kind === 'khqr' ? guestQrPayload(SAMPLE_TOKEN, form.invite_qr) : null))
 const sampleSvg = ref('')
@@ -31,10 +38,15 @@ watch(
 )
 
 onMounted(async () => {
-  if (!props.id) return
   try {
+    if (auth.isPlatformAdmin) {
+      const clients = await clientsApi.list()
+      clientOptions.value = [{ value: 'none', label: t('eventForm.noClient') }, ...clients.map((c) => ({ value: String(c.id), label: c.business_name }))]
+    }
+    if (!props.id) return
     const e = await eventsApi.get(Number(props.id))
     Object.assign(form, { name: e.name, date: e.date, venue: e.venue, currency: e.currency, invite_qr: e.invite_qr })
+    clientChoice.value = e.client ? String(e.client) : 'none'
   } catch (err) {
     error.value = errorMessage(err)
   }
@@ -45,7 +57,10 @@ async function save() {
   error.value = null
   fieldErrors.value = {}
   try {
-    const saved = props.id ? await eventsApi.update(Number(props.id), form) : await eventsApi.create(form)
+    const payload: EventInput = auth.isPlatformAdmin
+      ? { ...form, client: clientChoice.value === 'none' ? null : Number(clientChoice.value) }
+      : { ...form }
+    const saved = props.id ? await eventsApi.update(Number(props.id), payload) : await eventsApi.create(payload)
     router.push(`/events/${saved.id}`)
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 400) fieldErrors.value = err.response.data
@@ -65,6 +80,9 @@ async function save() {
       <label>{{ t('eventForm.date') }} <AppDatePicker v-model="form.date" required />
         <span class="field-error" v-if="fieldErrors.date">{{ fieldErrors.date.join(' ') }}</span></label>
       <label>{{ t('eventForm.venue') }} <input v-model="form.venue" maxlength="255" /></label>
+      <label v-if="auth.isPlatformAdmin">{{ t('eventForm.client') }}
+        <AppSelect v-model="clientChoice" :options="clientOptions" />
+        <span class="field-error" v-if="fieldErrors.client">{{ fieldErrors.client.join(' ') }}</span></label>
       <label>{{ t('eventForm.currency') }} <input v-model="form.currency" required maxlength="3" placeholder="USD" />
         <span class="field-error" v-if="fieldErrors.currency">{{ fieldErrors.currency.join(' ') }}</span></label>
 

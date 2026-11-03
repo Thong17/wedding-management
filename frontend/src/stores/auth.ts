@@ -23,6 +23,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => user.value !== null)
   const username = computed(() => user.value?.username ?? null)
+  const isPlatformAdmin = computed(() => user.value?.user_type === 'platform_admin')
+  const isClientAdmin = computed(() => user.value?.user_type === 'client_admin')
+  /** Platform admins and client admins: create events, manage roles and people. */
+  const isManager = computed(() => isPlatformAdmin.value || isClientAdmin.value)
   /** Who owns gifts recorded in this session; uploads match records by this id. */
   const recorder = computed<Recorder | null>(() => (user.value ? { id: user.value.id, username: user.value.username } : null))
 
@@ -76,5 +80,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, username, recorder, isLoggedIn, sessionExpired, login, refresh, updateProfile, logout }
+  return {
+    user,
+    username,
+    recorder,
+    isLoggedIn,
+    isPlatformAdmin,
+    isClientAdmin,
+    isManager,
+    sessionExpired,
+    login,
+    refresh,
+    updateProfile,
+    logout,
+  }
 })

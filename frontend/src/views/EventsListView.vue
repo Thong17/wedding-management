@@ -2,9 +2,12 @@
 import { onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useEventsStore } from '@/stores/events'
+import { can } from '@/utils/permissions'
 
 const store = useEventsStore()
+const auth = useAuthStore()
 const { t } = useI18n()
 onMounted(() => store.load())
 </script>
@@ -14,7 +17,7 @@ onMounted(() => store.load())
     <div class="row">
       <h1>{{ t('events.title') }}</h1>
       <span class="spacer" />
-      <RouterLink class="btn btn-primary" to="/events/new" v-if="!store.fromCache"><AppIcon name="plus" />{{ t('events.new') }}</RouterLink>
+      <RouterLink class="btn btn-primary" to="/events/new" v-if="!store.fromCache && auth.isManager"><AppIcon name="plus" />{{ t('events.new') }}</RouterLink>
     </div>
     <div v-if="store.fromCache" class="banner banner-info">{{ t('events.offline') }}</div>
     <div v-if="store.error" class="banner banner-danger">{{ store.error }}</div>
@@ -22,7 +25,7 @@ onMounted(() => store.load())
     <p v-else-if="!store.events.length && !store.error" class="muted">{{ t('events.empty') }}</p>
     <div class="events">
       <div v-for="e in store.events" :key="e.id" class="card stack event">
-        <RouterLink class="btn btn-icon report" :to="`/events/${e.id}/report`" :title="t('events.report')" :aria-label="t('events.report')">
+        <RouterLink v-if="can(e, 'report_view')" class="btn btn-icon report" :to="`/events/${e.id}/report`" :title="t('events.report')" :aria-label="t('events.report')">
           <AppIcon name="chart" />
         </RouterLink>
         <div class="event-head">
@@ -30,7 +33,7 @@ onMounted(() => store.load())
           <div class="muted small">{{ e.date }}<span v-if="e.venue"> · {{ e.venue }}</span> · {{ e.currency }}</div>
         </div>
         <div class="row">
-          <RouterLink class="btn btn-primary" :to="`/events/${e.id}/desk`"><AppIcon name="gift" />{{ t('events.openDesk') }}</RouterLink>
+          <RouterLink v-if="can(e, 'gift_desk')" class="btn btn-primary" :to="`/events/${e.id}/desk`"><AppIcon name="gift" />{{ t('events.openDesk') }}</RouterLink>
           <RouterLink class="btn" :to="`/events/${e.id}`"><AppIcon name="settings" />{{ t('events.manage') }}</RouterLink>
         </div>
       </div>

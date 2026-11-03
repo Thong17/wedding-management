@@ -14,6 +14,7 @@ import type { ApiEvent } from '@/api/types'
 import { useEventsStore } from '@/stores/events'
 import { useGiftDeskStore } from '@/stores/giftDesk'
 import { formatGiftValue, formatMoney, formatRelative } from '@/utils/format'
+import { can } from '@/utils/permissions'
 import { toast } from '@/utils/toast'
 
 const props = defineProps<{ id: string }>()
@@ -30,6 +31,8 @@ const selected = ref<CachedGuest | null>(null)
 const searchRef = ref<InstanceType<typeof GuestSearch> | null>(null)
 
 const currency = computed(() => event.value?.currency ?? 'USD')
+// From the event's stored permissions, so this also holds offline. The server re-checks every upload.
+const noDesk = computed(() => !!event.value && !can(event.value, 'gift_desk'))
 const previousCount = computed(() =>
   selected.value ? desk.transactions.filter((t) => t.guestId === selected.value!.id).length : 0,
 )
@@ -101,8 +104,9 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
     </div>
     <div v-if="loadError" class="banner banner-danger">{{ loadError }}</div>
     <div v-if="desk.guestRefreshError" class="banner banner-warn small">{{ desk.guestRefreshError }}</div>
+    <div v-if="noDesk" class="banner banner-warn">{{ t('desk.noPermission') }}</div>
 
-    <div class="grid-2">
+    <div v-if="!noDesk" class="grid-2">
       <section class="card stack">
         <div class="tabs">
           <button :class="{ active: mode === 'search' }" @click="mode = 'search'">{{ t('desk.tabSearch') }}</button>

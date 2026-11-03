@@ -5,11 +5,13 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
-import type { ApiEvent, ApiGift, ApiGuest, ApiMember, GuestInput } from '@/api/types'
+import type { ApiEvent, ApiGift, ApiGuest, GuestInput, PermissionCode } from '@/api/types'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import EventTeam from '@/components/EventTeam.vue'
 import { formatDateTime, formatGiftValue, methodLabel, methodOptions, sideLabel, sideOptions } from '@/utils/format'
 import { downloadGuestCsvTemplate, exportGuestsXlsx } from '@/utils/guestExport'
+import { can } from '@/utils/permissions'
 import { toast } from '@/utils/toast'
 
 const props = defineProps<{ id: string }>()
@@ -18,9 +20,16 @@ const router = useRouter()
 const { t } = useI18n()
 
 const event = ref<ApiEvent | null>(null)
-const tab = ref<'guests' | 'gifts' | 'members'>('guests')
+const tab = ref<'guests' | 'gifts' | 'team'>('guests')
 const error = ref<string | null>(null)
-const isOwner = computed(() => event.value?.role === 'owner')
+
+// What the signed-in user's role allows here. Screens hide what isn't allowed; the server checks again.
+const allowed = (perm: PermissionCode) => can(event.value, perm)
+const full = computed(() => !!event.value?.full_access)
+const canSeeGifts = computed(() => allowed('gift_edit') || allowed('report_view'))
+const teamCount = ref(0)
+// The add/edit and import panel beside the guest list, only when the role can use any of it.
+const guestSidePanel = computed(() => allowed('guest_add') || allowed('guest_edit') || allowed('guest_import'))
 
 // Guests
 const guests = ref<ApiGuest[]>([])
@@ -38,18 +47,10 @@ const filteredGuests = computed(() => {
 const gifts = ref<ApiGift[]>([])
 const editingGift = ref<{ gift: ApiGift; amount: string; method: ApiGift['method']; item: string; note: string } | null>(null)
 
-// Members
-const members = ref<ApiMember[]>([])
-const memberForm = reactive({ username: '', role: 'manager' as 'owner' | 'manager' })
-const roleOptions = computed(() => [
-  { value: 'manager' as const, label: t('role.manager') },
-  { value: 'owner' as const, label: t('role.owner') },
-])
-
 async function load() {
   try {
     event.value = await eventsApi.get(eventId.value)
-    await Promise.all([loadGuests(), loadGifts(), loadMembers()])
+    await Promise.all([loadGuests(), canSeeGifts.value ? loadGifts() : null])
   } catch (err) {
     error.value = errorMessage(err)
   }
@@ -69,7 +70,6 @@ async function exportGuests() {
   }
 }
 const loadGifts = async () => (gifts.value = await giftsApi.list(eventId.value))
-const loadMembers = async () => (members.value = await eventsApi.members(eventId.value))
 
 onMounted(load)
 
@@ -154,24 +154,6 @@ function handleGiftConflict(err: unknown) {
   }
 }
 
-async function addMember() {
-  try {
-    await eventsApi.addMember(eventId.value, memberForm.username.trim(), memberForm.role)
-    memberForm.username = ''
-    await loadMembers()
-  } catch (err) {
-    toast(errorMessage(err), 'error')
-  }
-}
-async function removeMember(m: ApiMember) {
-  if (!confirm(t('members.removeConfirm', { name: m.username }))) return
-  try {
-    await eventsApi.removeMember(eventId.value, m.user_id)
-    await loadMembers()
-  } catch (err) {
-    toast(errorMessage(err), 'error')
-  }
-}
 async function deleteEvent() {
   if (!confirm(t('members.deleteConfirm'))) return
   try {
@@ -190,24 +172,29 @@ async function deleteEvent() {
       <div class="row">
         <div>
           <h1>{{ event.name }}</h1>
-          <div class="muted small">{{ event.date }}<span v-if="event.venue"> · {{ event.venue }}</span> · {{ event.currency }} · {{ t('detail.youAre', { role: t(`role.${event.role}`) }) }}</div>
+          <div class="muted small">
+            {{ event.date }}<span v-if="event.venue"> · {{ event.venue }}</span> · {{ event.currency }}<span v-if="event.client_name"> · {{ event.client_name }}</span>
+            · {{ full ? t('detail.accessFull') : t('detail.accessAssigned') }}
+          </div>
         </div>
         <span class="spacer" />
-        <RouterLink class="btn btn-primary" :to="`/events/${event.id}/desk`">{{ t('detail.giftDesk') }}</RouterLink>
-        <RouterLink class="btn" :to="`/events/${event.id}/report`">{{ t('detail.report') }}</RouterLink>
-        <RouterLink class="btn" :to="`/events/${event.id}/qr`">{{ t('detail.qrSheet') }}</RouterLink>
-        <button :disabled="exporting || !guests.length" @click="exportGuests">{{ exporting ? t('detail.exporting') : t('detail.exportGuests') }}</button>
-        <RouterLink v-if="isOwner" class="btn" :to="`/events/${event.id}/edit`">{{ t('common.edit') }}</RouterLink>
+        <RouterLink v-if="allowed('gift_desk')" class="btn btn-primary" :to="`/events/${event.id}/desk`">{{ t('detail.giftDesk') }}</RouterLink>
+        <RouterLink v-if="allowed('report_view')" class="btn" :to="`/events/${event.id}/report`">{{ t('detail.report') }}</RouterLink>
+        <template v-if="allowed('guest_export')">
+          <RouterLink class="btn" :to="`/events/${event.id}/qr`">{{ t('detail.qrSheet') }}</RouterLink>
+          <button :disabled="exporting || !guests.length" @click="exportGuests">{{ exporting ? t('detail.exporting') : t('detail.exportGuests') }}</button>
+        </template>
+        <RouterLink v-if="full" class="btn" :to="`/events/${event.id}/edit`">{{ t('common.edit') }}</RouterLink>
       </div>
 
       <div class="tabs">
         <button :class="{ active: tab === 'guests' }" @click="tab = 'guests'">{{ t('detail.tabGuests', { n: guests.length }) }}</button>
-        <button :class="{ active: tab === 'gifts' }" @click="tab = 'gifts'">{{ t('detail.tabGifts', { n: gifts.length }) }}</button>
-        <button :class="{ active: tab === 'members' }" @click="tab = 'members'">{{ t('detail.tabManagers', { n: members.length }) }}</button>
+        <button v-if="canSeeGifts" :class="{ active: tab === 'gifts' }" @click="tab = 'gifts'">{{ t('detail.tabGifts', { n: gifts.length }) }}</button>
+        <button v-if="full" :class="{ active: tab === 'team' }" @click="tab = 'team'">{{ t('detail.tabTeam', { n: teamCount }) }}</button>
       </div>
 
       <!-- Guests -->
-      <div v-if="tab === 'guests'" class="grid-2">
+      <div v-if="tab === 'guests'" :class="{ 'grid-2': guestSidePanel }">
         <div class="card stack">
           <div class="row">
             <input v-model="guestFilter" :placeholder="t('guests.filter')" style="flex: 1" />
@@ -223,8 +210,8 @@ async function deleteEvent() {
                   <td class="nowrap">{{ g.phone }}</td>
                   <td>
                     <div class="row-actions">
-                      <button class="btn-small" @click="editGuest(g)">{{ t('common.edit') }}</button>
-                      <button class="btn-small btn-danger" :aria-label="t('common.remove')" @click="deleteGuest(g)">✕</button>
+                      <button v-if="allowed('guest_edit')" class="btn-small" @click="editGuest(g)">{{ t('common.edit') }}</button>
+                      <button v-if="allowed('guest_delete')" class="btn-small btn-danger" :aria-label="t('common.remove')" @click="deleteGuest(g)">✕</button>
                     </div>
                   </td>
                 </tr>
@@ -233,8 +220,8 @@ async function deleteEvent() {
             </table>
           </div>
         </div>
-        <div class="stack">
-          <form class="card stack" @submit.prevent="saveGuest">
+        <div v-if="guestSidePanel" class="stack">
+          <form v-if="editingGuestId ? allowed('guest_edit') : allowed('guest_add')" class="card stack" @submit.prevent="saveGuest">
             <h2>{{ editingGuestId ? t('guests.editTitle') : t('guests.addTitle') }}</h2>
             <label>{{ t('guests.fullName') }} <input v-model="guestForm.full_name" required maxlength="200" /></label>
             <div class="row">
@@ -253,7 +240,7 @@ async function deleteEvent() {
               <button v-if="editingGuestId" type="button" @click="cancelGuestEdit">{{ t('common.cancel') }}</button>
             </div>
           </form>
-          <div class="card stack">
+          <div v-if="allowed('guest_import')" class="card stack">
             <div class="row">
               <h2>{{ t('guests.importTitle') }}</h2>
               <span class="spacer" />
@@ -305,7 +292,7 @@ async function deleteEvent() {
                   <td class="small">{{ g.note }}</td>
                   <td class="small">{{ g.recorded_by_username }}</td>
                   <td>
-                    <div class="row-actions">
+                    <div v-if="allowed('gift_edit')" class="row-actions">
                       <button class="btn-small" @click="startGiftEdit(g)">{{ t('common.edit') }}</button>
                       <button class="btn-small btn-danger" @click="voidGift(g)">{{ t('gifts.void') }}</button>
                     </div>
@@ -318,23 +305,15 @@ async function deleteEvent() {
         </div>
       </div>
 
-      <!-- Members -->
-      <div v-if="tab === 'members'" class="card stack">
-        <ul class="list">
-          <li v-for="m in members" :key="m.id" class="row" style="padding: 8px 0">
-            <strong>{{ m.username }}</strong> <span class="badge badge-neutral">{{ t(`role.${m.role}`) }}</span>
-            <span class="spacer" />
-            <button v-if="isOwner" class="btn-small btn-danger" @click="removeMember(m)">{{ t('common.remove') }}</button>
-          </li>
-        </ul>
-        <form v-if="isOwner" class="row" @submit.prevent="addMember">
-          <input v-model="memberForm.username" :placeholder="t('members.username')" required style="flex: 1; min-width: 160px" />
-          <AppSelect v-model="memberForm.role" :options="roleOptions" :aria-label="t('members.role')" inline />
-          <button class="btn-primary">{{ t('common.add') }}</button>
-        </form>
-        <p class="muted small">{{ t('members.help') }}</p>
-        <div v-if="isOwner"><button class="btn-danger btn-small" @click="deleteEvent">{{ t('members.deleteEvent') }}</button></div>
+      <!-- Team (customers and their roles); full access only. Kept mounted so the tab count stays right. -->
+      <div v-if="full" v-show="tab === 'team'" class="card stack">
+        <EventTeam :event="event" @count="teamCount = $event" />
+        <div class="danger-zone"><button class="btn-danger btn-small" @click="deleteEvent">{{ t('members.deleteEvent') }}</button></div>
       </div>
     </template>
   </div>
 </template>
+
+<style scoped>
+.danger-zone { border-top: 1px solid var(--c-border); padding-top: 12px; }
+</style>

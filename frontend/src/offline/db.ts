@@ -55,6 +55,10 @@ export interface CachedEvent {
   venue: string
   currency: string
   role: string | null
+  /** The signed-in user's permission codes on this event, so the offline desk knows what's allowed.
+   *  Missing on events cached before roles existed (treated as allowed until refreshed). */
+  permissions?: string[]
+  full_access?: boolean
 }
 
 export interface CachedGuest {

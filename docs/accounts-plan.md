@@ -1,6 +1,6 @@
 # Clients, users, roles and trials — plan
 
-Status: step 1 (backend) built; steps 2–4 (screens) not yet. Decisions below were made with the product owner on 2026-11-02.
+Status: steps 1 (backend) and 2 (roles, event Team tab, permission-aware screens) built; steps 3–4 not yet. Decisions below were made with the product owner on 2026-11-02.
 
 ## Backend API (step 1)
 

@@ -21,6 +21,8 @@ const { t } = useI18n()
       <nav class="row">
         <RouterLink to="/">{{ t('app.events') }}</RouterLink>
         <RouterLink to="/sync">{{ t('app.sync') }}</RouterLink>
+        <!-- Moves into the admin sidebar in step 3 of docs/accounts-plan.md. -->
+        <RouterLink v-if="auth.isManager" to="/roles">{{ t('app.roles') }}</RouterLink>
       </nav>
       <span class="spacer" />
       <SyncStatusBadge />

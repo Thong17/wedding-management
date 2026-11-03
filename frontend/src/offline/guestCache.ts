@@ -72,18 +72,27 @@ export async function getGuestCacheTime(eventId: number): Promise<string | null>
   return (await (await getDB()).get('guestSyncMeta', eventId))?.lastSyncedAt ?? null
 }
 
+const toCachedEvent = (e: ApiEvent): CachedEvent => ({
+  id: e.id,
+  name: e.name,
+  date: e.date,
+  venue: e.venue,
+  currency: e.currency,
+  role: e.role,
+  permissions: e.permissions,
+  full_access: e.full_access,
+})
+
 export async function cacheEvents(events: ApiEvent[]): Promise<void> {
   const db = await getDB()
   const tx = db.transaction('events', 'readwrite')
   await tx.store.clear()
-  for (const e of events) {
-    await tx.store.put({ id: e.id, name: e.name, date: e.date, venue: e.venue, currency: e.currency, role: e.role })
-  }
+  for (const e of events) await tx.store.put(toCachedEvent(e))
   await tx.done
 }
 
 export async function cacheEvent(e: ApiEvent): Promise<void> {
-  await (await getDB()).put('events', { id: e.id, name: e.name, date: e.date, venue: e.venue, currency: e.currency, role: e.role })
+  await (await getDB()).put('events', toCachedEvent(e))
 }
 
 export async function getCachedEvents(): Promise<CachedEvent[]> {

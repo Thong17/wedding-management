@@ -66,3 +66,17 @@ describe('guest cache', () => {
     expect((await findGuestByQrRef(1, { kind: 'token', token }))?.full_name).toBe('Alice')
   })
 })
+
+describe('cached events', () => {
+  it('keep the signed-in user\'s permissions for the offline desk', async () => {
+    const { cacheEvent, getCachedEvent } = await import('@/offline/guestCache')
+    const { can } = await import('@/utils/permissions')
+    await cacheEvent({
+      id: 7, name: 'W', date: '2026-12-01', venue: '', currency: 'USD', invite_qr: '', client: 1, client_name: 'C',
+      role: 'manager', full_access: false, permissions: ['guest_add'], created_at: '', updated_at: '',
+    })
+    const cached = await getCachedEvent(7)
+    expect(cached).toMatchObject({ permissions: ['guest_add'], full_access: false })
+    expect(can(cached, 'gift_desk')).toBe(false)
+  })
+})
