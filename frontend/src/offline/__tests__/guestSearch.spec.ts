@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CachedGuest } from '@/offline/db'
-import { createGuestSearcher, fixKhmerVowelOrder, guestsLikeOcrLines, ocrCandidateLines, parseScannedCode, pickMiddleText, qrPayloadForGuest, stripTitles } from '@/offline/guestSearch'
+import { createGuestSearcher, filterGuests, fixKhmerVowelOrder, guestGroups, guestsLikeOcrLines, NO_FILTER, ocrCandidateLines, parseScannedCode, pickMiddleText, qrPayloadForGuest, stripTitles, type GuestFilter } from '@/offline/guestSearch'
 
 const g = (id: number, full_name: string, extra: Partial<CachedGuest> = {}): CachedGuest => ({
   eventId: 1,
@@ -40,6 +40,32 @@ describe('smart guest search', () => {
   })
   it('returns nothing for an empty query', () => {
     expect(names('  ')).toEqual([])
+  })
+})
+
+describe('filtering guests by side and group', () => {
+  const list = [
+    g(1, 'A', { side: 'groom', group: 'Family' }),
+    g(2, 'B', { side: 'bride', group: 'family ' }),
+    g(3, 'C', { side: 'both', group: 'Neighbour' }),
+    g(4, 'D', { side: 'groom', group: '' }),
+  ]
+  const ids = (f: Partial<GuestFilter>) => filterGuests(list, { ...NO_FILTER, ...f }).map((x) => x.id)
+
+  it('keeps everyone with no filter', () => {
+    expect(ids({})).toEqual([1, 2, 3, 4])
+  })
+  it("filters by side, counting guests of both sides on each side", () => {
+    expect(ids({ side: 'groom' })).toEqual([1, 3, 4])
+    expect(ids({ side: 'bride' })).toEqual([2, 3])
+    expect(ids({ side: 'both' })).toEqual([3])
+  })
+  it('filters by group ignoring case and spacing, and combines with side', () => {
+    expect(ids({ group: 'FAMILY' })).toEqual([1, 2])
+    expect(ids({ group: 'family', side: 'bride' })).toEqual([2])
+  })
+  it('lists each group once, in name order', () => {
+    expect(guestGroups(list)).toEqual(['Family', 'Neighbour'])
   })
 })
 

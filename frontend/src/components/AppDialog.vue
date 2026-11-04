@@ -56,7 +56,22 @@ const { t } = useI18n()
 .dialog-title { margin: 0; font-size: 1.2rem; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .dialog-close { width: 36px; min-height: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; corner-shape: round; }
 .dialog-desc { margin: -4px 0 12px; }
-/* Phones: a sheet from the bottom, full width. */
+
+/* Open/close animations. Reka sets data-state and waits for the closing animation before removing. */
+.dialog-overlay[data-state='open'] { animation: dialog-fade-in 200ms ease-out; }
+.dialog-overlay[data-state='closed'] { animation: dialog-fade-out 160ms ease-in forwards; }
+.dialog[data-state='open'] { animation: dialog-pop-in 220ms cubic-bezier(0.16, 1, 0.3, 1); }
+.dialog[data-state='closed'] { animation: dialog-pop-out 160ms ease-in forwards; }
+@keyframes dialog-fade-in { from { opacity: 0; } }
+@keyframes dialog-fade-out { to { opacity: 0; } }
+@keyframes dialog-pop-in {
+  from { opacity: 0; transform: translate(-50%, -46%) scale(0.96); }
+}
+@keyframes dialog-pop-out {
+  to { opacity: 0; transform: translate(-50%, -48%) scale(0.97); }
+}
+
+/* Phones: a sheet from the bottom, full width, that slides up. */
 @media (max-width: 599px) {
   .dialog {
     top: auto;
@@ -68,5 +83,18 @@ const { t } = useI18n()
     border-radius: var(--radius) var(--radius) 0 0;
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
+  .dialog[data-state='open'] { animation: dialog-sheet-in 280ms cubic-bezier(0.16, 1, 0.3, 1); }
+  .dialog[data-state='closed'] { animation: dialog-sheet-out 200ms ease-in forwards; }
+}
+@keyframes dialog-sheet-in {
+  from { transform: translate(-50%, 100%); }
+}
+@keyframes dialog-sheet-out {
+  to { transform: translate(-50%, 100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-overlay[data-state],
+  .dialog[data-state] { animation: none; }
 }
 </style>

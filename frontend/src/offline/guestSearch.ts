@@ -129,6 +129,37 @@ export function createGuestSearcher(guests: CachedGuest[]): GuestSearcher {
   }
 }
 
+export interface GuestFilter {
+  /** 'all', or a side: 'bride' / 'groom' also include guests of both sides. */
+  side: 'all' | CachedGuest['side']
+  /** 'all', or a group (family, neighbour…) compared ignoring case and spacing. */
+  group: string
+}
+
+export const NO_FILTER: GuestFilter = { side: 'all', group: 'all' }
+
+const groupKey = (s: string) => normalizeText(s)
+
+/** Keep the guests that match the filter (order kept). */
+export function filterGuests(guests: CachedGuest[], filter: GuestFilter): CachedGuest[] {
+  const group = filter.group === 'all' ? null : groupKey(filter.group)
+  return guests.filter(
+    (g) =>
+      (filter.side === 'all' || g.side === filter.side || (g.side === 'both' && filter.side !== 'both')) &&
+      (group === null || groupKey(g.group) === group),
+  )
+}
+
+/** The groups used on the guest list, each once (as first written), in name order. */
+export function guestGroups(guests: CachedGuest[]): string[] {
+  const seen = new Map<string, string>()
+  for (const g of guests) {
+    const name = g.group.trim()
+    if (name && !seen.has(groupKey(name))) seen.set(groupKey(name), name)
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b))
+}
+
 /**
  * Guests on the list whose names are like the text read from a card, best first: OCR misreads
  * letters ("Bunthong" comes out as "Lunthong"), so offer the closest guests to pick from. The best

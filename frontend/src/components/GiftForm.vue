@@ -28,6 +28,7 @@ const saving = ref(false)
 const formError = ref<string | null>(null)
 const amountInput = ref<HTMLInputElement | null>(null)
 const itemInput = ref<HTMLInputElement | null>(null)
+const walkInInput = ref<HTMLInputElement | null>(null)
 const METHODS = ['cash', 'transfer', 'item', 'other'] as const
 
 // Switching to Item moves the cursor to the description, and back to money to the amount.
@@ -96,7 +97,19 @@ async function setWalkIn(name: string) {
   ;(isItem.value ? itemInput : amountInput).value?.focus()
 }
 
-defineExpose({ setWalkIn })
+/** Start a gift for someone not on the list: put the cursor in the walk-in name. */
+async function focusWalkIn() {
+  await nextTick()
+  walkInInput.value?.focus()
+}
+
+/** A guest was just chosen: put the cursor in the amount (or the item description). */
+async function focusAmount() {
+  await nextTick()
+  ;(isItem.value ? itemInput : amountInput).value?.focus()
+}
+
+defineExpose({ setWalkIn, focusWalkIn, focusAmount })
 </script>
 
 <template>
@@ -116,7 +129,7 @@ defineExpose({ setWalkIn })
     </div>
     <label v-else>
       {{ t('giftForm.walkIn') }}
-      <input v-model="walkInName" maxlength="200" :placeholder="t('giftForm.walkInPlaceholder')" />
+      <input ref="walkInInput" v-model="walkInName" maxlength="200" :placeholder="t('giftForm.walkInPlaceholder')" />
       <span class="field-error" v-if="errors.guest">{{ errors.guest }}</span>
     </label>
 

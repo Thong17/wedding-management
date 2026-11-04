@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppSelect from '@/components/AppSelect.vue'
 import type { CachedGuest } from '@/offline/db'
-import type { GuestSearcher } from '@/offline/guestSearch'
-import { sideLabel } from '@/utils/format'
+import { filterGuests, guestGroups, NO_FILTER, type GuestFilter, type GuestSearcher } from '@/offline/guestSearch'
+import { sideLabel, sideOptions } from '@/utils/format'
 
 const PAGE_SIZE = 10
 
@@ -15,9 +16,21 @@ const active = ref(0)
 const page = ref(1)
 const input = ref<HTMLInputElement | null>(null)
 
+// Narrow the list by side and group (family, neighbour…) as well as by the search text.
+const filter = ref<GuestFilter>({ ...NO_FILTER })
+const filtered = computed(() => filter.value.side !== 'all' || filter.value.group !== 'all')
+const sideFilterOptions = computed(() => [{ value: 'all', label: t('search.allSides') }, ...sideOptions()])
+const groupOptions = computed(() => [
+  { value: 'all', label: t('search.allGroups') },
+  ...guestGroups(props.searcher.all()).map((g) => ({ value: g, label: g })),
+])
+
 // No query: every guest in name order. With a query: all matches, best first.
 const matches = computed(() =>
-  query.value.trim() ? props.searcher.search(query.value, Number.MAX_SAFE_INTEGER) : props.searcher.all(),
+  filterGuests(
+    query.value.trim() ? props.searcher.search(query.value, Number.MAX_SAFE_INTEGER) : props.searcher.all(),
+    filter.value,
+  ),
 )
 const pageCount = computed(() => Math.max(1, Math.ceil(matches.value.length / PAGE_SIZE)))
 const results = computed(() => matches.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE))
@@ -27,7 +40,7 @@ const rangeText = computed(() => {
   return t('search.range', { start, end: start + results.value.length - 1, total: matches.value.length })
 })
 
-watch([query, () => props.searcher], () => (page.value = 1))
+watch([query, () => props.searcher, filter], () => (page.value = 1), { deep: true })
 watch(results, () => (active.value = 0))
 
 function goTo(p: number) {
@@ -66,6 +79,11 @@ defineExpose({ focus: () => input.value?.focus() })
       enterkeyhint="search"
       @keydown="onKey"
     />
+    <div class="row filters">
+      <AppSelect v-model="filter.side" :options="sideFilterOptions" :aria-label="t('search.side')" />
+      <AppSelect v-if="groupOptions.length > 1" v-model="filter.group" :options="groupOptions" :aria-label="t('search.group')" />
+      <button v-if="filtered" type="button" class="btn-small clear-filters" @click="filter = { ...NO_FILTER }">{{ t('search.clearFilters') }}</button>
+    </div>
     <ul class="list results">
       <li
         v-for="(g, i) in results"
@@ -85,7 +103,7 @@ defineExpose({ focus: () => input.value?.focus() })
         </div>
       </li>
       <li v-if="!results.length" class="muted small empty">
-        {{ query.trim() ? t('search.noMatch') : t('search.noGuests') }}
+        {{ query.trim() ? t('search.noMatch') : filtered ? t('search.noFilterMatch') : t('search.noGuests') }}
       </li>
     </ul>
     <div v-if="matches.length > PAGE_SIZE" class="row pager">
@@ -106,4 +124,5 @@ defineExpose({ focus: () => input.value?.focus() })
 .results li.selected { box-shadow: inset 3px 0 0 var(--c-primary); }
 .results li.empty { cursor: default; }
 .pager { gap: 8px; }
+.filters > :deep(.app-select) { flex: 1 1 140px; min-width: 0; }
 </style>

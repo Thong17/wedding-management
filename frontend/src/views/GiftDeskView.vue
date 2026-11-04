@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppDialog from '@/components/AppDialog.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import GiftForm from '@/components/GiftForm.vue'
 import GuestSearch from '@/components/GuestSearch.vue'
 import OcrScanner from '@/components/OcrScanner.vue'
@@ -30,6 +32,21 @@ const query = ref('')
 const selected = ref<CachedGuest | null>(null)
 const searchRef = ref<InstanceType<typeof GuestSearch> | null>(null)
 const giftFormRef = ref<InstanceType<typeof GiftForm> | null>(null)
+// Phones show only the guest list; the gift form opens as a popup once a guest (or walk-in) is
+// chosen. Wider screens keep the form beside the list.
+const phoneQuery = window.matchMedia('(max-width: 859px)')
+const isPhone = ref(phoneQuery.matches)
+const onPhoneChange = (e: MediaQueryListEvent) => (isPhone.value = e.matches)
+phoneQuery.addEventListener('change', onPhoneChange)
+const formOpen = ref(false)
+
+/** Open the gift form (the popup on phones) and wait until it is on screen. */
+async function openForm() {
+  formOpen.value = true
+  // The popup is mounted into <body> on open: give it a moment before focusing inside it.
+  await nextTick()
+  await nextTick()
+}
 
 const currency = computed(() => event.value?.currency ?? 'USD')
 // From the event's stored permissions, so this also holds offline. The server re-checks every upload.
@@ -45,17 +62,36 @@ onMounted(async () => {
   if (!res.event) loadError.value = t('desk.notCached')
   await desk.open(eventId)
 })
-onBeforeUnmount(() => desk.close())
+onBeforeUnmount(() => {
+  desk.close()
+  phoneQuery.removeEventListener('change', onPhoneChange)
+})
 
-function selectGuest(g: CachedGuest) {
+async function selectGuest(g: CachedGuest) {
   selected.value = g
+  await openForm()
+  giftFormRef.value?.focusAmount()
 }
 
 function clearGuest() {
   selected.value = null
+  formOpen.value = false
   query.value = ''
   mode.value = 'search'
   setTimeout(() => searchRef.value?.focus())
+}
+
+/** The popup was closed without recording: back to the list, keeping the search. */
+function onFormOpenChange(open: boolean) {
+  formOpen.value = open
+  if (!open) selected.value = null
+}
+
+/** Someone not on the guest list: open the gift form with the walk-in name to fill in. */
+async function startWalkIn() {
+  selected.value = null
+  await openForm()
+  giftFormRef.value?.focusWalkIn()
 }
 
 async function onScan(text: string) {
@@ -81,7 +117,7 @@ function onSearchText(text: string) {
 /** A name read from a card that isn't on the guest list: record the gift under it as a walk-in. */
 async function useWalkIn(name: string) {
   selected.value = null
-  await nextTick() // let the form show its walk-in field again before filling it
+  await openForm() // also lets the form show its walk-in field again before filling it
   giftFormRef.value?.setWalkIn(name)
   toast(t('desk.walkInFilled', { name }), 'info', 2500)
 }
@@ -115,7 +151,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
     <div v-if="desk.guestRefreshError" class="banner banner-warn small">{{ desk.guestRefreshError }}</div>
     <div v-if="noDesk" class="banner banner-warn">{{ t('desk.noPermission') }}</div>
 
-    <div v-if="!noDesk" class="grid-2">
+    <div v-if="!noDesk" :class="isPhone ? 'stack' : 'grid-2'">
       <section class="card stack">
         <div class="tabs">
           <button :class="{ active: mode === 'search' }" @click="mode = 'search'">{{ t('desk.tabSearch') }}</button>
@@ -139,9 +175,26 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
           :selected-id="selected?.id"
           @select="selectGuest"
         />
+        <!-- On wide screens the walk-in field is always visible in the gift form beside this. -->
+        <button v-if="isPhone" type="button" class="walk-in-btn" @click="startWalkIn">
+          <AppIcon name="plus" :size="16" />
+          {{ t('desk.walkInButton') }}
+        </button>
       </section>
 
-      <section class="card stack">
+      <!-- Phones: the form is a popup that opens once a guest or walk-in is chosen. -->
+      <AppDialog v-if="isPhone" :open="formOpen" :title="t('desk.recordGift')" @update:open="onFormOpenChange">
+        <GiftForm
+          ref="giftFormRef"
+          :guest="selected"
+          :currency="currency"
+          :event-id="eventId"
+          :previous-count="previousCount"
+          :submit="submit"
+          @clear-guest="clearGuest"
+        />
+      </AppDialog>
+      <section v-else class="card stack">
         <h2>{{ t('desk.recordGift') }}</h2>
         <GiftForm
           ref="giftFormRef"
@@ -165,3 +218,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
     </section>
   </div>
 </template>
+
+<style scoped>
+.walk-in-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+</style>

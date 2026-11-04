@@ -59,3 +59,28 @@ describe('GuestSearch pagination', () => {
     expect(w.emitted('select')?.[0]).toEqual([guests[2]])
   })
 })
+
+describe('GuestSearch filters', () => {
+  const mixed: CachedGuest[] = [
+    { ...guests[0], id: 101, full_name: 'Dara', side: 'groom', group: 'Family' },
+    { ...guests[0], id: 102, full_name: 'Bopha', side: 'bride', group: 'Neighbour' },
+    { ...guests[0], id: 103, full_name: 'Chan', side: 'both', group: 'family' },
+  ]
+  const mountMixed = () =>
+    mount(GuestSearch, { props: { searcher: createGuestSearcher(mixed), giftedGuestIds: new Set<number | null>(), modelValue: '' } })
+
+  it('narrows the list by side and group, and clears', async () => {
+    const w = mountMixed()
+    expect(names(w)).toEqual(['Bopha', 'Chan', 'Dara'])
+    const vm = w.vm as unknown as { filter: { side: string; group: string } }
+    vm.filter.side = 'groom'
+    await w.vm.$nextTick()
+    expect(names(w)).toEqual(['Chan', 'Dara']) // guests of both sides count for the groom too
+    vm.filter.group = 'Family'
+    vm.filter.side = 'bride'
+    await w.vm.$nextTick()
+    expect(names(w)).toEqual(['Chan'])
+    await w.find('.clear-filters').trigger('click')
+    expect(names(w)).toEqual(['Bopha', 'Chan', 'Dara'])
+  })
+})
