@@ -118,7 +118,7 @@ async function save() {
 </template>
 
 <style scoped>
-textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.85rem; }
+textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: max(0.85rem, 16px); }
 .invite-check { display: flex; flex-direction: column; gap: 10px; }
 .sample { align-items: flex-start; flex-wrap: nowrap; gap: 12px; }
 /* Always dark-on-white so phones can scan it in any theme. */

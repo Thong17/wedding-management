@@ -6,16 +6,21 @@ cd "$(dirname "$0")/.."
 
 # Uses COMPOSE_FILE from .env when set (e.g. with the shared-proxy override), else the prod file.
 if grep -q "^COMPOSE_FILE=" .env 2>/dev/null; then COMPOSE="docker compose"; else COMPOSE="docker compose -f docker-compose.prod.yml"; fi
+# Service names: wedding-* in docker-compose.droplet.yml (shared networks), short names otherwise.
+if $COMPOSE config --services | grep -qx wedding-db; then DB=wedding-db API=wedding-api WEB=wedding-web; else DB=db API=backend WEB=web; fi
 STAMP=$(date +%Y%m%d-%H%M%S)
 mkdir -p backups
 
 # Database: a plain SQL dump, restorable with psql.
-$COMPOSE exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner' | gzip > "backups/db-$STAMP.sql.gz"
+$COMPOSE exec -T "$DB" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner' | gzip > "backups/db-$STAMP.sql.gz"
+
+# A setting as the running backend sees it (compose files may set defaults that .env leaves out),
+# falling back to .env when the backend isn't running.
+env_value() { $COMPOSE exec -T "$API" printenv "$1" 2>/dev/null || sed -n "s/^$1=//p" .env; }
 
 # Uploads: from the MinIO bucket (STORAGE_BACKEND=s3) or straight out of the Docker volumes.
-STORAGE=$(sed -n 's/^STORAGE_BACKEND=//p' .env 2>/dev/null)
+STORAGE=$(env_value STORAGE_BACKEND)
 if [ "$STORAGE" = "s3" ]; then
-  env_value() { sed -n "s/^$1=//p" .env; }
   ENDPOINT=$(env_value S3_ENDPOINT_URL)
   # mc reads the server address and keys from MC_HOST_<alias>; it runs on the network that reaches MinIO.
   NETWORK=$(env_value S3_NETWORK)

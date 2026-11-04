@@ -80,6 +80,9 @@ export default {
   user: {
     menu: 'Account menu for {name}',
     profile: 'Profile',
+    install: 'Install app',
+    installed: 'Installed: open Gift Desk from your home screen.',
+    installIos: 'To install on iPhone or iPad: tap the Share button (the square with an arrow) in Safari, then "Add to Home Screen".',
   },
   profile: {
     title: 'Profile',
@@ -259,9 +262,9 @@ export default {
   },
   desk: {
     title: 'Gift desk',
-    guestsSaved: '{n} guests saved on this device · updated {when}',
+    guestsSaved: '{n} guests · updated {when}',
     refreshing: 'Refreshing…',
-    refresh: '↻ Refresh guests',
+    refresh: 'Refresh guest list',
     recordedHere: 'Recorded here ({n})',
     notCached: 'This event is not saved on this device yet. Open it once while online.',
     tabSearch: '🔎 Search',

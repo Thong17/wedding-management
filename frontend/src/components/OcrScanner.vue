@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .file-btn { cursor: pointer; flex-direction: row; }
-.matches { border: 1px solid var(--c-border); border-radius: var(--radius-md); }
+.matches { border: 1px solid var(--c-border); border-radius: var(--radius-md); overflow: hidden; }
 .matches li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
 .matches li:hover { background: var(--c-primary-soft); }
 .matches li.empty { cursor: default; }

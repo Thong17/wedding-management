@@ -136,9 +136,6 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
         <h1>{{ event?.name ?? t('desk.title') }}</h1>
         <div class="muted small">
           {{ t('desk.guestsSaved', { n: desk.guests.length, when: formatRelative(desk.guestsCachedAt) }) }}
-          <button class="btn-small" @click="desk.refreshGuests()" :disabled="desk.refreshingGuests">
-            {{ desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh') }}
-          </button>
         </div>
       </div>
       <span class="spacer" />
@@ -174,7 +171,20 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
           :gifted-guest-ids="desk.giftedGuestIds"
           :selected-id="selected?.id"
           @select="selectGuest"
-        />
+        >
+          <template #actions>
+            <button
+              type="button"
+              class="btn-icon refresh-btn"
+              :disabled="desk.refreshingGuests"
+              :title="desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh')"
+              :aria-label="desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh')"
+              @click="desk.refreshGuests()"
+            >
+              <AppIcon name="sync" :size="18" :class="{ spinning: desk.refreshingGuests }" />
+            </button>
+          </template>
+        </GuestSearch>
         <!-- On wide screens the walk-in field is always visible in the gift form beside this. -->
         <button v-if="isPhone" type="button" class="walk-in-btn" @click="startWalkIn">
           <AppIcon name="plus" :size="16" />
@@ -221,4 +231,8 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
 
 <style scoped>
 .walk-in-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.refresh-btn { flex-shrink: 0; min-height: 44px; height: 44px; }
+.spinning { animation: refresh-spin 1s linear infinite; }
+@keyframes refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }
 </style>

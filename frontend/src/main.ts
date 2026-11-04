@@ -6,7 +6,11 @@ import { requestPersistentStorage } from './offline/db'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 import { useSyncStore } from './stores/sync'
+import { listenForInstallPrompt } from './utils/installPrompt'
 import './style.css'
+
+// Before mounting: the browser may offer installing the app as soon as the page loads.
+listenForInstallPrompt()
 
 const app = createApp(App)
 app.use(i18n)

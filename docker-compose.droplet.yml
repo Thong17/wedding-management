@@ -1,0 +1,94 @@
+# Everything to run the app on a droplet that already runs another app (SereyHub) with its own Caddy
+# on ports 80/443 and its own MinIO. One file, images from Docker Hub, settings in .env next to it.
+#
+# That Caddy does HTTPS and forwards your DuckDNS address to `wedding-web:80`; uploads go into a bucket
+# in that MinIO. Both are reached over the shared `wedding-proxy` network (docker network create
+# wedding-proxy), which the other app's caddy and minio services join too. See docs/deploy.md,
+# "One compose file for a shared droplet".
+#
+# Services are named wedding-*: on a shared network every service name is a hostname, and the other
+# app's Caddy must not find a second "web" or "backend" there. The short names (db, backend) exist only
+# on this app's private network, where the web image's Caddy expects backend:8000.
+#
+# Run in a folder holding this file and .env (.env.prod.example lists the settings):
+#   docker compose -f docker-compose.droplet.yml pull
+#   docker compose -f docker-compose.droplet.yml up -d
+# With COMPOSE_FILE=docker-compose.droplet.yml in .env, plain `docker compose …` and the scripts in
+# deploy/ use this file.
+
+name: wedding-management # same volume names whichever folder this runs from
+
+services:
+  wedding-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      default:
+        aliases: [db]
+
+  wedding-api:
+    image: ${API_IMAGE:-thonggee/wedding-api:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_DEBUG: "0"
+      POSTGRES_HOST: db
+      # Fewer workers: the droplet is shared.
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      # Uploads in the droplet's MinIO unless .env says otherwise.
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_BUCKET: ${S3_BUCKET:-wedding}
+    depends_on:
+      wedding-db:
+        condition: service_healthy
+    volumes:
+      - media:/data/media # only used with STORAGE_BACKEND=files
+      - private_media:/data/private_media
+      - static:/data/static
+    networks:
+      default:
+        aliases: [backend]
+      wedding-proxy: # to reach MinIO
+
+  wedding-web:
+    image: ${WEB_IMAGE:-thonggee/wedding-web:latest}
+    restart: unless-stopped
+    environment:
+      # Plain HTTP inside Docker; the existing Caddy does HTTPS. No ports published on the droplet.
+      SITE_ADDRESS: ":80"
+      # Trust that Caddy's X-Forwarded-Proto: https, so Django builds https:// links.
+      TRUSTED_PROXIES: private_ranges
+      # Where /media/* (profile pictures) comes from.
+      MEDIA_BACKEND: ${STORAGE_BACKEND:-s3}
+      S3_BUCKET: ${S3_BUCKET:-wedding}
+      S3_UPSTREAM: ${S3_UPSTREAM:-minio:9000}
+    depends_on:
+      - wedding-api
+    volumes:
+      - static:/var/www/static:ro
+      - media:/var/www/media:ro
+    networks:
+      default:
+      wedding-proxy: # the existing Caddy forwards to wedding-web:80
+
+volumes:
+  pgdata:
+  media:
+  private_media: # client documents with STORAGE_BACKEND=files: only the backend mounts this
+  static:
+
+networks:
+  wedding-proxy:
+    external: true

@@ -54,8 +54,8 @@ onBeforeUnmount(() => observer?.disconnect())
       </nav>
       <span class="spacer" />
       <SyncStatusBadge />
-      <ThemeSwitch />
-      <LanguageSwitch />
+      <!-- Phones: language and theme are in the avatar menu instead (UserMenu). -->
+      <span class="wide-only row"><ThemeSwitch /><LanguageSwitch /></span>
       <UserMenu />
     </div>
   </header>
@@ -98,6 +98,9 @@ onBeforeUnmount(() => observer?.disconnect())
 .menu-btn { display: none; width: 40px; min-height: 40px; height: 40px; }
 @media (max-width: 899px) {
   .menu-btn { display: inline-flex; }
+}
+@media (max-width: 599px) {
+  .wide-only { display: none; }
 }
 .brand { font-weight: 700; text-decoration: none; color: var(--c-text); margin-right: 8px; }
 nav a { text-decoration: none; color: var(--c-muted); padding: 6px 8px; border-radius: var(--radius-sm); }

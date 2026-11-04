@@ -69,16 +69,20 @@ defineExpose({ focus: () => input.value?.focus() })
 
 <template>
   <div class="stack">
-    <input
-      ref="input"
-      v-model="query"
-      type="search"
-      :placeholder="t('search.placeholder')"
-      autocomplete="off"
-      autocapitalize="off"
-      enterkeyhint="search"
-      @keydown="onKey"
-    />
+    <div class="search-row">
+      <input
+        ref="input"
+        v-model="query"
+        type="search"
+        :placeholder="t('search.placeholder')"
+        autocomplete="off"
+        autocapitalize="off"
+        enterkeyhint="search"
+        @keydown="onKey"
+      />
+      <!-- Buttons beside the search box, e.g. refreshing the guest list. -->
+      <slot name="actions" />
+    </div>
     <div class="row filters">
       <AppSelect v-model="filter.side" :options="sideFilterOptions" :aria-label="t('search.side')" />
       <AppSelect v-if="groupOptions.length > 1" v-model="filter.group" :options="groupOptions" :aria-label="t('search.group')" />
@@ -118,11 +122,13 @@ defineExpose({ focus: () => input.value?.focus() })
 </template>
 
 <style scoped>
-.results { border: 1px solid var(--c-border); border-radius: var(--radius-md); }
+.results { border: 1px solid var(--c-border); border-radius: var(--radius-md); overflow: hidden; }
 .results li { padding: 10px 12px; cursor: pointer; }
 .results li.active { background: var(--c-primary-soft); }
 .results li.selected { box-shadow: inset 3px 0 0 var(--c-primary); }
 .results li.empty { cursor: default; }
 .pager { gap: 8px; }
+.search-row { display: flex; gap: 8px; align-items: center; }
+.search-row input { flex: 1; min-width: 0; }
 .filters > :deep(.app-select) { flex: 1 1 140px; min-width: 0; }
 </style>

@@ -234,6 +234,34 @@ step 4 before anything else, or the kernel may stop containers (either app's) wh
 
 ---
 
+## One compose file for a shared droplet
+
+`docker-compose.droplet.yml` combines the two sections around this one: no ports of its own (the existing
+Caddy forwards to `wedding-web:80`), uploads in the existing MinIO, two Gunicorn workers. The images contain
+everything else, so this file and `.env` are all the droplet needs.
+
+1. Do the one-time parts first: the shared network with Caddy and MinIO connected (step 1 above), the MinIO
+   access key (step 1 below), and the Caddy site block (step 3 above).
+2. In the repository folder on the droplet, `.env` needs (besides the usual settings):
+   ```
+   COMPOSE_FILE=docker-compose.droplet.yml
+   STORAGE_BACKEND=s3
+   S3_ACCESS_KEY=<access key>
+   S3_SECRET_KEY=<secret key>
+   ```
+   (`.env.prod.example` has `STORAGE_BACKEND=files`; change it, since `.env` wins over the file's default.)
+   MinIO address, bucket (`wedding`) and storage default to the droplet setup; set them in `.env` to change.
+3. Start: `docker compose pull && docker compose up -d`. `deploy/update.sh` and `deploy/backup.sh` use it too.
+   The services are named `wedding-db`, `wedding-api` and `wedding-web` here, so other apps on the shared
+   network never see a second `web` or `backend`: create your login with
+   `docker compose exec wedding-api python manage.py createsuperuser`.
+
+Without the repository, copy just `docker-compose.droplet.yml` and `.env` into a folder and run
+`docker compose -f docker-compose.droplet.yml up -d` there (updates: `… pull` then `… up -d`; the backup and
+update scripts need the repository).
+
+---
+
 ## Storing uploads in MinIO
 
 By default uploads (profile pictures, client documents) live in Docker volumes on the droplet. To keep them in
