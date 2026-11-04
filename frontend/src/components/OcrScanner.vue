@@ -34,69 +34,25 @@ const error = ref<string | null>(null)
 const preview = ref<string | null>(null)
 const cameraOn = ref(false)
 const video = ref<HTMLVideoElement | null>(null)
+// Khmer first: it's the main script on Cambodian invitations; English covers Latin names.
+const langs = import.meta.env.VITE_OCR_LANGS || 'khm+eng'
 let stream: MediaStream | null = null
 
-/**
- * The language on the card. With both models the engine tries English on every word and often turns
- * Khmer letters into Latin ones; reading with only the right model avoids that. Remembered on this
- * device. Default: VITE_OCR_LANGS, else both (Khmer first: the main script on Cambodian invitations).
- */
-const OCR_LANGS = ['khm', 'eng', 'khm+eng'] as const
-type OcrLang = (typeof OCR_LANGS)[number]
-const LANG_KEY = 'wms.ocrLang'
-const isOcrLang = (v: unknown): v is OcrLang => OCR_LANGS.includes(v as OcrLang)
-function savedLang(): OcrLang {
-  try {
-    const saved = localStorage.getItem(LANG_KEY)
-    if (isOcrLang(saved)) return saved
-  } catch {
-    // storage blocked (private mode): use the default
-  }
-  const fallback = import.meta.env.VITE_OCR_LANGS
-  return isOcrLang(fallback) ? fallback : 'khm+eng'
-}
-const lang = ref<OcrLang>(savedLang())
-
 type OcrWorker = Awaited<ReturnType<typeof import('tesseract.js')['createWorker']>>
-// One engine for as long as the scanner is open (loading a model is the slow part), replaced when
-// the language changes.
+// One engine for as long as the scanner is open: loading the Khmer model is the slow part.
 let workerPromise: Promise<OcrWorker> | null = null
-let workerLang: OcrLang | null = null
 function getWorker(): Promise<OcrWorker> {
-  if (workerPromise && workerLang !== lang.value) disposeWorker()
-  if (!workerPromise) {
-    workerLang = lang.value
-    const langs = lang.value
-    workerPromise = (async () => {
-      // Loaded on demand: the OCR engine is large and only needed here.
-      const { createWorker } = await import('tesseract.js')
-      return createWorker(langs, 1, {
-        logger: (m: { status: string; progress: number }) => {
-          if (m.status === 'recognizing text') progress.value = Math.round(m.progress * 100)
-        },
-      })
-    })()
-    workerPromise.catch(() => disposeWorker()) // allow a retry, e.g. after coming back online
-  }
+  workerPromise ??= (async () => {
+    // Loaded on demand: the OCR engine is large and only needed here.
+    const { createWorker } = await import('tesseract.js')
+    return createWorker(langs, 1, {
+      logger: (m: { status: string; progress: number }) => {
+        if (m.status === 'recognizing text') progress.value = Math.round(m.progress * 100)
+      },
+    })
+  })()
+  workerPromise.catch(() => (workerPromise = null)) // allow a retry, e.g. after coming back online
   return workerPromise
-}
-function disposeWorker() {
-  void workerPromise?.then((w) => w.terminate()).catch(() => {})
-  workerPromise = null
-  workerLang = null
-}
-
-// The last picture read, so switching the language can read it again without a new photo.
-let lastImage: { image: Blob; layout: keyof typeof PAGE_MODES } | null = null
-function setLang(next: OcrLang) {
-  if (next === lang.value || busy.value) return
-  lang.value = next
-  try {
-    localStorage.setItem(LANG_KEY, next)
-  } catch {
-    // not remembered this time; still used now
-  }
-  if (lastImage && !cameraOn.value) void recognize(lastImage.image, lastImage.layout)
 }
 
 async function startCamera() {
@@ -181,11 +137,8 @@ async function recognize(image: Blob, layout: keyof typeof PAGE_MODES) {
   error.value = null
   lines.value = []
   progress.value = 0
-  if (lastImage?.image !== image) {
-    if (preview.value) URL.revokeObjectURL(preview.value)
-    preview.value = URL.createObjectURL(image)
-    lastImage = { image, layout }
-  }
+  if (preview.value) URL.revokeObjectURL(preview.value)
+  preview.value = URL.createObjectURL(image)
   try {
     const worker = await getWorker()
     await worker.setParameters({
@@ -214,29 +167,13 @@ onBeforeUnmount(() => {
   stopCamera()
   if (preview.value) URL.revokeObjectURL(preview.value)
   // Free the OCR engine's memory when the scanner closes.
-  disposeWorker()
+  void workerPromise?.then((w) => w.terminate()).catch(() => {})
+  workerPromise = null
 })
 </script>
 
 <template>
   <div class="stack">
-    <div class="row lang-row" role="radiogroup" :aria-label="t('ocr.language')">
-      <span class="muted small">{{ t('ocr.language') }}</span>
-      <!-- Each language written in itself, like the language menu. -->
-      <button
-        v-for="l in OCR_LANGS"
-        :key="l"
-        type="button"
-        role="radio"
-        class="btn-small"
-        :class="{ 'btn-primary': lang === l }"
-        :aria-checked="lang === l"
-        :disabled="busy"
-        @click="setLang(l)"
-      >
-        {{ t(`ocr.lang.${l === 'khm+eng' ? 'both' : l}`) }}
-      </button>
-    </div>
     <div v-if="cameraOn" class="camera">
       <video ref="video" playsinline muted />
       <div class="guide" />
@@ -292,7 +229,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.lang-row { gap: 6px; }
 .file-btn { cursor: pointer; flex-direction: row; }
 .matches { border: 1px solid var(--c-border); border-radius: var(--radius-md); overflow: hidden; }
 .matches li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }

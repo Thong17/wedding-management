@@ -78,7 +78,7 @@ async function remove() {
   }
 }
 
-const dash = (v: string | null | undefined) => v || '—'
+const dash = (v: string | null | undefined) => v || '--'
 </script>
 
 <template>
@@ -118,9 +118,9 @@ const dash = (v: string | null | undefined) => v || '—'
         <dl class="fields">
           <dt>{{ t('clients.statusLabel') }}</dt>
           <dd><span class="badge" :class="clientStatusBadge(client).cls">{{ clientStatusBadge(client).label }}</span></dd>
-          <dt>{{ t('clients.trialEnds') }}</dt><dd>{{ client.status === 'trial' ? dash(client.trial_ends_at) : '—' }}</dd>
+          <dt>{{ t('clients.trialEnds') }}</dt><dd>{{ client.status === 'trial' ? dash(client.trial_ends_at) : '--' }}</dd>
           <dt>{{ t('clients.price') }}</dt>
-          <dd>{{ client.subscription_price ? formatMoney(client.subscription_price, client.subscription_currency) : '—' }}</dd>
+          <dd>{{ client.subscription_price ? formatMoney(client.subscription_price, client.subscription_currency) : '--' }}</dd>
           <dt>{{ t('clients.billingPeriod') }}</dt><dd>{{ t(`clients.period.${client.billing_period || 'none'}`) }}</dd>
           <dt>{{ t('clients.subscriptionStart') }}</dt><dd>{{ dash(client.subscription_start) }}</dd>
         </dl>

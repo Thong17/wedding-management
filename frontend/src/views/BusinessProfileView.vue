@@ -37,10 +37,10 @@ onMounted(async () => {
           <h2>{{ t('clients.tabs.business') }}</h2>
           <dl class="fields">
             <dt>{{ t('clients.businessName') }}</dt><dd>{{ client.business_name }}</dd>
-            <dt>{{ t('clients.contactName') }}</dt><dd>{{ client.contact_name || '—' }}</dd>
-            <dt>{{ t('clients.phone') }}</dt><dd>{{ client.phone || '—' }}</dd>
-            <dt>{{ t('clients.email') }}</dt><dd>{{ client.email || '—' }}</dd>
-            <dt>{{ t('clients.address') }}</dt><dd class="pre">{{ client.address || '—' }}</dd>
+            <dt>{{ t('clients.contactName') }}</dt><dd>{{ client.contact_name || '--' }}</dd>
+            <dt>{{ t('clients.phone') }}</dt><dd>{{ client.phone || '--' }}</dd>
+            <dt>{{ t('clients.email') }}</dt><dd>{{ client.email || '--' }}</dd>
+            <dt>{{ t('clients.address') }}</dt><dd class="pre">{{ client.address || '--' }}</dd>
           </dl>
         </section>
         <section class="card stack">
@@ -49,9 +49,9 @@ onMounted(async () => {
             <dt>{{ t('clients.statusLabel') }}</dt>
             <dd><span class="badge" :class="clientStatusBadge(client).cls">{{ clientStatusBadge(client).label }}</span></dd>
             <dt>{{ t('clients.price') }}</dt>
-            <dd>{{ client.subscription_price ? formatMoney(client.subscription_price, client.subscription_currency) : '—' }}</dd>
+            <dd>{{ client.subscription_price ? formatMoney(client.subscription_price, client.subscription_currency) : '--' }}</dd>
             <dt>{{ t('clients.billingPeriod') }}</dt><dd>{{ t(`clients.period.${client.billing_period || 'none'}`) }}</dd>
-            <dt>{{ t('clients.subscriptionStart') }}</dt><dd>{{ client.subscription_start || '—' }}</dd>
+            <dt>{{ t('clients.subscriptionStart') }}</dt><dd>{{ client.subscription_start || '--' }}</dd>
           </dl>
         </section>
       </div>

@@ -89,7 +89,7 @@ function exportCsv() {
         <div class="card">
           <h2>{{ t('report.byMethod') }}</h2>
           <table><tbody>
-            <tr v-for="m in report.by_method" :key="m.method"><td>{{ methodLabel(m.method) }}</td><td class="right">{{ m.count }}</td><td class="right">{{ m.method === 'item' ? '—' : formatMoney(m.total, report.currency) }}</td></tr>
+            <tr v-for="m in report.by_method" :key="m.method"><td>{{ methodLabel(m.method) }}</td><td class="right">{{ m.count }}</td><td class="right">{{ m.method === 'item' ? '--' : formatMoney(m.total, report.currency) }}</td></tr>
           </tbody></table>
         </div>
         <div class="card">
@@ -112,7 +112,7 @@ function exportCsv() {
             <tbody>
               <tr v-for="g in guests" :key="g.id">
                 <td>{{ g.full_name }}</td><td>{{ sideLabel(g.side) }}</td><td>{{ g.group }}</td>
-                <td class="right">{{ g.gift_count }}</td><td class="right">{{ g.gift_total ? formatMoney(g.gift_total, report.currency) : '—' }}</td>
+                <td class="right">{{ g.gift_count }}</td><td class="right">{{ g.gift_total ? formatMoney(g.gift_total, report.currency) : '--' }}</td>
                 <td class="small">{{ (itemsByGuest.get(g.id) ?? []).join(', ') }}</td>
               </tr>
             </tbody>

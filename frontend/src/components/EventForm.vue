@@ -97,7 +97,7 @@ async function save() {
         <template v-else>
           <div class="row">
             <span class="badge badge-synced">
-              {{ invite.kind === 'url' ? t('eventForm.inviteIsLink', { host: invite.url.hostname }) : t('eventForm.inviteIsKhqr', { name: invite.qr.merchantName || '—' }) }}
+              {{ invite.kind === 'url' ? t('eventForm.inviteIsLink', { host: invite.url.hostname }) : t('eventForm.inviteIsKhqr', { name: invite.qr.merchantName || '--' }) }}
             </span>
             <a v-if="invite.kind === 'url'" class="small" :href="form.invite_qr.trim()" target="_blank" rel="noopener noreferrer">{{ t('eventForm.testLink') }}</a>
           </div>

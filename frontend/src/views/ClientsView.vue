@@ -49,7 +49,7 @@ watch(() => filters.search, () => {
 onMounted(load)
 
 const price = (c: ApiClient) =>
-  c.subscription_price ? `${formatMoney(c.subscription_price, c.subscription_currency)}${c.billing_period ? ` / ${t(`clients.period.${c.billing_period}`)}` : ''}` : '—'
+  c.subscription_price ? `${formatMoney(c.subscription_price, c.subscription_currency)}${c.billing_period ? ` / ${t(`clients.period.${c.billing_period}`)}` : ''}` : '--'
 </script>
 
 <template>

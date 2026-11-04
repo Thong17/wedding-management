@@ -10,6 +10,7 @@ import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppNote from '@/components/AppNote.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import LoginDetailsDialog from '@/components/LoginDetailsDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { confirmDialog } from '@/utils/confirmDialog'
 import { formatDateTime } from '@/utils/format'
@@ -84,6 +85,9 @@ function generatePassword(): string {
   return Array.from(bytes, (b) => chars[b % chars.length]).join('')
 }
 
+// Shown once after creating a login or resetting its password, to hand the details over.
+const handover = ref<{ username: string; password: string; reset?: boolean } | null>(null)
+
 // --- Create / edit -------------------------------------------------------------------------------
 const editing = ref<ApiManagedUser | 'new' | null>(null)
 const form = reactive({ username: '', first_name: '', last_name: '', password: '', user_type: 'customer', client: 'none', trial_ends_at: '', is_active: true })
@@ -128,7 +132,7 @@ async function save() {
   try {
     if (editing.value === 'new') {
       const created = await usersApi.create(payload())
-      toast(t('users.created', { name: created.username, password: form.password }), 'ok', 12_000)
+      handover.value = { username: created.username, password: form.password }
     } else if (editing.value) {
       await usersApi.update(editing.value.id, payload())
       toast(t('users.saved'))
@@ -166,7 +170,7 @@ async function reset() {
   if (!resetting.value) return
   try {
     await usersApi.resetPassword(resetting.value.id, newPassword.value)
-    toast(t('users.passwordReset', { name: resetting.value.username, password: newPassword.value }), 'ok', 12_000)
+    handover.value = { username: resetting.value.username, password: newPassword.value, reset: true }
     resetting.value = null
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 400) resetErrors.value = err.response.data.password ?? [errorMessage(err)]
@@ -238,6 +242,8 @@ const typeLabel = (u: ApiManagedUser) => (u.is_platform_admin ? t('users.types.p
       </form>
     </AppDialog>
 
+    <LoginDetailsDialog :details="handover" @close="handover = null" />
+
     <div class="table-wrap">
       <table>
         <thead>
@@ -265,7 +271,7 @@ const typeLabel = (u: ApiManagedUser) => (u.is_platform_admin ? t('users.types.p
               <span v-else class="badge badge-synced">{{ t('users.active') }}</span>
               <div v-if="u.trial_ends_at" class="muted">{{ t('users.until', { date: u.trial_ends_at }) }}</div>
             </td>
-            <td class="right">{{ u.user_type === 'customer' ? u.assignment_count : '—' }}</td>
+            <td class="right">{{ u.user_type === 'customer' ? u.assignment_count : '--' }}</td>
             <td class="small nowrap">{{ u.last_login ? formatDateTime(u.last_login) : t('users.never') }}</td>
             <td>
               <div v-if="canEdit(u)" class="row-actions">

@@ -166,7 +166,7 @@ const typeOptions = () => TYPES.map((value) => ({ value, label: t(`documents.typ
           {{ doc.original_name }} · {{ sizeLabel(doc.size) }}
           <span v-if="doc.issued_on"> · {{ t('documents.issued', { date: doc.issued_on }) }}</span>
           <span v-if="doc.expires_on"> · {{ t('documents.expires', { date: doc.expires_on }) }}</span>
-          · {{ t('documents.uploaded', { when: formatDateTime(doc.uploaded_at), name: doc.uploaded_by_username ?? '—' }) }}
+          · {{ t('documents.uploaded', { when: formatDateTime(doc.uploaded_at), name: doc.uploaded_by_username ?? '--' }) }}
         </div>
         <div v-if="doc.notes" class="small">{{ doc.notes }}</div>
       </li>

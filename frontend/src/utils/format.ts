@@ -11,7 +11,7 @@ export function formatMoney(amount: string | number | null | undefined, currency
 }
 
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return '--'
   return new Date(iso).toLocaleString(intlLocale(), { dateStyle: 'medium', timeStyle: 'short' })
 }
 
