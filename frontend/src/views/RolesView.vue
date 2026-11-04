@@ -9,8 +9,10 @@ import type { ApiRole } from '@/api/types'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import RoleForm, { type RoleFormValue } from '@/components/RoleForm.vue'
 import { useAuthStore } from '@/stores/auth'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { formatDateTime } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
@@ -85,7 +87,7 @@ async function save(value: RoleFormValue) {
 }
 
 async function remove(role: ApiRole) {
-  if (!confirm(t('roles.deleteConfirm', { name: role.name }))) return
+  if (!(await confirmDialog({ message: t('roles.deleteConfirm', { name: role.name }), confirmText: t('common.delete'), danger: true }))) return
   try {
     await rolesApi.remove(role.id)
     toast(t('roles.deleted'), 'info')
@@ -130,7 +132,12 @@ async function remove(role: ApiRole) {
           <span class="spacer" />
           <template v-if="role.editable">
             <button class="btn-small" @click="open(role.id)">{{ t('common.edit') }}</button>
-            <button class="btn-small btn-danger" :disabled="role.usage_count > 0" :title="role.usage_count ? t('roles.inUse') : ''" @click="remove(role)">{{ t('common.remove') }}</button>
+            <!-- A disabled button gets no hover events: the tooltip sits on a wrapper. -->
+            <AppTooltip :text="role.usage_count ? t('roles.inUse') : null">
+              <span class="tooltip-wrap">
+                <button class="btn-small btn-danger" :disabled="role.usage_count > 0" @click="remove(role)">{{ t('common.remove') }}</button>
+              </span>
+            </AppTooltip>
           </template>
         </div>
         <div class="chips">
@@ -148,6 +155,7 @@ async function remove(role: ApiRole) {
 </template>
 
 <style scoped>
+.tooltip-wrap { display: inline-flex; }
 .roles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); }
 .role-name { margin: 0; overflow-wrap: anywhere; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

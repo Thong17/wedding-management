@@ -7,6 +7,7 @@ import type { ApiAssignment, ApiEvent, ApiManagedUser, ApiRole } from '@/api/typ
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { toast } from '@/utils/toast'
 
 /** The people on an event (customers with a role). Only shown to people with full access. */
@@ -80,7 +81,7 @@ async function changeRole(a: ApiAssignment, roleId: string) {
 }
 
 async function remove(a: ApiAssignment) {
-  if (!confirm(t('team.removeConfirm', { name: a.username }))) return
+  if (!(await confirmDialog({ message: t('team.removeConfirm', { name: a.username }), confirmText: t('common.remove'), danger: true }))) return
   try {
     await assignmentsApi.remove(props.event.id, a.id)
     await load()

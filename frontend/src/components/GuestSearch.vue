@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppSelect from '@/components/AppSelect.vue'
+import GiftedBadge from '@/components/GiftedBadge.vue'
 import type { CachedGuest } from '@/offline/db'
 import { filterGuests, guestGroups, NO_FILTER, type GuestFilter, type GuestSearcher } from '@/offline/guestSearch'
 import { sideLabel, sideOptions } from '@/utils/format'
@@ -100,7 +101,7 @@ defineExpose({ focus: () => input.value?.focus() })
           <strong>{{ g.full_name }}</strong>
           <span v-if="g.nickname" class="muted small">“{{ g.nickname }}”</span>
           <span class="spacer" />
-          <span v-if="giftedGuestIds.has(g.id)" class="badge badge-synced" :title="t('search.giftedTitle')">{{ t('search.gifted') }}</span>
+          <GiftedBadge v-if="giftedGuestIds.has(g.id)" />
         </div>
         <div class="muted small">
           {{ sideLabel(g.side) }}<span v-if="g.group"> · {{ g.group }}</span><span v-if="g.table_no"> · {{ t('common.table', { n: g.table_no }) }}</span><span v-if="g.phone"> · {{ g.phone }}</span>

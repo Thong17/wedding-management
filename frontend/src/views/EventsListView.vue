@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import EventForm from '@/components/EventForm.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEventsStore } from '@/stores/events'
 import { can } from '@/utils/permissions'
@@ -33,9 +34,11 @@ onMounted(() => store.load())
     <p v-else-if="!store.events.length && !store.error" class="muted">{{ t('events.empty') }}</p>
     <div class="events">
       <div v-for="e in store.events" :key="e.id" class="card stack event">
-        <RouterLink v-if="can(e, 'report_view')" class="btn btn-icon report" :to="`/events/${e.id}/report`" :title="t('events.report')" :aria-label="t('events.report')">
-          <AppIcon name="chart" />
-        </RouterLink>
+        <AppTooltip v-if="can(e, 'report_view')" :text="t('events.report')">
+          <RouterLink class="btn btn-icon report" :to="`/events/${e.id}/report`" :aria-label="t('events.report')">
+            <AppIcon name="chart" />
+          </RouterLink>
+        </AppTooltip>
         <div class="event-head">
           <h2>{{ e.name }}</h2>
           <div class="muted small">{{ e.date }}<span v-if="e.venue"> · {{ e.venue }}</span> · {{ e.currency }}</div>

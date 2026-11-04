@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import AppTooltip from '@/components/AppTooltip.vue'
 import type { GiftTransaction } from '@/offline/db'
 import { formatDateTime, formatGiftValue, methodLabel } from '@/utils/format'
 
@@ -23,7 +24,9 @@ const { t } = useI18n()
         <span v-if="showEvent">· {{ t('txn.event', { id: item.eventId }) }}</span>
         <span v-if="item.note">· {{ item.note }}</span>
         <span class="spacer" />
-        <span class="badge" :class="`badge-${item.status}`" :title="item.lastError ?? ''">{{ t(`status.${item.status}`) }}</span>
+        <AppTooltip :text="item.lastError">
+          <span class="badge" :class="`badge-${item.status}`">{{ t(`status.${item.status}`) }}</span>
+        </AppTooltip>
       </div>
       <div v-if="item.status === 'failed' || (item.status === 'pending' && item.lastError)" class="small" :class="item.status === 'failed' ? 'field-error' : 'muted'">
         {{ item.status === 'failed' ? `⚠ ${item.lastError}` : t('txn.lastAttempt', { error: item.lastError }) }}

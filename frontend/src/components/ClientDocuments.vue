@@ -9,6 +9,7 @@ import AppDatePicker from '@/components/AppDatePicker.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { formatDateTime } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
@@ -101,7 +102,7 @@ async function save() {
 }
 
 async function remove(doc: ApiClientDocument) {
-  if (!confirm(t('documents.deleteConfirm', { name: doc.original_name }))) return
+  if (!(await confirmDialog({ message: t('documents.deleteConfirm', { name: doc.original_name }), confirmText: t('common.delete'), danger: true }))) return
   try {
     await documentsApi.remove(props.clientId, doc.id)
     await load()

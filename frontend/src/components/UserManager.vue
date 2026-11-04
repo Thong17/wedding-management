@@ -11,6 +11,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppNote from '@/components/AppNote.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { useAuthStore } from '@/stores/auth'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { formatDateTime } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
@@ -143,7 +144,7 @@ async function save() {
 }
 
 async function setActive(u: ApiManagedUser, active: boolean) {
-  if (!active && !confirm(t('users.deactivateConfirm', { name: u.username }))) return
+  if (!active && !(await confirmDialog({ message: t('users.deactivateConfirm', { name: u.username }), confirmText: t('users.deactivate'), danger: true }))) return
   try {
     await usersApi.update(u.id, { is_active: active })
     await load()

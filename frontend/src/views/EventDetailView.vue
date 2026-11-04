@@ -11,6 +11,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import EventForm from '@/components/EventForm.vue'
 import EventTeam from '@/components/EventTeam.vue'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { formatDateTime, formatGiftValue, methodLabel, methodOptions, sideLabel, sideOptions } from '@/utils/format'
 import { downloadGuestCsvTemplate, exportGuestsXlsx } from '@/utils/guestExport'
 import { can } from '@/utils/permissions'
@@ -113,7 +114,7 @@ function onEventSaved(updated: ApiEvent) {
   editOpen.value = false
 }
 async function deleteGuest(g: ApiGuest) {
-  if (!confirm(t('guests.removeConfirm', { name: g.full_name }))) return
+  if (!(await confirmDialog({ message: t('guests.removeConfirm', { name: g.full_name }), confirmText: t('common.remove'), danger: true }))) return
   await guestsApi.remove(eventId.value, g.id)
   await loadGuests()
 }
@@ -154,7 +155,8 @@ async function saveGiftEdit() {
   }
 }
 async function voidGift(g: ApiGift) {
-  if (!confirm(t('gifts.voidConfirm', { amount: formatGiftValue(g), name: g.guest_name }))) return
+  const message = t('gifts.voidConfirm', { amount: formatGiftValue(g), name: g.guest_name })
+  if (!(await confirmDialog({ message, confirmText: t('gifts.void'), danger: true }))) return
   try {
     await giftsApi.void(eventId.value, g.id, g.updated_at)
     toast(t('gifts.voided'))
@@ -175,7 +177,7 @@ function handleGiftConflict(err: unknown) {
 }
 
 async function deleteEvent() {
-  if (!confirm(t('members.deleteConfirm'))) return
+  if (!(await confirmDialog({ message: t('members.deleteConfirm'), confirmText: t('members.deleteEvent'), danger: true }))) return
   try {
     await eventsApi.remove(eventId.value)
     router.push('/')

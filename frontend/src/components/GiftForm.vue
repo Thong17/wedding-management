@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { intlLocale } from '@/i18n'
 import type { CachedGuest, GiftMethod } from '@/offline/db'
 import { GiftValidationError, validateGiftInput, type GiftInput, type ValidationErrors } from '@/offline/transactionRepo'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { sideLabel } from '@/utils/format'
 
 const props = defineProps<{
@@ -70,7 +71,14 @@ async function onSubmit() {
   const input = buildInput()
   errors.value = validateGiftInput({ ...input, eventId: props.eventId })
   if (Object.keys(errors.value).length) return
-  if (props.previousCount > 0 && !confirm(t('giftForm.confirmAnother', { name: input.guestName, n: props.previousCount }))) return
+  if (
+    props.previousCount > 0 &&
+    !(await confirmDialog({
+      message: t('giftForm.confirmAnother', { name: input.guestName, n: props.previousCount }),
+      confirmText: t('giftForm.recordAnother'),
+    }))
+  )
+    return
   saving.value = true
   formError.value = null
   try {

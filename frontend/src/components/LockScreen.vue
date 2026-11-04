@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { useSyncStore } from '@/stores/sync'
 
 /**
@@ -39,8 +40,9 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(timer))
 
-function logout() {
-  if (waiting.value + failed.value > 0 && !confirm(t('app.logoutConfirm', waiting.value + failed.value))) return
+async function logout() {
+  const unsynced = waiting.value + failed.value
+  if (unsynced > 0 && !(await confirmDialog({ message: t('app.logoutConfirm', unsynced), confirmText: t('app.logout') }))) return
   auth.logout()
   router.push({ name: 'login' })
 }

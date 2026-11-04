@@ -8,6 +8,7 @@ import GuestSearch from '@/components/GuestSearch.vue'
 import OcrScanner from '@/components/OcrScanner.vue'
 import QrScanner from '@/components/QrScanner.vue'
 import TransactionList from '@/components/TransactionList.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import type { CachedEvent, CachedGuest } from '@/offline/db'
 import { findGuestByQrRef } from '@/offline/guestCache'
 import { parseScannedCode } from '@/offline/guestSearch'
@@ -173,16 +174,17 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
           @select="selectGuest"
         >
           <template #actions>
-            <button
-              type="button"
-              class="btn-icon refresh-btn"
-              :disabled="desk.refreshingGuests"
-              :title="desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh')"
-              :aria-label="desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh')"
-              @click="desk.refreshGuests()"
-            >
-              <AppIcon name="sync" :size="18" :class="{ spinning: desk.refreshingGuests }" />
-            </button>
+            <AppTooltip :text="desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh')">
+              <button
+                type="button"
+                class="btn-icon refresh-btn"
+                :disabled="desk.refreshingGuests"
+                :aria-label="desk.refreshingGuests ? t('desk.refreshing') : t('desk.refresh')"
+                @click="desk.refreshGuests()"
+              >
+                <AppIcon name="sync" :size="18" :class="{ spinning: desk.refreshingGuests }" />
+              </button>
+            </AppTooltip>
           </template>
         </GuestSearch>
         <!-- On wide screens the walk-in field is always visible in the gift form beside this. -->

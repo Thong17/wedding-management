@@ -21,6 +21,7 @@ import { LOCALES, setLocale, type Locale } from '@/i18n'
 import { setTheme, SWATCHES, theme, THEMES, type Theme } from '@/theme'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
+import { alertDialog, confirmDialog } from '@/utils/confirmDialog'
 import { useInstallPrompt } from '@/utils/installPrompt'
 import { toast } from '@/utils/toast'
 
@@ -44,13 +45,13 @@ async function installApp() {
   if (installer.canPrompt.value) {
     if (await installer.install()) toast(t('user.installed'))
   } else {
-    alert(t('user.installIos'))
+    await alertDialog({ title: t('user.install'), message: t('user.installIos') })
   }
 }
 
-function logout() {
+async function logout() {
   const unsynced = sync.unsynced + sync.counts.failed
-  if (unsynced > 0 && !confirm(t('app.logoutConfirm', unsynced))) return
+  if (unsynced > 0 && !(await confirmDialog({ message: t('app.logoutConfirm', unsynced), confirmText: t('app.logout') }))) return
   auth.logout()
   router.push({ name: 'login' })
 }

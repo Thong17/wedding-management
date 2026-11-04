@@ -11,6 +11,7 @@ import {
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import { LOCALES, setLocale, type Locale } from '@/i18n'
 
 const { t, locale } = useI18n()
@@ -22,9 +23,11 @@ const current = computed({
 
 <template>
   <DropdownMenuRoot>
-    <DropdownMenuTrigger class="btn menu-trigger" :title="t('lang.label')" :aria-label="t('lang.label')">
-      <AppIcon name="globe" />
-    </DropdownMenuTrigger>
+    <AppTooltip :text="t('lang.label')" side="bottom">
+      <DropdownMenuTrigger class="btn menu-trigger" :aria-label="t('lang.label')">
+        <AppIcon name="globe" />
+      </DropdownMenuTrigger>
+    </AppTooltip>
     <DropdownMenuPortal>
       <DropdownMenuContent class="menu" align="end" :side-offset="6">
         <DropdownMenuRadioGroup v-model="current">

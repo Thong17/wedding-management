@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import GiftedBadge from '@/components/GiftedBadge.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import type { CachedGuest } from '@/offline/db'
 import { guestsLikeOcrLines, pickMiddleText, type GuestSearcher, type MiddleText } from '@/offline/guestSearch'
 import { sideLabel } from '@/utils/format'
@@ -190,8 +192,10 @@ onBeforeUnmount(() => {
     <div v-if="lines.length" class="stack">
       <span class="muted small">{{ t('ocr.similarGuests') }}</span>
       <ul class="list matches">
-        <li v-for="g in similarGuests" :key="g.id" :title="t('ocr.onList')" @click="emit('select', g)">
-          <AppIcon name="check" :size="16" class="on-list" />
+        <li v-for="g in similarGuests" :key="g.id" @click="emit('select', g)">
+          <AppTooltip :text="t('ocr.onList')">
+            <span class="on-list" :aria-label="t('ocr.onList')"><AppIcon name="check" :size="16" /></span>
+          </AppTooltip>
           <div class="grow">
             <strong>{{ g.full_name }}</strong>
             <span v-if="g.nickname" class="muted small"> “{{ g.nickname }}”</span>
@@ -199,23 +203,19 @@ onBeforeUnmount(() => {
               {{ sideLabel(g.side) }}<span v-if="g.group"> · {{ g.group }}</span><span v-if="g.table_no"> · {{ t('common.table', { n: g.table_no }) }}</span>
             </div>
           </div>
-          <span v-if="giftedGuestIds.has(g.id)" class="badge badge-synced" :title="t('search.giftedTitle')">{{ t('search.gifted') }}</span>
+          <GiftedBadge v-if="giftedGuestIds.has(g.id)" />
         </li>
         <li v-if="!similarGuests.length" class="muted small empty">{{ t('ocr.noSimilar') }}</li>
       </ul>
 
       <span class="muted small">{{ t('ocr.readText') }}</span>
       <div class="row">
-        <button
-          v-for="l in readLines"
-          :key="l.text"
-          class="btn-small read-line"
-          :title="l.guest ? t('ocr.onList') : t('ocr.useAsWalkIn')"
-          @click="pickLine(l)"
-        >
-          <AppIcon :name="l.guest ? 'check' : 'plus'" :size="14" :class="l.guest ? 'on-list' : 'not-on-list'" />
-          {{ l.text }}
-        </button>
+        <AppTooltip v-for="l in readLines" :key="l.text" :text="l.guest ? t('ocr.onList') : t('ocr.useAsWalkIn')">
+          <button class="btn-small read-line" @click="pickLine(l)">
+            <AppIcon :name="l.guest ? 'check' : 'plus'" :size="14" :class="l.guest ? 'on-list' : 'not-on-list'" />
+            {{ l.text }}
+          </button>
+        </AppTooltip>
       </div>
       <span class="muted small">{{ t('ocr.legend') }}</span>
     </div>
@@ -230,7 +230,7 @@ onBeforeUnmount(() => {
 .matches li.empty { cursor: default; }
 .matches li.empty:hover { background: none; }
 .matches .grow { flex: 1; min-width: 0; }
-.on-list { color: var(--c-ok); flex-shrink: 0; }
+.on-list { display: inline-flex; color: var(--c-ok); flex-shrink: 0; }
 .not-on-list { opacity: 0.7; flex-shrink: 0; }
 .read-line { display: inline-flex; align-items: center; gap: 6px; }
 .file-btn.disabled { opacity: 0.5; pointer-events: none; }

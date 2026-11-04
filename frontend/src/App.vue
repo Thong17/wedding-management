@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { TooltipProvider } from 'reka-ui'
 import { useRoute } from 'vue-router'
 import AppBreadcrumbs from '@/components/AppBreadcrumbs.vue'
+import AppConfirmHost from '@/components/AppConfirmHost.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'
@@ -42,46 +44,52 @@ onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <template>
-  <header ref="header" class="app-header no-print" v-if="route.name !== 'login'">
-    <div class="container row header-inner">
-      <button v-if="withSidebar" type="button" class="btn-icon menu-btn" :aria-label="t('nav.open')" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">
-        <AppIcon name="menu" />
-      </button>
-      <RouterLink to="/" class="brand">💝 {{ t('app.brand') }}</RouterLink>
-      <nav v-if="!withSidebar" class="row">
-        <RouterLink to="/">{{ t('app.events') }}</RouterLink>
-        <RouterLink to="/sync">{{ t('app.sync') }}</RouterLink>
-      </nav>
-      <span class="spacer" />
-      <SyncStatusBadge />
-      <!-- Phones: language and theme are in the avatar menu instead (UserMenu). -->
-      <span class="wide-only row"><ThemeSwitch /><LanguageSwitch /></span>
-      <UserMenu />
+  <!-- One provider for every AppTooltip: after one shows, the next opens without waiting. -->
+  <TooltipProvider :delay-duration="300" :skip-delay-duration="200">
+    <header ref="header" class="app-header no-print" v-if="route.name !== 'login'">
+      <div class="container row header-inner">
+        <button v-if="withSidebar" type="button" class="btn-icon menu-btn" :aria-label="t('nav.open')" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">
+          <AppIcon name="menu" />
+        </button>
+        <RouterLink to="/" class="brand">💝 {{ t('app.brand') }}</RouterLink>
+        <nav v-if="!withSidebar" class="row">
+          <RouterLink to="/">{{ t('app.events') }}</RouterLink>
+          <RouterLink to="/sync">{{ t('app.sync') }}</RouterLink>
+        </nav>
+        <span class="spacer" />
+        <SyncStatusBadge />
+        <!-- Phones: language and theme are in the avatar menu instead (UserMenu). -->
+        <span class="wide-only row"><ThemeSwitch /><LanguageSwitch /></span>
+        <UserMenu />
+      </div>
+    </header>
+
+    <div v-if="auth.sessionExpired && route.name !== 'login'" class="container no-print">
+      <div class="banner banner-warn row">
+        <span>{{ t('app.sessionExpired') }}</span>
+        <span class="spacer" />
+        <RouterLink class="btn btn-small" :to="{ name: 'login', query: { next: route.fullPath } }">{{ t('app.loginAgain') }}</RouterLink>
+      </div>
     </div>
-  </header>
 
-  <div v-if="auth.sessionExpired && route.name !== 'login'" class="container no-print">
-    <div class="banner banner-warn row">
-      <span>{{ t('app.sessionExpired') }}</span>
-      <span class="spacer" />
-      <RouterLink class="btn btn-small" :to="{ name: 'login', query: { next: route.fullPath } }">{{ t('app.loginAgain') }}</RouterLink>
+    <TrialBanner v-if="route.name !== 'login'" />
+
+    <LockScreen v-if="locked" />
+    <div v-else class="layout" :class="{ 'with-sidebar': withSidebar }">
+      <AppSidebar v-if="withSidebar" :open="drawerOpen" @close="drawerOpen = false" />
+      <main>
+        <AppBreadcrumbs v-if="route.name !== 'login'" />
+        <RouterView />
+      </main>
     </div>
-  </div>
 
-  <TrialBanner v-if="route.name !== 'login'" />
+    <div class="toasts" aria-live="polite">
+      <div v-for="msg in toasts" :key="msg.id" class="toast" :class="`toast-${msg.kind}`">{{ msg.message }}</div>
+    </div>
 
-  <LockScreen v-if="locked" />
-  <div v-else class="layout" :class="{ 'with-sidebar': withSidebar }">
-    <AppSidebar v-if="withSidebar" :open="drawerOpen" @close="drawerOpen = false" />
-    <main>
-      <AppBreadcrumbs v-if="route.name !== 'login'" />
-      <RouterView />
-    </main>
-  </div>
-
-  <div class="toasts" aria-live="polite">
-    <div v-for="msg in toasts" :key="msg.id" class="toast" :class="`toast-${msg.kind}`">{{ msg.message }}</div>
-  </div>
+    <!-- confirmDialog() / alertDialog() from anywhere in the app. -->
+    <AppConfirmHost />
+  </TooltipProvider>
 </template>
 
 <style scoped>

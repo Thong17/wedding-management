@@ -9,6 +9,7 @@ import AppDialog from '@/components/AppDialog.vue'
 import ClientDocuments from '@/components/ClientDocuments.vue'
 import ClientForm from '@/components/ClientForm.vue'
 import UserManager from '@/components/UserManager.vue'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { clientStatusBadge } from '@/utils/clientStatus'
 import { formatMoney } from '@/utils/format'
 import { toast } from '@/utils/toast'
@@ -59,12 +60,16 @@ function extendTrial() {
   base.setDate(base.getDate() + 14)
   void quick({ status: 'trial', trial_ends_at: base.toISOString().slice(0, 10) })
 }
-function suspend() {
-  if (client.value && confirm(t('clients.suspendConfirm', { name: client.value.business_name }))) void quick({ status: 'suspended' })
+async function suspend() {
+  if (!client.value) return
+  const message = t('clients.suspendConfirm', { name: client.value.business_name })
+  if (await confirmDialog({ message, confirmText: t('clients.suspend'), danger: true })) void quick({ status: 'suspended' })
 }
 
 async function remove() {
-  if (!client.value || !confirm(t('clients.deleteConfirm', { name: client.value.business_name }))) return
+  if (!client.value) return
+  const message = t('clients.deleteConfirm', { name: client.value.business_name })
+  if (!(await confirmDialog({ message, confirmText: t('clients.delete'), danger: true }))) return
   try {
     await clientsApi.remove(clientId)
     router.push('/clients')

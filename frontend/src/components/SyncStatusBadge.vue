@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import { useSyncStore } from '@/stores/sync'
 
 const sync = useSyncStore()
@@ -24,16 +25,12 @@ const view = computed(() => {
 </script>
 
 <template>
-  <RouterLink
-    to="/sync"
-    class="badge sync-badge"
-    :class="view.cls"
-    :title="sync.snapshot.lastError ?? view.text"
-    :aria-label="view.text"
-  >
-    <AppIcon :name="view.icon" :size="14" class="sync-icon" :class="{ spinning: view.icon === 'sync' }" />
-    <span class="sync-text">{{ view.text }}</span>
-  </RouterLink>
+  <AppTooltip :text="sync.snapshot.lastError ?? view.text" side="bottom">
+    <RouterLink to="/sync" class="badge sync-badge" :class="view.cls" :aria-label="view.text">
+      <AppIcon :name="view.icon" :size="14" class="sync-icon" :class="{ spinning: view.icon === 'sync' }" />
+      <span class="sync-text">{{ view.text }}</span>
+    </RouterLink>
+  </AppTooltip>
 </template>
 
 <style scoped>

@@ -20,6 +20,7 @@ import {
 } from '@/offline/transactionRepo'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
+import { confirmDialog } from '@/utils/confirmDialog'
 import { downloadFile, formatDateTime, formatRelative, methodOptions } from '@/utils/format'
 import { toast } from '@/utils/toast'
 
@@ -79,7 +80,7 @@ function exportRows(kind: 'json' | 'csv') {
 }
 
 async function prune() {
-  if (!confirm(t('sync.pruneConfirm'))) return
+  if (!(await confirmDialog({ message: t('sync.pruneConfirm'), confirmText: t('common.remove') }))) return
   toast(t('sync.pruned', { n: await pruneSynced(30) }), 'info')
 }
 

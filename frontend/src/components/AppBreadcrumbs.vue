@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import { getCachedEvent } from '@/offline/guestCache'
 import { EVENT_CRUMB } from '@/router'
 import { useEventsStore } from '@/stores/events'
@@ -50,9 +51,11 @@ const parent = computed(() => crumbs.value.at(-2))
 
 <template>
   <nav v-if="parent" class="container row crumbs no-print" :aria-label="t('crumb.nav')">
-    <RouterLink class="btn btn-icon back" :to="parent.to" :title="t('crumb.back', { page: parent.label })" :aria-label="t('crumb.back', { page: parent.label })">
-      <AppIcon name="chevron-left" />
-    </RouterLink>
+    <AppTooltip :text="t('crumb.back', { page: parent.label })" side="bottom">
+      <RouterLink class="btn btn-icon back" :to="parent.to" :aria-label="t('crumb.back', { page: parent.label })">
+        <AppIcon name="chevron-left" />
+      </RouterLink>
+    </AppTooltip>
     <ol class="row">
       <li v-for="(c, i) in crumbs" :key="i" class="row">
         <AppIcon v-if="i > 0" name="chevron-right" :size="14" class="sep" />

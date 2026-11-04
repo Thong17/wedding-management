@@ -11,6 +11,7 @@ import {
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppIcon from '@/components/AppIcon.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import { setTheme, SWATCHES, theme, THEMES, type Theme } from '@/theme'
 
 const { t } = useI18n()
@@ -22,9 +23,11 @@ const current = computed({
 
 <template>
   <DropdownMenuRoot>
-    <DropdownMenuTrigger class="btn menu-trigger" :title="t('theme.label')" :aria-label="t('theme.label')">
-      <AppIcon name="palette" />
-    </DropdownMenuTrigger>
+    <AppTooltip :text="t('theme.label')" side="bottom">
+      <DropdownMenuTrigger class="btn menu-trigger" :aria-label="t('theme.label')">
+        <AppIcon name="palette" />
+      </DropdownMenuTrigger>
+    </AppTooltip>
     <DropdownMenuPortal>
       <DropdownMenuContent class="menu" align="end" :side-offset="6">
         <DropdownMenuRadioGroup v-model="current">
