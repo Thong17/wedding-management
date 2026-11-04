@@ -25,6 +25,20 @@ Your address will be `https://<name>.duckdns.org`. HTTPS is what lets phones ins
 3. If the GitHub repository is **private**, the droplet needs permission to download it. Easiest: create a
    [fine-grained personal access token](https://github.com/settings/personal-access-tokens) with read-only
    *Contents* access to this one repository, and use it as the password when `git clone` asks.
+4. **Build and push the images** to Docker Hub with the Docker in WSL. The npm scripts run on Windows and hand
+   the work to WSL ([deploy/docker-release.sh](../deploy/docker-release.sh)):
+   ```powershell
+   wsl docker login -u thonggee                                          # once
+   wsl docker run --privileged --rm tonistiigi/binfmt --install amd64    # once per WSL restart (see below)
+   npm run dockerRelease        # = npm run dockerBuild, then npm run dockerPush
+   ```
+   This builds `thonggee/wedding-api:latest` and `thonggee/wedding-web:latest` **for `linux/amd64`**, which is what
+   droplets run. This computer (and its WSL) is ARM, so the second line turns on x86 emulation; the setting is lost
+   when WSL restarts, and the build script tells you when it's needed again. Emulated builds are slower, so expect
+   several minutes. The droplet then only downloads the images, which is faster and avoids running out of memory.
+   Docker Hub repositories are public by default: the images contain the app's code but no secrets (those live
+   only in the server's `.env`). To make them private, change them on hub.docker.com and run `docker login` on
+   the droplet too.
 
 ## 2. Create the droplet
 
@@ -85,10 +99,11 @@ Keep `.env` private: it holds the keys to your data, and it's ignored by git.
 ## 6. Start it
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-The first build takes a few minutes. Then:
+(`up -d --build` instead builds the images on the droplet from the code, if you haven't pushed them.) Then:
 
 ```bash
 docker compose -f docker-compose.prod.yml ps                  # all three should be "running"/"healthy"
@@ -134,13 +149,20 @@ docker run --rm -v wedding-management_media:/media -v wedding-management_private
 
 ## 9. Updating to a new version
 
-After pushing new code to `main`:
+On your computer, push the code to `main` and the new images to Docker Hub:
+
+```powershell
+git push origin main
+npm run dockerRelease
+```
+
+Then on the droplet:
 
 ```bash
 cd /opt/wedding-management && sh deploy/update.sh
 ```
 
-It backs up first, pulls, rebuilds and restarts; database migrations run automatically.
+It backs up first, pulls the latest config and images, and restarts; database migrations run automatically.
 Phones pick up the new version the next time the app is opened online.
 
 ## Troubleshooting
@@ -149,7 +171,8 @@ Phones pick up the new version the next time the app is opened online.
 |---|---|
 | No padlock / certificate error | `logs web`. DuckDNS must point at this droplet, and ports 80 and 443 must be open in the firewall. Let's Encrypt limits retries, so fix DNS first, then `docker compose -f docker-compose.prod.yml restart web`. |
 | "502 Bad Gateway" | `docker compose -f docker-compose.prod.yml logs backend`. Usually a mistake in `.env`. |
-| Build stops with "killed" | Out of memory: add the swap file from step 4, or use a 2 GB droplet. |
+| Build stops with "killed" | Out of memory: add the swap file from step 4, or use a 2 GB droplet (or push images from your computer instead of building on the droplet). |
+| `exec format error` when a container starts | The image was built for ARM. Rebuild with `npm run dockerRelease`, which builds for `linux/amd64`. |
 | Login works but nothing loads | `DJANGO_ALLOWED_HOSTS` must be exactly your address, without `https://`. |
 | Django admin says "CSRF verification failed" | `CSRF_TRUSTED_ORIGINS` must be your address **with** `https://`. |
 

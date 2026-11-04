@@ -1,6 +1,8 @@
 # Production: PostgreSQL + Django (gunicorn) + Caddy (HTTPS, built app). See docs/deploy.md.
 #   cp .env.prod.example .env   # then fill it in
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d
+# The api/web images come from Docker Hub (built and pushed with `npm run dockerRelease` on your computer).
+# `up -d --build` still builds them on the server instead, if you ever need to.
 
 services:
   db:
@@ -19,6 +21,7 @@ services:
       retries: 20
 
   backend:
+    image: ${API_IMAGE:-thonggee/wedding-api:latest}
     build: ./backend
     restart: unless-stopped
     env_file: .env
@@ -34,6 +37,7 @@ services:
       - static:/data/static
 
   web:
+    image: ${WEB_IMAGE:-thonggee/wedding-web:latest}
     build:
       context: .
       dockerfile: deploy/web.Dockerfile

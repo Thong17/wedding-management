@@ -1,0 +1,10 @@
+{
+  "name": "wedding-management",
+  "private": true,
+  "description": "Root scripts: build and push the production Docker images through WSL (see docs/deploy.md).",
+  "scripts": {
+    "dockerBuild": "wsl sh deploy/docker-release.sh build",
+    "dockerPush": "wsl sh deploy/docker-release.sh push",
+    "dockerRelease": "wsl sh deploy/docker-release.sh release"
+  }
+}

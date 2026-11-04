@@ -14,9 +14,11 @@ RUN pip install --no-cache-dir -r requirements-prod.txt
 
 COPY . .
 # Run as an unprivileged user. The /data folders become Docker volumes and keep this ownership.
+# The sed drops Windows line endings, in case the image is built from a Windows checkout.
 RUN useradd --create-home app \
     && mkdir -p /data/media /data/private_media /data/static \
     && chown -R app:app /data \
+    && sed -i 's/\r$//' docker-entrypoint.sh \
     && chmod +x docker-entrypoint.sh
 USER app
 

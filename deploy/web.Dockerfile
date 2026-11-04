@@ -1,6 +1,9 @@
 # Builds the Vue app, then serves it with Caddy (HTTPS, API proxy). Build context: repository root.
 
-FROM node:22-alpine AS build
+# The build stage runs on the build machine's own processor ($BUILDPLATFORM): its output (HTML/JS/CSS) is
+# the same everywhere, and running it emulated (e.g. x86 on an ARM laptop) crashes esbuild under QEMU.
+# Only the final Caddy stage is built for the droplet's platform.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -15,4 +18,6 @@ RUN npx vite build
 
 FROM caddy:2-alpine
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
+# Drop Windows line endings, in case the image is built from a Windows checkout.
+RUN sed -i 's/\r$//' /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
