@@ -1,9 +1,10 @@
 import uuid
 
 from django.conf import settings
-from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.utils import timezone
+
+from .storage import private_storage
 
 
 def avatar_path(instance, filename):
@@ -59,9 +60,9 @@ class Client(models.Model):
         return None
 
 
-# Client documents (ID cards, licences, contracts) are sensitive: they live outside MEDIA_ROOT, have no
-# public URL, and are only ever sent through an authenticated download endpoint.
-private_storage = FileSystemStorage(location=settings.PRIVATE_MEDIA_ROOT, base_url=None)
+# Client documents (ID cards, licences, contracts) are sensitive: they live in the "private" storage
+# (outside MEDIA_ROOT, or a private bucket prefix), have no public URL, and are only ever sent through
+# an authenticated download endpoint.
 
 
 def document_path(instance, filename):

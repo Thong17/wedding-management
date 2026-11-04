@@ -46,6 +46,10 @@ services:
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS}
+      # Where /media/* (profile pictures) comes from: the media volume, or the MinIO bucket.
+      MEDIA_BACKEND: ${STORAGE_BACKEND:-files}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_UPSTREAM: ${S3_UPSTREAM:-minio:9000}
     ports:
       - "80:80"
       - "443:443"

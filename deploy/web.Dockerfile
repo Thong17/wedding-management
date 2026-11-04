@@ -18,6 +18,7 @@ RUN npx vite build
 
 FROM caddy:2-alpine
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY deploy/caddy-media/ /etc/caddy/media/
 # Drop Windows line endings, in case the image is built from a Windows checkout.
-RUN sed -i 's/\r$//' /etc/caddy/Caddyfile
+RUN sed -i 's/\r$//' /etc/caddy/Caddyfile /etc/caddy/media/*.caddy
 COPY --from=build /app/dist /srv

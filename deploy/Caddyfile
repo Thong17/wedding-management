@@ -1,5 +1,14 @@
 # One HTTPS site: the app, the API under /api, Django admin under /admin.
 # SITE_ADDRESS is e.g. giftdesk.duckdns.org — Caddy gets and renews the Let's Encrypt certificate itself.
+# Behind another proxy (docker-compose.shared-proxy.yml) it is ":80" (plain HTTP) instead.
+{
+	servers {
+		# Whose X-Forwarded-* headers to believe. Only localhost by default; "private_ranges" when another
+		# proxy in front of this one terminates HTTPS, so Django still knows the visitor used https.
+		trusted_proxies static {$TRUSTED_PROXIES:127.0.0.1/32}
+	}
+}
+
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
@@ -22,13 +31,9 @@
 		file_server
 	}
 
-	# Public uploads (profile pictures). Client documents are NOT here: they live in a separate
-	# volume that Caddy can't see, and are only sent by Django to signed-in admins.
-	handle_path /media/* {
-		root * /var/www/media
-		header Cache-Control "public, max-age=2592000"
-		file_server
-	}
+	# Public uploads (profile pictures), from local files or the MinIO bucket depending on MEDIA_BACKEND
+	# ("files" or "s3"; see /etc/caddy/media/). Client documents are never served here.
+	import /etc/caddy/media/{$MEDIA_BACKEND:files}.caddy
 
 	# The app. Unknown paths fall back to index.html so the Vue router handles them.
 	handle {

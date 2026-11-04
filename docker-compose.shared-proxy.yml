@@ -1,0 +1,32 @@
+# For a droplet that already has a reverse proxy (e.g. another app's Caddy) on ports 80/443.
+# Used together with docker-compose.prod.yml — set in .env:
+#   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.shared-proxy.yml
+# The existing proxy does HTTPS and forwards your DuckDNS address to `wedding-web:80` on the shared
+# `wedding-proxy` network. See docs/deploy.md, "Sharing a droplet with an existing Caddy".
+
+services:
+  web:
+    # Don't take ports 80/443: the existing proxy has them.
+    ports: !reset []
+    environment:
+      # Plain HTTP inside Docker; the existing proxy terminates HTTPS.
+      SITE_ADDRESS: ":80"
+      # Trust the proxy's X-Forwarded-Proto: https, so Django builds https:// links.
+      TRUSTED_PROXIES: private_ranges
+    networks:
+      default:
+      wedding-proxy:
+        aliases: [wedding-web]
+
+  backend:
+    environment:
+      # Fewer workers: this droplet is shared.
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+    # Also on the shared network, to reach the droplet's MinIO (STORAGE_BACKEND=s3).
+    networks:
+      default:
+      wedding-proxy:
+
+networks:
+  wedding-proxy:
+    external: true

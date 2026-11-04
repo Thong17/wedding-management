@@ -177,3 +177,116 @@ Phones pick up the new version the next time the app is opened online.
 | Django admin says "CSRF verification failed" | `CSRF_TRUSTED_ORIGINS` must be your address **with** `https://`. |
 
 Your local development database isn't copied to the server: production starts empty, with only the built-in Default role.
+
+---
+
+## Sharing a droplet with an existing Caddy
+
+If another app's Caddy container already owns ports 80/443 (for example the SereyHub droplet), keep it as the
+single front door. It handles HTTPS for both apps and forwards your DuckDNS address to this app over a private
+Docker network. This app's own Caddy then serves plain HTTP inside Docker only.
+
+**Memory first.** Each app needs its share of RAM. On a 1 GB droplet with no swap, add the 2 GB swap file from
+step 4 before anything else, or the kernel may stop containers (either app's) when memory runs out.
+
+1. **Shared network**, and connect the existing Caddy to it:
+   ```bash
+   docker network create wedding-proxy
+   docker network connect wedding-proxy caddy
+   ```
+   If that Caddy is started from its own compose file, also add the network there so it survives re-creating
+   the container:
+   ```yaml
+   services:
+     caddy:
+       networks: [default, wedding-proxy]
+   networks:
+     wedding-proxy:
+       external: true
+   ```
+
+2. **This app**: follow steps 5–6, and add these to `.env`:
+   ```
+   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.shared-proxy.yml
+   GUNICORN_WORKERS=2
+   ```
+   With `COMPOSE_FILE` set, plain `docker compose …` uses both files (no `-f` needed):
+   ```bash
+   docker compose pull && docker compose up -d
+   ```
+   Nothing is published on the droplet's ports; `ports: !reset []` needs Docker Compose 2.24 or newer
+   (`docker compose version`).
+
+3. **Existing Caddy**: add a site block to its Caddyfile (find it with `docker inspect caddy --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}'`):
+   ```
+   yourname.duckdns.org {
+   	reverse_proxy wedding-web:80
+   }
+   ```
+   Then reload it without downtime for SereyHub:
+   ```bash
+   docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+   ```
+   It gets the certificate for the DuckDNS address itself, like it does for SereyHub's domain.
+
+4. Create your login (step 7) with `docker compose exec backend python manage.py createsuperuser`, and set up
+   backups (step 8). `deploy/backup.sh` and `deploy/update.sh` pick up `COMPOSE_FILE` from `.env` automatically.
+
+---
+
+## Storing uploads in MinIO
+
+By default uploads (profile pictures, client documents) live in Docker volumes on the droplet. To keep them in
+a MinIO (or any S3-compatible) bucket instead, for example the MinIO already running on the SereyHub droplet:
+
+- One bucket (e.g. `wedding`). Profile pictures go under `avatars/`, which is the only publicly readable part;
+  they're served on your own domain at `/media/avatars/…` (Caddy forwards to MinIO, browsers never talk to it).
+- Client documents go under `private/`, which is never public; only Django reads them, for signed-in admins.
+- When the backend starts it creates the bucket if needed and sets the public-read rule for `avatars/` only.
+
+**1. An access key just for this app.** In the MinIO console (port 9001): *Identity → Users → Create User*
+(e.g. `wedding-app`) with this policy, which allows everything on the `wedding` bucket and nothing else
+(*Policies → Create Policy*, then attach it to the user):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["s3:*"],
+    "Resource": ["arn:aws:s3:::wedding", "arn:aws:s3:::wedding/*"]
+  }]
+}
+```
+
+Then create an **access key** for that user (*Access Keys → Create*) and copy both parts.
+
+**2. Let this app reach MinIO** on the shared network:
+
+```bash
+docker network connect wedding-proxy minio
+```
+
+(As with Caddy, add `wedding-proxy` to MinIO's own compose file too, so it survives re-creating the container.)
+
+**3. `.env`:**
+
+```
+STORAGE_BACKEND=s3
+S3_ENDPOINT_URL=http://minio:9000
+S3_UPSTREAM=minio:9000
+S3_BUCKET=wedding
+S3_ACCESS_KEY=<access key>
+S3_SECRET_KEY=<secret key>
+S3_NETWORK=wedding-proxy
+```
+
+**4. Restart:** `docker compose up -d`. The backend log should say `Storage ready: bucket wedding, public read on
+avatars/ only.` (`docker compose logs backend | grep -i storage`). If MinIO is unreachable the app still starts and
+logs the problem; uploads work again once it's reachable.
+
+Backups (`deploy/backup.sh`) copy the bucket into `backups/files-….tar.gz` along with the database.
+
+> **MinIO images:** `minio/minio` can no longer be downloaded from Docker Hub. An existing MinIO container keeps
+> working, but don't delete its image (avoid `docker image prune -a`). If you ever need to re-create it,
+> `cgr.dev/chainguard/minio` is a maintained build of the same server.

@@ -105,6 +105,34 @@ MEDIA_ROOT = Path(os.environ.get("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
 # Sensitive uploads (client documents). Never served at a URL; only via authenticated download views.
 PRIVATE_MEDIA_ROOT = Path(os.environ.get("DJANGO_PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
 
+# Where uploads live: "files" (local disk, the default) or "s3" (MinIO or any S3-compatible service).
+# "default" holds public uploads (profile pictures), "private" holds client documents.
+STORAGE_BACKEND = os.environ.get("STORAGE_BACKEND", "files")
+if STORAGE_BACKEND == "s3":
+    S3_BUCKET = os.environ["S3_BUCKET"]
+    _s3 = {
+        "bucket_name": S3_BUCKET,
+        "endpoint_url": os.environ["S3_ENDPOINT_URL"],  # e.g. http://minio:9000
+        "access_key": os.environ["S3_ACCESS_KEY"],
+        "secret_key": os.environ["S3_SECRET_KEY"],
+        "region_name": os.environ.get("S3_REGION", "us-east-1"),
+        "addressing_style": "path",  # MinIO serves buckets as /bucket/key
+        "file_overwrite": False,
+    }
+    STORAGES = {
+        # Public: keys under avatars/ are anonymously readable and served at MEDIA_URL by Caddy.
+        "default": {"BACKEND": "accounts.storage.PublicMediaStorage", "OPTIONS": _s3},
+        # Private: under private/, never anonymously readable; only Django reads it.
+        "private": {"BACKEND": "storages.backends.s3.S3Storage", "OPTIONS": {**_s3, "location": "private"}},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+else:
+    STORAGES = {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "private": {"BACKEND": "django.core.files.storage.FileSystemStorage", "OPTIONS": {"location": PRIVATE_MEDIA_ROOT, "base_url": None}},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+
 # New clients and standalone customers start with a trial of this many days.
 DEFAULT_TRIAL_DAYS = 14
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

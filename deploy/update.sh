@@ -5,7 +5,9 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-COMPOSE="docker compose -f docker-compose.prod.yml"
+# Uses COMPOSE_FILE from .env when set (e.g. with the shared-proxy override), else the prod file.
+if grep -q '^COMPOSE_FILE=' .env 2>/dev/null; then COMPOSE="docker compose"; else COMPOSE="docker compose -f docker-compose.prod.yml"; fi
+
 sh deploy/backup.sh
 git pull --ff-only           # compose file, Caddy config and scripts
 $COMPOSE pull backend web    # images from Docker Hub
