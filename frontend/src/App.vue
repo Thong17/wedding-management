@@ -6,6 +6,8 @@ import AppBreadcrumbs from '@/components/AppBreadcrumbs.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import LanguageSwitch from '@/components/LanguageSwitch.vue'
+import LockScreen from '@/components/LockScreen.vue'
+import TrialBanner from '@/components/TrialBanner.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
 import UserMenu from '@/components/UserMenu.vue'
@@ -16,8 +18,10 @@ const auth = useAuthStore()
 const route = useRoute()
 const { t } = useI18n()
 
+// A locked login sees only the lock screen; the Sync center stays open so this device's gifts are never stuck.
+const locked = computed(() => !!auth.lockReason && route.name !== 'login' && route.name !== 'sync')
 // Admins (platform and client) get a sidebar; customers keep the simple top bar.
-const withSidebar = computed(() => auth.isManager && route.name !== 'login')
+const withSidebar = computed(() => auth.isManager && !auth.lockReason && route.name !== 'login')
 const drawerOpen = ref(false)
 watch(() => route.fullPath, () => (drawerOpen.value = false))
 
@@ -64,7 +68,10 @@ onBeforeUnmount(() => observer?.disconnect())
     </div>
   </div>
 
-  <div class="layout" :class="{ 'with-sidebar': withSidebar }">
+  <TrialBanner v-if="route.name !== 'login'" />
+
+  <LockScreen v-if="locked" />
+  <div v-else class="layout" :class="{ 'with-sidebar': withSidebar }">
     <AppSidebar v-if="withSidebar" :open="drawerOpen" @close="drawerOpen = false" />
     <main>
       <AppBreadcrumbs v-if="route.name !== 'login'" />

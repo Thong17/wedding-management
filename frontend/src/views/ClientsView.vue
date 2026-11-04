@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { clientsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiClient } from '@/api/types'
+import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import ClientForm from '@/components/ClientForm.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { clientStatusBadge } from '@/utils/clientStatus'
 import { formatMoney } from '@/utils/format'
 
 const { t } = useI18n()
+const router = useRouter()
+const creating = ref(false)
 const clients = ref<ApiClient[]>([])
 const error = ref<string | null>(null)
 const loading = ref(true)
@@ -52,8 +57,11 @@ const price = (c: ApiClient) =>
     <div class="row">
       <h1>{{ t('clients.title') }}</h1>
       <span class="spacer" />
-      <RouterLink class="btn btn-primary" to="/clients/new"><AppIcon name="plus" />{{ t('clients.new') }}</RouterLink>
+      <button class="btn-primary" @click="creating = true"><AppIcon name="plus" />{{ t('clients.new') }}</button>
     </div>
+    <AppDialog v-model:open="creating" :title="t('clients.new')" size="lg">
+      <ClientForm v-if="creating" @saved="(c) => router.push(`/clients/${c.id}`)" @cancel="creating = false" />
+    </AppDialog>
     <div class="row">
       <input v-model="filters.search" type="search" :placeholder="t('clients.search')" class="search" />
       <AppSelect v-model="filters.status" :options="statusOptions()" :aria-label="t('clients.statusLabel')" inline />

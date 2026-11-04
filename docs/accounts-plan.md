@@ -1,7 +1,7 @@
 # Clients, users, roles and trials — plan
 
-Status: steps 1–3 built (backend; roles and event Team tab; sidebar, Clients, Users, Customers, Business profile,
-Change password). Step 4 (lock screen and trial banners) not yet. Decisions below were made with the product owner on 2026-11-02.
+Status: all four steps built (backend; roles and event Team tab; sidebar, Clients, Users, Customers, Business profile,
+Change password; lock screen and trial banners). Remaining ideas are listed at the end. Decisions below were made with the product owner on 2026-11-02.
 
 ## Backend API (step 1)
 
@@ -144,3 +144,11 @@ Customers keep the current top bar. Platform admins and client admins get a left
 2. **Roles and event Team tab**, permission-aware screens, per-event role stored on the device for offline use.
 3. **Sidebar, Clients and Users pages, Customers, Business profile**, Change password.
 4. **Lock screen and banners**, plus an end-to-end check that the offline gift desk still behaves correctly.
+
+## Later (not built)
+
+- Payment records (paid-until / overdue) on the Subscription tab; payments are tracked outside the app today.
+- A full history of role changes (today: last editor and time only).
+- Self sign-up with an automatic trial (today: the platform admin creates every client and login).
+- Server-side enforcement of "Export guests": exports are built in the browser from the guest list, which the
+  gift desk also needs, so today the permission only hides the Export / QR sheet buttons.

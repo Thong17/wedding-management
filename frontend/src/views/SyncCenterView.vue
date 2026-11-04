@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/endpoints'
+import AppDialog from '@/components/AppDialog.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import { onTransactionsChanged } from '@/offline/changes'
@@ -171,44 +172,44 @@ async function saveEdit() {
             <button class="btn-small" @click="startEdit(item)">{{ t('sync.editRetry') }}</button>
             <span class="muted small mono">{{ item.errorCode }} · {{ item.txnId.slice(0, 8) }}</span>
           </div>
-          <form v-if="editing?.txnId === item.txnId" class="card stack edit" @submit.prevent="saveEdit">
-            <div class="row">
-              <strong>{{ t('sync.guest') }}</strong>
-              <span v-if="editForm.guestId != null">{{ editForm.guestName }} <button type="button" class="btn-small" @click="editForm.guestId = null">{{ t('common.change') }}</button></span>
-              <template v-else>
-                <input v-model="editQuery" :placeholder="t('sync.searchGuest')" style="flex: 1; min-width: 160px" />
-                <input v-model="editForm.walkInName" :placeholder="t('sync.walkInName')" style="flex: 1; min-width: 160px" />
-              </template>
-            </div>
-            <div v-if="editForm.guestId == null && editResults.length" class="row">
-              <button v-for="g in editResults" :key="g.id" type="button" class="btn-small" @click="Object.assign(editForm, { guestId: g.id, guestName: g.full_name })">
-                {{ g.full_name }}
-              </button>
-            </div>
-            <span class="field-error" v-if="editErrors.guest">{{ editErrors.guest }}</span>
-            <div class="row">
-              <label style="flex: 1">{{ t('sync.method') }}
-                <AppSelect v-model="editForm.method" :options="methodOptions()" />
-              </label>
-              <label v-if="editForm.method === 'item'" style="flex: 2">{{ t('giftForm.itemLabel') }}
-                <input v-model="editForm.item" maxlength="200" :placeholder="t('giftForm.itemPlaceholder')" />
-              </label>
-              <label v-else style="flex: 1">{{ t('sync.amount') }} <input v-model="editForm.amount" inputmode="decimal" /></label>
-            </div>
-            <span class="field-error" v-if="editErrors.amount">{{ editErrors.amount }}</span>
-            <span class="field-error" v-if="editErrors.item">{{ editErrors.item }}</span>
-            <label>{{ t('sync.note') }} <input v-model="editForm.note" maxlength="500" /></label>
-            <div class="row">
-              <button class="btn-primary btn-small">{{ t('sync.saveRetry') }}</button>
-              <button type="button" class="btn-small" @click="editing = null">{{ t('common.cancel') }}</button>
-            </div>
-          </form>
         </template>
       </TransactionList>
+
+      <AppDialog :open="editing !== null" :title="editing ? t('sync.editTitle', { name: editing.guestNameSnapshot }) : ''" @update:open="!$event && (editing = null)">
+        <form v-if="editing" class="stack" @submit.prevent="saveEdit">
+          <div class="row">
+            <strong>{{ t('sync.guest') }}</strong>
+            <span v-if="editForm.guestId != null">{{ editForm.guestName }} <button type="button" class="btn-small" @click="editForm.guestId = null">{{ t('common.change') }}</button></span>
+            <template v-else>
+              <input v-model="editQuery" :placeholder="t('sync.searchGuest')" style="flex: 1; min-width: 160px" />
+              <input v-model="editForm.walkInName" :placeholder="t('sync.walkInName')" style="flex: 1; min-width: 160px" />
+            </template>
+          </div>
+          <div v-if="editForm.guestId == null && editResults.length" class="row">
+            <button v-for="g in editResults" :key="g.id" type="button" class="btn-small" @click="Object.assign(editForm, { guestId: g.id, guestName: g.full_name })">
+              {{ g.full_name }}
+            </button>
+          </div>
+          <span class="field-error" v-if="editErrors.guest">{{ editErrors.guest }}</span>
+          <div class="row">
+            <label style="flex: 1">{{ t('sync.method') }}
+              <AppSelect v-model="editForm.method" :options="methodOptions()" />
+            </label>
+            <label v-if="editForm.method === 'item'" style="flex: 2">{{ t('giftForm.itemLabel') }}
+              <input v-model="editForm.item" maxlength="200" :placeholder="t('giftForm.itemPlaceholder')" />
+            </label>
+            <label v-else style="flex: 1">{{ t('sync.amount') }} <input v-model="editForm.amount" inputmode="decimal" /></label>
+          </div>
+          <span class="field-error" v-if="editErrors.amount">{{ editErrors.amount }}</span>
+          <span class="field-error" v-if="editErrors.item">{{ editErrors.item }}</span>
+          <label>{{ t('sync.note') }} <input v-model="editForm.note" maxlength="500" /></label>
+          <div class="row">
+            <button class="btn-primary btn-small">{{ t('sync.saveRetry') }}</button>
+            <button type="button" class="btn-small" @click="editing = null">{{ t('common.cancel') }}</button>
+          </div>
+        </form>
+      </AppDialog>
     </div>
   </div>
 </template>
 
-<style scoped>
-.edit { background: var(--c-bg); }
-</style>

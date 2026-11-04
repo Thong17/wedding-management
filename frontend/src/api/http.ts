@@ -46,6 +46,15 @@ export function onAuthExpired(listener: AuthListener): () => void {
   return () => authExpiredListeners.delete(listener)
 }
 
+export type LockReason = 'suspended' | 'trial_ended'
+type LockListener = (reason: LockReason) => void
+const lockListeners = new Set<LockListener>()
+/** The server refused a request because this login is locked (client suspended or trial over). */
+export function onAccountLocked(listener: LockListener): () => void {
+  lockListeners.add(listener)
+  return () => lockListeners.delete(listener)
+}
+
 export const http = axios.create({ baseURL: API_URL, timeout: 15_000 })
 
 http.interceptors.request.use((config) => {
@@ -84,6 +93,11 @@ export function refreshAccessToken(): Promise<string> {
 }
 
 http.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const body = error.response?.data as { code?: string; reason?: LockReason } | undefined
+  if (error.response?.status === 403 && body?.code === 'account_locked') {
+    lockListeners.forEach((l) => l(body.reason ?? 'trial_ended'))
+    throw error
+  }
   const config = error.config as (AxiosRequestConfig & { _retried?: boolean }) | undefined
   if (error.response?.status !== 401 || !config || config._retried) throw error
   config._retried = true

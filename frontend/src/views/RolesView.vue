@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router'
 import { clientsApi, rolesApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiRole } from '@/api/types'
+import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import RoleForm, { type RoleFormValue } from '@/components/RoleForm.vue'
@@ -48,8 +49,9 @@ async function load() {
 }
 onMounted(load)
 
-// 'new', the id of the role being edited, or null.
+// 'new', the id of the role being edited, or null. The form opens in a dialog.
 const editing = ref<'new' | number | null>(null)
+const editingRole = computed(() => (typeof editing.value === 'number' ? roles.value.find((r) => r.id === editing.value) ?? null : null))
 const fieldErrors = ref<Record<string, string[]>>({})
 const saving = ref(false)
 
@@ -106,33 +108,39 @@ async function remove(role: ApiRole) {
     <div v-if="error" class="banner banner-danger">{{ error }}</div>
     <p v-if="loading && !roles.length" class="muted">{{ t('common.loading') }}</p>
 
-    <div v-if="editing === 'new'" class="card stack">
-      <h2>{{ t('roles.new') }}</h2>
-      <RoleForm :initial="newInitial()" :saving="saving" :errors="fieldErrors" :scope-options="auth.isPlatformAdmin ? newRoleScopes : undefined" @save="save" @cancel="editing = null" />
-    </div>
+    <AppDialog :open="editing !== null" :title="editingRole ? t('roles.editTitle', { name: editingRole.name }) : t('roles.new')" @update:open="!$event && (editing = null)">
+      <!-- Keyed so the form starts fresh for each role. -->
+      <RoleForm
+        :key="String(editing)"
+        :initial="editingRole ? editInitial(editingRole) : newInitial()"
+        :saving="saving"
+        :errors="fieldErrors"
+        :scope-options="!editingRole && auth.isPlatformAdmin ? newRoleScopes : undefined"
+        :usage-count="editingRole?.usage_count"
+        @save="save"
+        @cancel="editing = null"
+      />
+    </AppDialog>
 
     <div class="roles">
       <div v-for="role in shown" :key="role.id" class="card stack">
-        <RoleForm v-if="editing === role.id" :initial="editInitial(role)" :saving="saving" :errors="fieldErrors" :usage-count="role.usage_count" @save="save" @cancel="editing = null" />
-        <template v-else>
-          <div class="row">
-            <h2 class="role-name">{{ role.name }}</h2>
-            <span class="badge" :class="role.client ? 'badge-neutral' : 'badge-syncing'">{{ role.client_name ?? t('roles.global') }}</span>
-            <span class="spacer" />
-            <template v-if="role.editable">
-              <button class="btn-small" @click="open(role.id)">{{ t('common.edit') }}</button>
-              <button class="btn-small btn-danger" :disabled="role.usage_count > 0" :title="role.usage_count ? t('roles.inUse') : ''" @click="remove(role)">{{ t('common.remove') }}</button>
-            </template>
-          </div>
-          <div class="chips">
-            <span v-for="p in role.permissions" :key="p" class="badge badge-synced">{{ t(`perm.${p}`) }}</span>
-            <span v-if="!role.permissions.length" class="muted small">{{ t('roles.noPermissions') }}</span>
-          </div>
-          <div class="muted small">
-            {{ t('roles.usedBy', role.usage_count) }}
-            <span v-if="role.updated_by_username"> · {{ t('roles.editedBy', { name: role.updated_by_username, when: formatDateTime(role.updated_at) }) }}</span>
-          </div>
-        </template>
+        <div class="row">
+          <h2 class="role-name">{{ role.name }}</h2>
+          <span class="badge" :class="role.client ? 'badge-neutral' : 'badge-syncing'">{{ role.client_name ?? t('roles.global') }}</span>
+          <span class="spacer" />
+          <template v-if="role.editable">
+            <button class="btn-small" @click="open(role.id)">{{ t('common.edit') }}</button>
+            <button class="btn-small btn-danger" :disabled="role.usage_count > 0" :title="role.usage_count ? t('roles.inUse') : ''" @click="remove(role)">{{ t('common.remove') }}</button>
+          </template>
+        </div>
+        <div class="chips">
+          <span v-for="p in role.permissions" :key="p" class="badge badge-synced">{{ t(`perm.${p}`) }}</span>
+          <span v-if="!role.permissions.length" class="muted small">{{ t('roles.noPermissions') }}</span>
+        </div>
+        <div class="muted small">
+          {{ t('roles.usedBy', role.usage_count) }}
+          <span v-if="role.updated_by_username"> · {{ t('roles.editedBy', { name: role.updated_by_username, when: formatDateTime(role.updated_at) }) }}</span>
+        </div>
       </div>
     </div>
     <p v-if="!loading && !shown.length" class="muted">{{ t('roles.empty') }}</p>

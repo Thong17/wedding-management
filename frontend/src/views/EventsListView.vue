@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import EventForm from '@/components/EventForm.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEventsStore } from '@/stores/events'
 import { can } from '@/utils/permissions'
 
 const store = useEventsStore()
 const auth = useAuthStore()
+const router = useRouter()
 const { t } = useI18n()
+const creating = ref(false)
 onMounted(() => store.load())
 </script>
 
@@ -17,8 +22,11 @@ onMounted(() => store.load())
     <div class="row">
       <h1>{{ t('events.title') }}</h1>
       <span class="spacer" />
-      <RouterLink class="btn btn-primary" to="/events/new" v-if="!store.fromCache && auth.isManager"><AppIcon name="plus" />{{ t('events.new') }}</RouterLink>
+      <button v-if="!store.fromCache && auth.isManager" class="btn-primary" @click="creating = true"><AppIcon name="plus" />{{ t('events.new') }}</button>
     </div>
+    <AppDialog v-model:open="creating" :title="t('eventForm.newTitle')">
+      <EventForm v-if="creating" @saved="(e) => router.push(`/events/${e.id}`)" @cancel="creating = false" />
+    </AppDialog>
     <div v-if="store.fromCache" class="banner banner-info">{{ t('events.offline') }}</div>
     <div v-if="store.error" class="banner banner-danger">{{ store.error }}</div>
     <p v-if="store.loading && !store.events.length" class="muted">{{ t('common.loading') }}</p>

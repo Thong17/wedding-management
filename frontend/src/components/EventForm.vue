@@ -3,10 +3,9 @@ import axios from 'axios'
 import QRCode from 'qrcode'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { clientsApi, eventsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
-import type { EventInput } from '@/api/types'
+import type { ApiEvent, EventInput } from '@/api/types'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { classifyInviteBase, guestQrPayload } from '@/offline/inviteQr'
@@ -15,8 +14,9 @@ import { useAuthStore } from '@/stores/auth'
 // A made-up guest code, only for the preview QR below.
 const SAMPLE_TOKEN = '00000000-0000-4000-8000-000000000000'
 
-const props = defineProps<{ id?: string }>()
-const router = useRouter()
+/** Create an event (no `eventId`) or edit one; shown in a dialog. Emits the saved event. */
+const props = defineProps<{ eventId?: number }>()
+const emit = defineEmits<{ saved: [event: ApiEvent]; cancel: [] }>()
 const { t } = useI18n()
 const form = reactive<EventInput>({ name: '', date: new Date().toISOString().slice(0, 10), venue: '', currency: 'USD', invite_qr: '' })
 const fieldErrors = ref<Record<string, string[]>>({})
@@ -43,8 +43,8 @@ onMounted(async () => {
       const clients = await clientsApi.list()
       clientOptions.value = [{ value: 'none', label: t('eventForm.noClient') }, ...clients.map((c) => ({ value: String(c.id), label: c.business_name }))]
     }
-    if (!props.id) return
-    const e = await eventsApi.get(Number(props.id))
+    if (props.eventId == null) return
+    const e = await eventsApi.get(props.eventId)
     Object.assign(form, { name: e.name, date: e.date, venue: e.venue, currency: e.currency, invite_qr: e.invite_qr })
     clientChoice.value = e.client ? String(e.client) : 'none'
   } catch (err) {
@@ -60,8 +60,8 @@ async function save() {
     const payload: EventInput = auth.isPlatformAdmin
       ? { ...form, client: clientChoice.value === 'none' ? null : Number(clientChoice.value) }
       : { ...form }
-    const saved = props.id ? await eventsApi.update(Number(props.id), payload) : await eventsApi.create(payload)
-    router.push(`/events/${saved.id}`)
+    const saved = props.eventId != null ? await eventsApi.update(props.eventId, payload) : await eventsApi.create(payload)
+    emit('saved', saved)
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 400) fieldErrors.value = err.response.data
     else error.value = errorMessage(err)
@@ -72,9 +72,8 @@ async function save() {
 </script>
 
 <template>
-  <div class="container" style="max-width: 560px">
-    <form class="card stack" @submit.prevent="save">
-      <h1>{{ id ? t('eventForm.editTitle') : t('eventForm.newTitle') }}</h1>
+  <div>
+    <form class="stack" @submit.prevent="save">
       <label>{{ t('eventForm.name') }} <input v-model="form.name" required maxlength="200" />
         <span class="field-error" v-if="fieldErrors.name">{{ fieldErrors.name.join(' ') }}</span></label>
       <label>{{ t('eventForm.date') }} <AppDatePicker v-model="form.date" required />
@@ -112,7 +111,7 @@ async function save() {
       <p v-if="error" class="banner banner-danger">{{ error }}</p>
       <div class="row">
         <button class="btn-primary" :disabled="busy">{{ t('common.save') }}</button>
-        <button type="button" @click="router.back()">{{ t('common.cancel') }}</button>
+        <button type="button" @click="emit('cancel')">{{ t('common.cancel') }}</button>
       </div>
     </form>
   </div>

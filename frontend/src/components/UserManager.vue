@@ -6,7 +6,9 @@ import { clientsApi, usersApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiManagedUser, ManagedUserInput } from '@/api/types'
 import AppDatePicker from '@/components/AppDatePicker.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import AppNote from '@/components/AppNote.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
@@ -188,49 +190,52 @@ const typeLabel = (u: ApiManagedUser) => (u.is_platform_admin ? t('users.types.p
     </div>
     <div v-if="error" class="banner banner-danger small">{{ error }}</div>
 
-    <form v-if="editing" class="card stack edit-form" @submit.prevent="save">
-      <h3>{{ editing === 'new' ? (admin ? t('users.new') : t('users.newCustomer')) : t('users.edit', { name: editing.username }) }}</h3>
-      <div class="row">
-        <label class="grow">{{ t('users.username') }} <input v-model="form.username" required maxlength="150" autocapitalize="off" spellcheck="false" />
-          <span v-if="fieldErrors.username" class="field-error">{{ fieldErrors.username.join(' ') }}</span></label>
-        <label class="grow">{{ t('users.firstName') }} <input v-model="form.first_name" maxlength="150" /></label>
-        <label class="grow">{{ t('users.lastName') }} <input v-model="form.last_name" maxlength="150" /></label>
-      </div>
-      <label v-if="editing === 'new'">{{ t('users.startPassword') }}
-        <span class="row">
-          <input v-model="form.password" required class="grow mono" autocomplete="new-password" spellcheck="false" />
-          <button type="button" class="btn-small" @click="form.password = generatePassword()">{{ t('users.generate') }}</button>
-        </span>
-        <span class="muted small">{{ t('users.passwordHint') }}</span>
-        <span v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password.join(' ') }}</span>
-      </label>
-      <div v-if="admin" class="row">
-        <label class="grow">{{ t('users.type') }} <AppSelect v-model="form.user_type" :options="formTypeOptions" /></label>
-        <label v-if="clientId == null" class="grow">{{ t('users.client') }} <AppSelect v-model="form.client" :options="formClientOptions" />
-          <span v-if="fieldErrors.client" class="field-error">{{ fieldErrors.client.join(' ') }}</span></label>
-        <label v-if="showTrial" class="grow">{{ t('users.accessEnds') }} <AppDatePicker v-model="form.trial_ends_at" />
-          <span class="muted small">{{ t('users.accessEndsHint') }}</span>
-          <span v-if="fieldErrors.trial_ends_at" class="field-error">{{ fieldErrors.trial_ends_at.join(' ') }}</span></label>
-      </div>
-      <p v-if="!admin" class="muted small">{{ t('users.customerNote') }}</p>
-      <div class="row">
-        <button class="btn-primary" :disabled="saving">{{ saving ? t('giftForm.saving') : t('common.save') }}</button>
-        <button type="button" @click="editing = null">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+    <AppDialog :open="editing !== null" :title="editing === 'new' ? (admin ? t('users.new') : t('users.newCustomer')) : editing ? t('users.edit', { name: editing.username }) : ''" @update:open="!$event && (editing = null)">
+      <form v-if="editing" class="stack" @submit.prevent="save">
+        <!-- At the top, so the Type / Client / Access ends fields below stay lined up. -->
+        <AppNote v-if="showTrial">{{ t('users.accessEndsHint') }}</AppNote>
+        <div class="row">
+          <label class="grow">{{ t('users.username') }} <input v-model="form.username" required maxlength="150" autocapitalize="off" spellcheck="false" />
+            <span v-if="fieldErrors.username" class="field-error">{{ fieldErrors.username.join(' ') }}</span></label>
+          <label class="grow">{{ t('users.firstName') }} <input v-model="form.first_name" maxlength="150" /></label>
+          <label class="grow">{{ t('users.lastName') }} <input v-model="form.last_name" maxlength="150" /></label>
+        </div>
+        <label v-if="editing === 'new'">{{ t('users.startPassword') }}
+          <span class="row">
+            <input v-model="form.password" required class="grow mono" autocomplete="new-password" spellcheck="false" />
+            <button type="button" class="btn-small" @click="form.password = generatePassword()">{{ t('users.generate') }}</button>
+          </span>
+          <span class="muted small">{{ t('users.passwordHint') }}</span>
+          <span v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password.join(' ') }}</span>
+        </label>
+        <div v-if="admin" class="row">
+          <label class="grow">{{ t('users.type') }} <AppSelect v-model="form.user_type" :options="formTypeOptions" /></label>
+          <label v-if="clientId == null" class="grow">{{ t('users.client') }} <AppSelect v-model="form.client" :options="formClientOptions" />
+            <span v-if="fieldErrors.client" class="field-error">{{ fieldErrors.client.join(' ') }}</span></label>
+          <label v-if="showTrial" class="grow">{{ t('users.accessEnds') }} <AppDatePicker v-model="form.trial_ends_at" />
+            <span v-if="fieldErrors.trial_ends_at" class="field-error">{{ fieldErrors.trial_ends_at.join(' ') }}</span></label>
+        </div>
+        <p v-if="!admin" class="muted small">{{ t('users.customerNote') }}</p>
+        <div class="row">
+          <button class="btn-primary" :disabled="saving">{{ saving ? t('giftForm.saving') : t('common.save') }}</button>
+          <button type="button" @click="editing = null">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </AppDialog>
 
-    <form v-if="resetting" class="card stack edit-form" @submit.prevent="reset">
-      <h3>{{ t('users.resetTitle', { name: resetting.username }) }}</h3>
-      <span class="row">
-        <input v-model="newPassword" required class="grow mono" autocomplete="new-password" spellcheck="false" :aria-label="t('users.newPassword')" />
-        <button type="button" class="btn-small" @click="newPassword = generatePassword()">{{ t('users.generate') }}</button>
-      </span>
-      <span v-if="resetErrors.length" class="field-error">{{ resetErrors.join(' ') }}</span>
-      <div class="row">
-        <button class="btn-primary">{{ t('users.resetPassword') }}</button>
-        <button type="button" @click="resetting = null">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+    <AppDialog :open="resetting !== null" :title="resetting ? t('users.resetTitle', { name: resetting.username }) : ''" size="sm" @update:open="!$event && (resetting = null)">
+      <form v-if="resetting" class="stack" @submit.prevent="reset">
+        <span class="row">
+          <input v-model="newPassword" required class="grow mono" autocomplete="new-password" spellcheck="false" :aria-label="t('users.newPassword')" />
+          <button type="button" class="btn-small" @click="newPassword = generatePassword()">{{ t('users.generate') }}</button>
+        </span>
+        <span v-if="resetErrors.length" class="field-error">{{ resetErrors.join(' ') }}</span>
+        <div class="row">
+          <button class="btn-primary">{{ t('users.resetPassword') }}</button>
+          <button type="button" @click="resetting = null">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </AppDialog>
 
     <div class="table-wrap">
       <table>
@@ -280,6 +285,5 @@ const typeLabel = (u: ApiManagedUser) => (u.is_platform_admin ? t('users.types.p
 <style scoped>
 .search { flex: 1; min-width: 180px; }
 .grow { flex: 1; min-width: 160px; }
-.edit-form { background: var(--c-bg); }
 tr.inactive td { opacity: 0.6; }
 </style>

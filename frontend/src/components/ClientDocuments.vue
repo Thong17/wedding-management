@@ -6,6 +6,7 @@ import { documentsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiClientDocument, DocumentInput, DocumentType } from '@/api/types'
 import AppDatePicker from '@/components/AppDatePicker.vue'
+import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { formatDateTime } from '@/utils/format'
@@ -116,31 +117,32 @@ const typeOptions = () => TYPES.map((value) => ({ value, label: t(`documents.typ
   <div class="stack">
     <div class="row">
       <p class="muted small grow">{{ t('documents.privacy') }}</p>
-      <button v-if="editable && editingId !== 'new'" class="btn-small btn-primary" @click="startNew"><AppIcon name="plus" :size="16" />{{ t('documents.upload') }}</button>
+      <button v-if="editable" class="btn-small btn-primary" @click="startNew"><AppIcon name="plus" :size="16" />{{ t('documents.upload') }}</button>
     </div>
     <div v-if="error" class="banner banner-danger small">{{ error }}</div>
 
-    <form v-if="editable && editingId !== null" class="card stack doc-form" @submit.prevent="save">
-      <h3>{{ editingId === 'new' ? t('documents.upload') : t('documents.edit') }}</h3>
-      <div class="row">
-        <label class="grow">{{ t('documents.type') }} <AppSelect v-model="form.doc_type" :options="typeOptions()" /></label>
-        <label class="grow">{{ t('documents.number') }} <input v-model="form.number" maxlength="100" /></label>
-      </div>
-      <div class="row">
-        <label class="grow">{{ t('documents.issuedOn') }} <AppDatePicker :model-value="form.issued_on ?? ''" @update:model-value="form.issued_on = $event || null" /></label>
-        <label class="grow">{{ t('documents.expiresOn') }} <AppDatePicker :model-value="form.expires_on ?? ''" @update:model-value="form.expires_on = $event || null" />
-          <span v-if="fieldErrors.expires_on" class="field-error">{{ fieldErrors.expires_on.join(' ') }}</span></label>
-      </div>
-      <label>{{ t('documents.notes') }} <textarea v-model="form.notes" rows="2" /></label>
-      <label>{{ editingId === 'new' ? t('documents.file') : t('documents.replaceFile') }}
-        <input type="file" accept=".pdf,image/jpeg,image/png,image/webp" @change="onFile" />
-        <span class="muted small">{{ t('documents.fileHint') }}</span>
-        <span v-if="fieldErrors.file" class="field-error">{{ fieldErrors.file.join(' ') }}</span></label>
-      <div class="row">
-        <button class="btn-primary" :disabled="saving || (editingId === 'new' && !file)">{{ saving ? t('giftForm.saving') : t('common.save') }}</button>
-        <button type="button" @click="editingId = null">{{ t('common.cancel') }}</button>
-      </div>
-    </form>
+    <AppDialog v-if="editable" :open="editingId !== null" :title="editingId === 'new' ? t('documents.upload') : t('documents.edit')" @update:open="!$event && (editingId = null)">
+      <form class="stack" @submit.prevent="save">
+        <div class="row">
+          <label class="grow">{{ t('documents.type') }} <AppSelect v-model="form.doc_type" :options="typeOptions()" /></label>
+          <label class="grow">{{ t('documents.number') }} <input v-model="form.number" maxlength="100" /></label>
+        </div>
+        <div class="row">
+          <label class="grow">{{ t('documents.issuedOn') }} <AppDatePicker :model-value="form.issued_on ?? ''" @update:model-value="form.issued_on = $event || null" /></label>
+          <label class="grow">{{ t('documents.expiresOn') }} <AppDatePicker :model-value="form.expires_on ?? ''" @update:model-value="form.expires_on = $event || null" />
+            <span v-if="fieldErrors.expires_on" class="field-error">{{ fieldErrors.expires_on.join(' ') }}</span></label>
+        </div>
+        <label>{{ t('documents.notes') }} <textarea v-model="form.notes" rows="2" /></label>
+        <label>{{ editingId === 'new' ? t('documents.file') : t('documents.replaceFile') }}
+          <input type="file" accept=".pdf,image/jpeg,image/png,image/webp" @change="onFile" />
+          <span class="muted small">{{ t('documents.fileHint') }}</span>
+          <span v-if="fieldErrors.file" class="field-error">{{ fieldErrors.file.join(' ') }}</span></label>
+        <div class="row">
+          <button class="btn-primary" :disabled="saving || (editingId === 'new' && !file)">{{ saving ? t('giftForm.saving') : t('common.save') }}</button>
+          <button type="button" @click="editingId = null">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </AppDialog>
 
     <ul class="list">
       <li v-for="doc in docs" :key="doc.id" class="doc">
@@ -175,6 +177,5 @@ const typeOptions = () => TYPES.map((value) => ({ value, label: t(`documents.typ
 <style scoped>
 .grow { flex: 1; min-width: 160px; }
 .doc { padding: 10px 0; display: flex; flex-direction: column; gap: 4px; }
-.doc-form { background: var(--c-bg); }
 textarea { resize: vertical; }
 </style>

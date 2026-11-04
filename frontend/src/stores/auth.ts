@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '@/api/endpoints'
-import { onAuthExpired, tokens } from '@/api/http'
+import { onAccountLocked, onAuthExpired, tokens } from '@/api/http'
 import type { ApiUser, ProfileUpdate } from '@/api/types'
 import { adoptRecords, type Recorder } from '@/offline/transactionRepo'
 
@@ -30,8 +30,27 @@ export const useAuthStore = defineStore('auth', () => {
   /** Who owns gifts recorded in this session; uploads match records by this id. */
   const recorder = computed<Recorder | null>(() => (user.value ? { id: user.value.id, username: user.value.username } : null))
 
+  /**
+   * Locked logins (client suspended or trial over) only see the lock screen. Comes from /me, or from any
+   * request the server refuses as locked. Kept with the cached user, so a device stays on the lock screen
+   * offline once the server has said so; until then an offline device keeps working.
+   */
+  const lockReason = computed(() => user.value?.lock_reason ?? null)
+  /** Days until access ends (0 = last day), or null when there's no end date or it's already locked. */
+  const daysLeft = computed(() => {
+    const end = user.value?.access_ends_at
+    if (!end || lockReason.value) return null
+    const today = new Date()
+    const startOfToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+    return Math.round((Date.parse(`${end}T00:00:00Z`) - startOfToday) / 86_400_000)
+  })
+
   onAuthExpired(() => {
     sessionExpired.value = true
+  })
+
+  onAccountLocked((reason) => {
+    if (user.value && user.value.lock_reason !== reason) void setUser({ ...user.value, lock_reason: reason })
   })
 
   /** Store the user and tag this device's records with their id (and new name, after a rename). */
@@ -83,6 +102,8 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user,
     username,
+    lockReason,
+    daysLeft,
     recorder,
     isLoggedIn,
     isPlatformAdmin,

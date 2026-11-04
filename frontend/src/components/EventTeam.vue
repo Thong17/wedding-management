@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { assignmentsApi, rolesApi, usersApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiAssignment, ApiEvent, ApiManagedUser, ApiRole } from '@/api/types'
+import AppDialog from '@/components/AppDialog.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { toast } from '@/utils/toast'
 
@@ -19,6 +21,7 @@ const error = ref<string | null>(null)
 const newUser = ref<string>('')
 const newRole = ref<string>('')
 const busy = ref(false)
+const assigning = ref(false)
 
 const roleOptions = computed(() =>
   roles.value.map((r) => ({ value: String(r.id), label: r.client ? r.name : `${r.name} · ${t('team.global')}` })),
@@ -57,6 +60,7 @@ async function add() {
   try {
     await assignmentsApi.add(props.event.id, Number(newUser.value), Number(newRole.value))
     newUser.value = ''
+    assigning.value = false
     await load()
   } catch (err) {
     toast(errorMessage(err), 'error')
@@ -101,18 +105,25 @@ async function remove(a: ApiAssignment) {
       <li v-if="!assignments.length && !error" class="muted small team-row">{{ t('team.empty') }}</li>
     </ul>
 
-    <form class="row" @submit.prevent="add">
-      <div class="grow">
-        <AppSelect v-model="newUser" :options="customerOptions" :placeholder="customerOptions.length ? t('team.pickCustomer') : t('team.noCustomers')" :aria-label="t('team.customer')" />
-      </div>
-      <AppSelect v-model="newRole" :options="roleOptions" :aria-label="t('team.role')" inline />
-      <button class="btn-primary" :disabled="busy || !newUser || !newRole">{{ t('team.assign') }}</button>
-    </form>
+    <div class="row">
+      <button class="btn-primary" @click="assigning = true"><AppIcon name="plus" />{{ t('team.assignTitle') }}</button>
+    </div>
+
+    <AppDialog v-model:open="assigning" :title="t('team.assignTitle')" size="sm">
+      <form class="stack" @submit.prevent="add">
+        <label>{{ t('team.customer') }}
+          <AppSelect v-model="newUser" :options="customerOptions" :placeholder="customerOptions.length ? t('team.pickCustomer') : t('team.noCustomers')" /></label>
+        <label>{{ t('team.role') }} <AppSelect v-model="newRole" :options="roleOptions" /></label>
+        <div class="row">
+          <button class="btn-primary" :disabled="busy || !newUser || !newRole">{{ t('team.assign') }}</button>
+          <button type="button" @click="assigning = false">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+    </AppDialog>
   </div>
 </template>
 
 <style scoped>
 .team-row { padding: 8px 0; flex-wrap: nowrap; }
 .name { min-width: 0; overflow-wrap: anywhere; }
-.grow { flex: 1; min-width: 180px; }
 </style>

@@ -22,15 +22,15 @@ const router = createRouter({
   routes: [
     { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue'), meta: { public: true } },
     { path: '/', name: 'events', component: () => import('@/views/EventsListView.vue'), meta: { crumb: 'crumb.events' } },
-    { path: '/events/new', name: 'event-new', component: () => import('@/views/EventFormView.vue'), meta: { crumb: 'crumb.newEvent', parent: 'events', managers: true } },
+    // New / edit event are dialogs now; old links land on the page that opens them.
+    { path: '/events/new', redirect: { name: 'events' } },
     { path: '/events/:id(\\d+)', name: 'event', component: () => import('@/views/EventDetailView.vue'), props: true, meta: { crumb: EVENT_CRUMB, parent: 'events' } },
-    { path: '/events/:id(\\d+)/edit', name: 'event-edit', component: () => import('@/views/EventFormView.vue'), props: true, meta: { crumb: 'crumb.edit', parent: 'event' } },
+    { path: '/events/:id(\\d+)/edit', redirect: (to) => ({ name: 'event', params: { id: to.params.id } }) },
     { path: '/events/:id(\\d+)/desk', name: 'desk', component: () => import('@/views/GiftDeskView.vue'), props: true, meta: { crumb: 'crumb.desk', parent: 'event' } },
     { path: '/events/:id(\\d+)/report', name: 'report', component: () => import('@/views/ReportView.vue'), props: true, meta: { crumb: 'crumb.report', parent: 'event' } },
     { path: '/events/:id(\\d+)/qr', name: 'qr-sheet', component: () => import('@/views/GuestQrSheetView.vue'), props: true, meta: { crumb: 'crumb.qr', parent: 'event' } },
     { path: '/sync', name: 'sync', component: () => import('@/views/SyncCenterView.vue'), meta: { crumb: 'crumb.sync', parent: 'events' } },
     { path: '/clients', name: 'clients', component: () => import('@/views/ClientsView.vue'), meta: { crumb: 'crumb.clients', parent: 'events', platformAdmin: true } },
-    { path: '/clients/new', name: 'client-new', component: () => import('@/views/ClientDetailView.vue'), meta: { crumb: 'crumb.newClient', parent: 'clients', platformAdmin: true } },
     { path: '/clients/:id(\\d+)', name: 'client', component: () => import('@/views/ClientDetailView.vue'), props: true, meta: { crumb: 'crumb.client', parent: 'clients', platformAdmin: true } },
     { path: '/users', name: 'users', component: () => import('@/views/UsersView.vue'), meta: { crumb: 'crumb.users', parent: 'events', platformAdmin: true } },
     { path: '/customers', name: 'customers', component: () => import('@/views/CustomersView.vue'), meta: { crumb: 'crumb.customers', parent: 'events', clientAdmin: true } },
