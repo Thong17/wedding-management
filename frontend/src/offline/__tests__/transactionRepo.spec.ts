@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getDB } from '@/offline/db'
 import {
+  applyServerGift,
   backoffDelay,
   claimBatch,
   countByStatus,
+  deleteUnsyncedTransaction,
   GiftValidationError,
   listTransactions,
   markFailed,
@@ -13,7 +15,7 @@ import {
   recoverStaleSyncing,
   releaseForRetry,
   retryFailed,
-  updateFailedTransaction,
+  updateUnsyncedTransaction,
   validateGiftInput,
 } from '@/offline/transactionRepo'
 import { addGift, DEMO_USER, giftInput, resetDB, simulateReload } from '@/test/helpers'
@@ -105,18 +107,48 @@ describe('queue state transitions', () => {
     expect(backoffDelay(20, mid)).toBe(300_000)
   })
 
-  it('lets the user retry or fix failed records only', async () => {
+  it('lets the user fix records not on the server yet, and retry failed ones', async () => {
     const t = await addGift()
-    await expect(updateFailedTransaction(t.txnId, { ...giftInput(), amount: '10' })).rejects.toThrow(/Only failed/)
+    // Still waiting to upload: can be corrected right away.
+    expect(await updateUnsyncedTransaction(t.txnId, { ...giftInput(), amount: '60' })).toMatchObject({ status: 'pending', amount: '60.00' })
+    // Being uploaded: left alone.
     await claimBatch(1, { user: DEMO_USER })
+    await expect(updateUnsyncedTransaction(t.txnId, { ...giftInput(), amount: '10' })).rejects.toThrow()
     await markFailed(t.txnId, { code: 'guest_not_found', message: 'Guest not found' })
-    const fixed = await updateFailedTransaction(t.txnId, { guestId: null, guestName: '', walkInName: 'Walk In', amount: '75', method: 'transfer' })
+    const fixed = await updateUnsyncedTransaction(t.txnId, { guestId: null, guestName: '', walkInName: 'Walk In', amount: '75', method: 'transfer' })
     expect(fixed).toMatchObject({ status: 'pending', amount: '75.00', guestId: null, walkInName: 'Walk In', txnId: t.txnId })
 
     await claimBatch(1, { user: DEMO_USER })
     await markFailed(t.txnId, { code: 'x', message: 'x' })
     expect(await retryFailed()).toBe(1)
     expect((await countByStatus()).pending).toBe(1)
+  })
+
+  it('deletes only records that never reached the server', async () => {
+    const waiting = await addGift()
+    await deleteUnsyncedTransaction(waiting.txnId)
+    expect(await listTransactions()).toHaveLength(0)
+
+    const uploaded = await addGift()
+    await claimBatch(1, { user: DEMO_USER })
+    await expect(deleteUnsyncedTransaction(uploaded.txnId)).rejects.toThrow() // uploading
+    await markSynced(uploaded.txnId, 7)
+    await expect(deleteUnsyncedTransaction(uploaded.txnId)).rejects.toThrow() // on the server
+    expect(await listTransactions()).toHaveLength(1)
+  })
+
+  it('mirrors a server correction or void onto the synced copy only', async () => {
+    const rec = await addGift()
+    const change = { amount: '80.00', method: 'transfer' as const, item: '', note: 'fixed', voided: false }
+    await applyServerGift(rec.txnId, change) // not synced yet: ignored
+    expect((await listTransactions())[0]).toMatchObject({ amount: '50.00' })
+
+    await claimBatch(1, { user: DEMO_USER })
+    await markSynced(rec.txnId, 7)
+    await applyServerGift(rec.txnId, change)
+    expect((await listTransactions())[0]).toMatchObject({ amount: '80.00', method: 'transfer', note: 'fixed', status: 'synced' })
+    await applyServerGift(rec.txnId, { ...change, voided: true })
+    expect((await listTransactions())[0].voided).toBe(true)
   })
 
   it('pruning only ever removes old synced records', async () => {
@@ -160,7 +192,7 @@ describe('item gifts (non-money, e.g. a watch)', () => {
     const rec = await addGift()
     await claimBatch(1, { user: DEMO_USER })
     await markFailed(rec.txnId, { code: 'validation', message: 'x' })
-    const asItem = await updateFailedTransaction(rec.txnId, { ...item(), guestId: rec.guestId, guestName: 'Sokha Chan' })
+    const asItem = await updateUnsyncedTransaction(rec.txnId, { ...item(), guestId: rec.guestId, guestName: 'Sokha Chan' })
     expect(asItem).toMatchObject({ method: 'item', amount: null, item: 'Gold watch', status: 'pending' })
   })
 })

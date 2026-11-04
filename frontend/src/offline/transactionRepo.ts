@@ -314,8 +314,15 @@ export async function retryFailed(txnIds?: string[]): Promise<number> {
   return n
 }
 
-/** Fix a failed record (e.g. wrong amount or guest) and queue it again. */
-export async function updateFailedTransaction(
+/** Not on the server yet and not being uploaded right now: it can still be changed or deleted here. */
+export const isUnsynced = (rec: Pick<GiftTransaction, 'status'>) => rec.status === 'pending' || rec.status === 'failed'
+
+/**
+ * Fix a record that isn't on the server yet (waiting or failed: wrong amount, guest…) and queue it
+ * again. Checked inside the same IndexedDB transaction as the write, so a record the sync engine has
+ * just claimed for upload is never changed under it.
+ */
+export async function updateUnsyncedTransaction(
   txnId: string,
   patch: Pick<GiftInput, 'guestId' | 'guestName' | 'walkInName' | 'amount' | 'method' | 'item' | 'note'>,
 ): Promise<GiftTransaction> {
@@ -323,7 +330,7 @@ export async function updateFailedTransaction(
   const tx = db.transaction('transactions', 'readwrite')
   const rec = await tx.store.get(txnId)
   if (!rec) throw new Error('Transaction not found.')
-  if (rec.status !== 'failed') throw new Error('Only failed transactions can be edited.')
+  if (!isUnsynced(rec)) throw new Error(t('txn.notEditable'))
   const errors = validateGiftInput({ ...patch, eventId: rec.eventId, currency: rec.currency })
   if (Object.keys(errors).length) throw new GiftValidationError(errors)
   const walkInName = patch.guestId == null ? (patch.walkInName ?? '').trim() : ''
@@ -343,6 +350,43 @@ export async function updateFailedTransaction(
   await tx.done
   notifyTransactionsChanged()
   return updated
+}
+
+/** Delete a record that never reached the server (waiting or failed). Uploading or synced ones are refused. */
+export async function deleteUnsyncedTransaction(txnId: string): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('transactions', 'readwrite')
+  const rec = await tx.store.get(txnId)
+  if (!rec) return
+  if (!isUnsynced(rec)) throw new Error(t('txn.notEditable'))
+  await tx.store.delete(txnId)
+  await tx.done
+  notifyTransactionsChanged()
+}
+
+/**
+ * After a synced gift was corrected or voided on the server, mirror that on this device's copy so the
+ * desk's list and totals match. Only touches synced records.
+ */
+export async function applyServerGift(
+  txnId: string,
+  gift: { amount: string | null; method: GiftMethod; item: string; note: string; voided: boolean },
+): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction('transactions', 'readwrite')
+  const rec = await tx.store.get(txnId)
+  if (!rec || rec.status !== 'synced') return
+  await tx.store.put({
+    ...rec,
+    amount: gift.amount,
+    method: gift.method,
+    item: gift.item,
+    note: gift.note,
+    voided: gift.voided,
+    updatedAt: Date.now(),
+  })
+  await tx.done
+  notifyTransactionsChanged()
 }
 
 /** Explicit, user-triggered cleanup. Only ever removes server-confirmed records. */

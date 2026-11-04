@@ -16,7 +16,7 @@ import {
   pruneSynced,
   retryFailed,
   toCsv,
-  updateFailedTransaction,
+  updateUnsyncedTransaction,
 } from '@/offline/transactionRepo'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
@@ -112,7 +112,7 @@ watch(editQuery, () => (editErrors.value = {}))
 async function saveEdit() {
   if (!editing.value) return
   try {
-    await updateFailedTransaction(editing.value.txnId, { ...editForm })
+    await updateUnsyncedTransaction(editing.value.txnId, { ...editForm })
     editing.value = null
     toast(t('sync.savedUploading'), 'info')
     await sync.syncNow()

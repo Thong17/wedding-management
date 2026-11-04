@@ -44,6 +44,8 @@ export interface GiftTransaction {
   errorDetails: Record<string, unknown> | null
   serverGiftId: number | null
   syncedAt: string | null
+  /** Voided on the server after syncing: kept for the record, left out of totals. */
+  voided?: boolean
   /** Epoch ms of the last local change. */
   updatedAt: number
 }

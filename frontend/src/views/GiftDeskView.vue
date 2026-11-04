@@ -9,14 +9,18 @@ import OcrScanner from '@/components/OcrScanner.vue'
 import QrScanner from '@/components/QrScanner.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
-import type { CachedEvent, CachedGuest } from '@/offline/db'
+import AppSelect from '@/components/AppSelect.vue'
+import type { CachedEvent, CachedGuest, GiftMethod, GiftTransaction } from '@/offline/db'
 import { findGuestByQrRef } from '@/offline/guestCache'
 import { parseScannedCode } from '@/offline/guestSearch'
-import type { GiftInput } from '@/offline/transactionRepo'
+import { GiftValidationError, isUnsynced, type GiftInput, type ValidationErrors } from '@/offline/transactionRepo'
+import { errorMessage } from '@/api/http'
 import type { ApiEvent } from '@/api/types'
 import { useEventsStore } from '@/stores/events'
 import { useGiftDeskStore } from '@/stores/giftDesk'
-import { formatGiftValue, formatMoney, formatRelative } from '@/utils/format'
+import { useSyncStore } from '@/stores/sync'
+import { confirmDialog } from '@/utils/confirmDialog'
+import { formatGiftValue, formatMoney, formatRelative, methodOptions } from '@/utils/format'
 import { can } from '@/utils/permissions'
 import { toast } from '@/utils/toast'
 
@@ -53,9 +57,66 @@ const currency = computed(() => event.value?.currency ?? 'USD')
 // From the event's stored permissions, so this also holds offline. The server re-checks every upload.
 const noDesk = computed(() => !!event.value && !can(event.value, 'gift_desk'))
 const previousCount = computed(() =>
-  selected.value ? desk.transactions.filter((t) => t.guestId === selected.value!.id).length : 0,
+  selected.value ? desk.counted.filter((t) => t.guestId === selected.value!.id).length : 0,
 )
 const recent = computed(() => desk.transactions.slice(0, 30))
+
+// Correcting or removing a recorded gift. Not uploaded yet: anyone at the desk, even offline.
+// Already on the server: the "edit & void gifts" permission and a connection.
+const sync = useSyncStore()
+const canEditOnServer = computed(() => !!event.value && can(event.value, 'gift_edit'))
+type GiftAccess = 'local' | 'server' | 'offline' | 'none'
+function access(txn: GiftTransaction): GiftAccess {
+  if (isUnsynced(txn)) return 'local'
+  if (txn.status !== 'synced' || txn.voided || txn.serverGiftId == null || !canEditOnServer.value) return 'none'
+  return sync.browserOnline ? 'server' : 'offline'
+}
+
+const editing = ref<{ txn: GiftTransaction; method: GiftMethod; amount: string; item: string; note: string } | null>(null)
+const editErrors = ref<ValidationErrors>({})
+const editError = ref<string | null>(null)
+const savingEdit = ref(false)
+
+function startEdit(txn: GiftTransaction) {
+  editing.value = { txn, method: txn.method, amount: txn.amount ?? '', item: txn.item ?? '', note: txn.note }
+  editErrors.value = {}
+  editError.value = null
+}
+
+async function saveEdit() {
+  const edit = editing.value
+  if (!edit) return
+  savingEdit.value = true
+  editErrors.value = {}
+  editError.value = null
+  try {
+    await desk.editGift(edit.txn, { method: edit.method, amount: edit.amount, item: edit.item, note: edit.note })
+    editing.value = null
+    toast(t('gifts.updated'))
+  } catch (err) {
+    if (err instanceof GiftValidationError) editErrors.value = err.errors
+    else editError.value = errorMessage(err)
+  } finally {
+    savingEdit.value = false
+  }
+}
+
+async function removeGift(txn: GiftTransaction) {
+  const local = isUnsynced(txn)
+  const values = { amount: formatGiftValue(txn), name: txn.guestNameSnapshot }
+  const ok = await confirmDialog({
+    message: local ? t('desk.deleteLocalConfirm', values) : t('gifts.voidConfirm', values),
+    confirmText: local ? t('common.delete') : t('gifts.void'),
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await desk.deleteGift(txn)
+    toast(local ? t('desk.deleted') : t('gifts.voided'), 'info')
+  } catch (err) {
+    toast(errorMessage(err), 'error')
+  }
+}
 
 onMounted(async () => {
   const res = await eventsStore.getEvent(eventId)
@@ -141,7 +202,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
       </div>
       <span class="spacer" />
       <div class="stat right">
-        <span class="muted small">{{ t('desk.recordedHere', { n: desk.transactions.length }) }}</span>
+        <span class="muted small">{{ t('desk.recordedHere', { n: desk.counted.length }) }}</span>
         <strong>{{ formatMoney(desk.localTotal, currency) }}</strong>
       </div>
     </div>
@@ -226,14 +287,65 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
         <span class="spacer" />
         <RouterLink to="/sync" class="small">{{ t('desk.syncCenter') }}</RouterLink>
       </div>
-      <TransactionList :items="recent" />
+      <TransactionList :items="recent">
+        <template #actions="{ item }">
+          <div v-if="access(item) !== 'none'" class="row-actions">
+            <AppTooltip :text="access(item) === 'offline' ? t('desk.needsConnection') : null">
+              <span class="tooltip-wrap">
+                <button type="button" class="btn-small" :disabled="access(item) === 'offline'" @click="startEdit(item)">
+                  <AppIcon name="edit" :size="14" />{{ t('common.edit') }}
+                </button>
+              </span>
+            </AppTooltip>
+            <AppTooltip :text="access(item) === 'offline' ? t('desk.needsConnection') : null">
+              <span class="tooltip-wrap">
+                <button type="button" class="btn-small btn-danger" :disabled="access(item) === 'offline'" @click="removeGift(item)">
+                  <AppIcon name="trash" :size="14" />{{ access(item) === 'local' ? t('common.delete') : t('gifts.void') }}
+                </button>
+              </span>
+            </AppTooltip>
+          </div>
+        </template>
+      </TransactionList>
     </section>
+
+    <AppDialog
+      :open="editing !== null"
+      :title="editing ? t('gifts.editTitle', { name: editing.txn.guestNameSnapshot }) : ''"
+      :description="editing && isUnsynced(editing.txn) ? t('desk.editLocalHint') : t('desk.editServerHint')"
+      size="sm"
+      @update:open="!$event && (editing = null)"
+    >
+      <form v-if="editing" class="stack" @submit.prevent="saveEdit">
+        <label>{{ t('gifts.method') }} <AppSelect v-model="editing.method" :options="methodOptions()" /></label>
+        <label v-if="editing.method === 'item'">
+          {{ t('giftForm.itemLabel') }}
+          <input v-model="editing.item" maxlength="200" :placeholder="t('giftForm.itemPlaceholder')" />
+          <span class="field-error" v-if="editErrors.item">{{ editErrors.item }}</span>
+        </label>
+        <label v-else>
+          {{ t('giftForm.amount', { currency: editing.txn.currency }) }}
+          <input v-model="editing.amount" inputmode="decimal" autocomplete="off" />
+          <span class="field-error" v-if="editErrors.amount">{{ editErrors.amount }}</span>
+        </label>
+        <label>{{ t('gifts.note') }} <input v-model="editing.note" maxlength="500" /></label>
+        <p v-if="editError" class="banner banner-danger small">{{ editError }}</p>
+        <div class="row">
+          <span class="spacer" />
+          <button type="button" @click="editing = null">{{ t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary" :disabled="savingEdit">{{ t('common.save') }}</button>
+        </div>
+      </form>
+    </AppDialog>
   </div>
 </template>
 
 <style scoped>
 .walk-in-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .refresh-btn { flex-shrink: 0; min-height: 44px; height: 44px; }
+.row-actions { justify-content: flex-start; margin-top: 2px; }
+.row-actions .btn-small { display: inline-flex; align-items: center; gap: 4px; }
+.tooltip-wrap { display: inline-flex; }
 .spinning { animation: refresh-spin 1s linear infinite; }
 @keyframes refresh-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinning { animation: none; } }

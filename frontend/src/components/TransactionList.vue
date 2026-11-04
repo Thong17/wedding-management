@@ -12,12 +12,13 @@ const { t } = useI18n()
 
 <template>
   <ul class="list">
-    <li v-for="item in items" :key="item.txnId" class="item">
+    <li v-for="item in items" :key="item.txnId" class="item" :class="{ voided: item.voided }">
       <div class="row">
         <strong>{{ item.guestNameSnapshot }}</strong>
         <span v-if="item.guestId == null" class="badge badge-neutral">{{ t('common.walkIn') }}</span>
         <span class="spacer" />
-        <strong :class="{ nowrap: item.method !== 'item' }">{{ formatGiftValue(item) }}</strong>
+        <span v-if="item.voided" class="badge badge-failed">{{ t('txn.voided') }}</span>
+        <strong class="value" :class="{ nowrap: item.method !== 'item' }">{{ formatGiftValue(item) }}</strong>
       </div>
       <div class="row small muted">
         <span>{{ formatDateTime(item.createdAt) }} · {{ methodLabel(item.method) }}</span>
@@ -40,4 +41,6 @@ const { t } = useI18n()
 
 <style scoped>
 .item { padding: 10px 0; display: flex; flex-direction: column; gap: 4px; }
+/* Voided on the server: still listed, but clearly not counted. */
+.item.voided .value { text-decoration: line-through; color: var(--c-muted); }
 </style>
