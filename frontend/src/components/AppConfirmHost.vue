@@ -53,7 +53,7 @@ function onOpenChange(open: boolean) {
 <style>
 /* Unscoped: portalled to <body>. Uses the shared .dialog look (style.css). */
 /* Above any open form dialog (35/36) and menus (40) it is asked from; below tooltips and toasts. */
-.confirm-overlay { z-index: 41; }
+.dialog-overlay.confirm-overlay { z-index: 41; }
 .dialog.confirm-dialog { z-index: 42; }
 .confirm-dialog .dialog-title { margin-bottom: 8px; }
 .confirm-message { margin: 0 0 20px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
