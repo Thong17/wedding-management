@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 API=${API_IMAGE:-thonggee/wedding-api:latest}
 WEB=${WEB_IMAGE:-thonggee/wedding-web:latest}
 PLATFORM=linux/amd64          # DigitalOcean droplets are x86
-OCR=${VITE_OCR_LANGS:-eng+khm} # name-scanning languages, fixed into the app at build time
+OCR=${VITE_OCR_LANGS:-khm+eng} # name-scanning languages, fixed into the app at build time
 
 # On an ARM machine, building x86 images needs QEMU emulation registered with the kernel.
 require_amd64() {

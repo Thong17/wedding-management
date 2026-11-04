@@ -9,7 +9,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 # The app calls the API on its own domain (Caddy forwards /api to Django), so no CORS is involved.
-ARG VITE_OCR_LANGS=eng
+ARG VITE_OCR_LANGS=khm+eng
 ENV VITE_API_URL=/api \
     VITE_OCR_LANGS=$VITE_OCR_LANGS
 # Only the production build here: the full type check (`npm run build`) needs more memory than a

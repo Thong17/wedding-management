@@ -1,20 +1,57 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ocrCandidateLines } from '@/offline/guestSearch'
+import AppIcon from '@/components/AppIcon.vue'
+import type { CachedGuest } from '@/offline/db'
+import { guestsLikeOcrLines, pickMiddleText, type GuestSearcher, type MiddleText } from '@/offline/guestSearch'
+import { sideLabel } from '@/utils/format'
+import { prepareForOcr, TARGET_LONG_SIDE } from '@/utils/ocrImage'
 
 const { t } = useI18n()
 
-const emit = defineEmits<{ text: [text: string] }>()
+const props = defineProps<{ searcher: GuestSearcher; giftedGuestIds: Set<number | null> }>()
+const emit = defineEmits<{
+  /** A guest on the list was picked. */
+  select: [guest: CachedGuest]
+  /** Text that matches no guest was picked: use it as a walk-in (new guest) name. */
+  walkIn: [name: string]
+}>()
 const busy = ref(false)
 const progress = ref(0)
+// Only the text in the middle of the image (where the name is); the rest of the card is ignored.
 const lines = ref<string[]>([])
+// OCR misreads letters, so also offer the guests whose names are closest to what was read.
+const similarGuests = computed(() => guestsLikeOcrLines(lines.value, props.searcher))
+const readLines = computed(() => lines.value.map((text) => ({ text, guest: props.searcher.findExact(text) })))
+
+function pickLine(line: { text: string; guest?: CachedGuest }) {
+  if (line.guest) emit('select', line.guest)
+  else emit('walkIn', line.text)
+}
 const error = ref<string | null>(null)
 const preview = ref<string | null>(null)
 const cameraOn = ref(false)
 const video = ref<HTMLVideoElement | null>(null)
-const langs = import.meta.env.VITE_OCR_LANGS || 'eng'
+// Khmer first: it's the main script on Cambodian invitations; English covers Latin names.
+const langs = import.meta.env.VITE_OCR_LANGS || 'khm+eng'
 let stream: MediaStream | null = null
+
+type OcrWorker = Awaited<ReturnType<typeof import('tesseract.js')['createWorker']>>
+// One engine for as long as the scanner is open: loading the Khmer model is the slow part.
+let workerPromise: Promise<OcrWorker> | null = null
+function getWorker(): Promise<OcrWorker> {
+  workerPromise ??= (async () => {
+    // Loaded on demand: the OCR engine is large and only needed here.
+    const { createWorker } = await import('tesseract.js')
+    return createWorker(langs, 1, {
+      logger: (m: { status: string; progress: number }) => {
+        if (m.status === 'recognizing text') progress.value = Math.round(m.progress * 100)
+      },
+    })
+  })()
+  workerPromise.catch(() => (workerPromise = null)) // allow a retry, e.g. after coming back online
+  return workerPromise
+}
 
 async function startCamera() {
   error.value = null
@@ -57,7 +94,8 @@ async function capture() {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92))
   if (!blob) return
   stopCamera()
-  await recognize(blob)
+  // The guide box holds one name (maybe over two lines): read it as one block of text.
+  await recognize(blob, 'block')
 }
 
 async function onFile(e: Event) {
@@ -65,10 +103,30 @@ async function onFile(e: Event) {
   ;(e.target as HTMLInputElement).value = ''
   if (!file) return
   stopCamera()
-  await recognize(file)
+  // A whole card or photo: let the engine find the text blocks itself.
+  await recognize(file, 'auto')
 }
 
-async function recognize(image: Blob) {
+/** Tesseract page segmentation: 6 = one uniform block of text, 3 = find the layout automatically. */
+const PAGE_MODES = { block: '6', auto: '3' } as const
+/** Read a second time when the engine is less sure than this (0–100) of the middle text. */
+const RETRY_BELOW = 60
+
+async function readMiddle(worker: OcrWorker, image: Blob, longSide: number): Promise<MiddleText> {
+  const prepared = await prepareForOcr(image, longSide)
+  const { canvas } = prepared
+  const { data } = await worker.recognize(canvas)
+  // Ink colour per line and per word, so text in another colour can be told apart from the name.
+  const found = data.lines.map((l) => ({
+    ...l,
+    color: prepared.textColor(l.bbox),
+    words: l.words.map((w) => ({ ...w, color: prepared.textColor(w.bbox) })),
+  }))
+  const middle = pickMiddleText(found, canvas.width, canvas.height)
+  return middle.lines.length ? middle : { lines: [], confidence: 0 }
+}
+
+async function recognize(image: Blob, layout: keyof typeof PAGE_MODES) {
   busy.value = true
   error.value = null
   lines.value = []
@@ -76,20 +134,22 @@ async function recognize(image: Blob) {
   if (preview.value) URL.revokeObjectURL(preview.value)
   preview.value = URL.createObjectURL(image)
   try {
-    // Loaded on demand: the OCR engine is large and only needed here.
-    const { createWorker } = await import('tesseract.js')
-    const worker = await createWorker(langs, 1, {
-      logger: (m: { status: string; progress: number }) => {
-        if (m.status === 'recognizing text') progress.value = Math.round(m.progress * 100)
-      },
+    const worker = await getWorker()
+    await worker.setParameters({
+      tessedit_pageseg_mode: PAGE_MODES[layout] as never,
+      // Keep the spaces between name parts (Khmer writes no spaces inside a name).
+      preserve_interword_spaces: '1',
     })
-    try {
-      const { data } = await worker.recognize(image)
-      lines.value = ocrCandidateLines(data.text)
-      if (!lines.value.length) error.value = t('ocr.noText')
-    } finally {
-      await worker.terminate()
+    let best = await readMiddle(worker, image, TARGET_LONG_SIDE)
+    // Handwriting especially reads well at one size and not at another: if the first try found
+    // nothing or the engine is unsure, read again smaller and keep whichever it is surer of.
+    if (best.confidence < RETRY_BELOW) {
+      progress.value = 0
+      const second = await readMiddle(worker, image, Math.round(TARGET_LONG_SIDE * 0.7))
+      if (second.confidence > best.confidence) best = second
     }
+    lines.value = best.lines
+    if (!lines.value.length) error.value = t('ocr.noText')
   } catch (err) {
     error.value = t('ocr.failed', { error: err instanceof Error ? err.message : String(err) })
   } finally {
@@ -100,6 +160,9 @@ async function recognize(image: Blob) {
 onBeforeUnmount(() => {
   stopCamera()
   if (preview.value) URL.revokeObjectURL(preview.value)
+  // Free the OCR engine's memory when the scanner closes.
+  void workerPromise?.then((w) => w.terminate()).catch(() => {})
+  workerPromise = null
 })
 </script>
 
@@ -125,16 +188,51 @@ onBeforeUnmount(() => {
     <p v-if="busy" class="muted small">{{ t('ocr.reading', { n: progress }) }}</p>
     <p v-if="error" class="banner banner-warn small">{{ error }}</p>
     <div v-if="lines.length" class="stack">
-      <span class="muted small">{{ t('ocr.tapLine') }}</span>
+      <span class="muted small">{{ t('ocr.similarGuests') }}</span>
+      <ul class="list matches">
+        <li v-for="g in similarGuests" :key="g.id" :title="t('ocr.onList')" @click="emit('select', g)">
+          <AppIcon name="check" :size="16" class="on-list" />
+          <div class="grow">
+            <strong>{{ g.full_name }}</strong>
+            <span v-if="g.nickname" class="muted small"> “{{ g.nickname }}”</span>
+            <div class="muted small">
+              {{ sideLabel(g.side) }}<span v-if="g.group"> · {{ g.group }}</span><span v-if="g.table_no"> · {{ t('common.table', { n: g.table_no }) }}</span>
+            </div>
+          </div>
+          <span v-if="giftedGuestIds.has(g.id)" class="badge badge-synced" :title="t('search.giftedTitle')">{{ t('search.gifted') }}</span>
+        </li>
+        <li v-if="!similarGuests.length" class="muted small empty">{{ t('ocr.noSimilar') }}</li>
+      </ul>
+
+      <span class="muted small">{{ t('ocr.readText') }}</span>
       <div class="row">
-        <button v-for="l in lines" :key="l" class="btn-small" @click="emit('text', l)">{{ l }}</button>
+        <button
+          v-for="l in readLines"
+          :key="l.text"
+          class="btn-small read-line"
+          :title="l.guest ? t('ocr.onList') : t('ocr.useAsWalkIn')"
+          @click="pickLine(l)"
+        >
+          <AppIcon :name="l.guest ? 'check' : 'plus'" :size="14" :class="l.guest ? 'on-list' : 'not-on-list'" />
+          {{ l.text }}
+        </button>
       </div>
+      <span class="muted small">{{ t('ocr.legend') }}</span>
     </div>
   </div>
 </template>
 
 <style scoped>
 .file-btn { cursor: pointer; flex-direction: row; }
+.matches { border: 1px solid var(--c-border); border-radius: var(--radius-md); }
+.matches li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; }
+.matches li:hover { background: var(--c-primary-soft); }
+.matches li.empty { cursor: default; }
+.matches li.empty:hover { background: none; }
+.matches .grow { flex: 1; min-width: 0; }
+.on-list { color: var(--c-ok); flex-shrink: 0; }
+.not-on-list { opacity: 0.7; flex-shrink: 0; }
+.read-line { display: inline-flex; align-items: center; gap: 6px; }
 .file-btn.disabled { opacity: 0.5; pointer-events: none; }
 .preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: var(--radius-md); align-self: flex-start; }
 .camera { position: relative; width: 100%; max-width: 420px; border-radius: var(--radius-md); overflow: hidden; background: #000; }

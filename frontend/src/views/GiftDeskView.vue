@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import GiftForm from '@/components/GiftForm.vue'
 import GuestSearch from '@/components/GuestSearch.vue'
@@ -29,6 +29,7 @@ const mode = ref<'search' | 'qr' | 'ocr'>('search')
 const query = ref('')
 const selected = ref<CachedGuest | null>(null)
 const searchRef = ref<InstanceType<typeof GuestSearch> | null>(null)
+const giftFormRef = ref<InstanceType<typeof GiftForm> | null>(null)
 
 const currency = computed(() => event.value?.currency ?? 'USD')
 // From the event's stored permissions, so this also holds offline. The server re-checks every upload.
@@ -77,6 +78,14 @@ function onSearchText(text: string) {
   mode.value = 'search'
 }
 
+/** A name read from a card that isn't on the guest list: record the gift under it as a walk-in. */
+async function useWalkIn(name: string) {
+  selected.value = null
+  await nextTick() // let the form show its walk-in field again before filling it
+  giftFormRef.value?.setWalkIn(name)
+  toast(t('desk.walkInFilled', { name }), 'info', 2500)
+}
+
 async function submit(input: Omit<GiftInput, 'eventId'>) {
   const record = await desk.recordGift(input)
   toast(t('desk.saved', { amount: formatGiftValue(record), name: record.guestNameSnapshot }))
@@ -114,7 +123,13 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
           <button :class="{ active: mode === 'ocr' }" @click="mode = 'ocr'">{{ t('desk.tabOcr') }}</button>
         </div>
         <QrScanner v-if="mode === 'qr'" @scan="onScan" />
-        <OcrScanner v-if="mode === 'ocr'" @text="onSearchText" />
+        <OcrScanner
+          v-if="mode === 'ocr'"
+          :searcher="desk.searcher"
+          :gifted-guest-ids="desk.giftedGuestIds"
+          @select="selectGuest"
+          @walk-in="useWalkIn"
+        />
         <GuestSearch
           v-show="mode === 'search'"
           ref="searchRef"
@@ -129,6 +144,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
       <section class="card stack">
         <h2>{{ t('desk.recordGift') }}</h2>
         <GiftForm
+          ref="giftFormRef"
           :guest="selected"
           :currency="currency"
           :event-id="eventId"

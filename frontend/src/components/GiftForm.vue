@@ -87,6 +87,16 @@ async function onSubmit() {
     saving.value = false
   }
 }
+
+/** Fill in a walk-in (not on the list) name, e.g. read from a card, and move on to the amount. */
+async function setWalkIn(name: string) {
+  walkInName.value = name
+  delete errors.value.guest
+  await nextTick()
+  ;(isItem.value ? itemInput : amountInput).value?.focus()
+}
+
+defineExpose({ setWalkIn })
 </script>
 
 <template>

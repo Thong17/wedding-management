@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: deploy/web.Dockerfile
       args:
-        VITE_OCR_LANGS: ${VITE_OCR_LANGS:-eng}
+        VITE_OCR_LANGS: ${VITE_OCR_LANGS:-khm+eng}
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS}
