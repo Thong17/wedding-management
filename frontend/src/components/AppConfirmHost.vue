@@ -31,7 +31,7 @@ function onOpenChange(open: boolean) {
 <template>
   <AlertDialogRoot :open="!!currentDialog" @update:open="onOpenChange">
     <AlertDialogPortal>
-      <AlertDialogOverlay class="dialog-overlay" />
+      <AlertDialogOverlay class="dialog-overlay confirm-overlay" />
       <AlertDialogContent v-if="shown" class="dialog dialog-sm confirm-dialog">
         <AlertDialogTitle class="dialog-title">
           {{ shown.title ?? (shown.kind === 'confirm' ? t('common.confirmTitle') : t('app.brand')) }}
@@ -52,6 +52,9 @@ function onOpenChange(open: boolean) {
 
 <style>
 /* Unscoped: portalled to <body>. Uses the shared .dialog look (style.css). */
+/* Above any open form dialog (35/36) and menus (40) it is asked from; below tooltips and toasts. */
+.confirm-overlay { z-index: 41; }
+.dialog.confirm-dialog { z-index: 42; }
 .confirm-dialog .dialog-title { margin-bottom: 8px; }
 .confirm-message { margin: 0 0 20px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
 .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
