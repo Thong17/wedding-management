@@ -28,6 +28,8 @@ async function start() {
       { facingMode: 'environment' },
       {
         fps: 10,
+        // A square picture: the preview is never taller than it is wide, even on a phone held upright.
+        aspectRatio: 1,
         qrbox: (w, h) => {
           const size = Math.max(150, Math.floor(Math.min(w, h) * 0.7))
           return { width: size, height: size }
@@ -77,6 +79,6 @@ onBeforeUnmount(stop)
 </template>
 
 <style scoped>
-.region { width: 100%; max-width: 420px; min-height: 240px; border-radius: var(--radius-md); overflow: hidden; background: #000; }
+.region { width: 100%; max-width: min(420px, 50dvh); min-height: 240px; border-radius: var(--radius-md); overflow: hidden; background: #000; }
 .region :deep(video) { width: 100% !important; height: auto !important; display: block; object-fit: cover; }
 </style>

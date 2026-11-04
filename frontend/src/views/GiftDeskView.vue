@@ -37,15 +37,15 @@ const query = ref('')
 const selected = ref<CachedGuest | null>(null)
 const searchRef = ref<InstanceType<typeof GuestSearch> | null>(null)
 const giftFormRef = ref<InstanceType<typeof GiftForm> | null>(null)
-// Phones show only the guest list; the gift form opens as a popup once a guest (or walk-in) is
-// chosen. Wider screens keep the form beside the list.
-const phoneQuery = window.matchMedia('(max-width: 859px)')
-const isPhone = ref(phoneQuery.matches)
-const onPhoneChange = (e: MediaQueryListEvent) => (isPhone.value = e.matches)
-phoneQuery.addEventListener('change', onPhoneChange)
+// Below 1200px (phones, tablets, small laptops) the guest list gets the full width and the gift form
+// opens as a popup once a guest (or walk-in) is chosen. Wider screens keep the form beside the list.
+const formDialogQuery = window.matchMedia('(max-width: 1199px)')
+const formAsDialog = ref(formDialogQuery.matches)
+const onLayoutChange = (e: MediaQueryListEvent) => (formAsDialog.value = e.matches)
+formDialogQuery.addEventListener('change', onLayoutChange)
 const formOpen = ref(false)
 
-/** Open the gift form (the popup on phones) and wait until it is on screen. */
+/** Open the gift form (the popup on narrower screens) and wait until it is on screen. */
 async function openForm() {
   formOpen.value = true
   // The popup is mounted into <body> on open: give it a moment before focusing inside it.
@@ -126,7 +126,7 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   desk.close()
-  phoneQuery.removeEventListener('change', onPhoneChange)
+  formDialogQuery.removeEventListener('change', onLayoutChange)
 })
 
 async function selectGuest(g: CachedGuest) {
@@ -210,7 +210,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
     <div v-if="desk.guestRefreshError" class="banner banner-warn small">{{ desk.guestRefreshError }}</div>
     <div v-if="noDesk" class="banner banner-warn">{{ t('desk.noPermission') }}</div>
 
-    <div v-if="!noDesk" :class="isPhone ? 'stack' : 'grid-2'">
+    <div v-if="!noDesk" :class="formAsDialog ? 'stack' : 'grid-2'">
       <section class="card stack">
         <div class="tabs">
           <button :class="{ active: mode === 'search' }" @click="mode = 'search'">{{ t('desk.tabSearch') }}</button>
@@ -249,14 +249,14 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
           </template>
         </GuestSearch>
         <!-- On wide screens the walk-in field is always visible in the gift form beside this. -->
-        <button v-if="isPhone" type="button" class="walk-in-btn" @click="startWalkIn">
+        <button v-if="formAsDialog" type="button" class="walk-in-btn" @click="startWalkIn">
           <AppIcon name="plus" :size="16" />
           {{ t('desk.walkInButton') }}
         </button>
       </section>
 
-      <!-- Phones: the form is a popup that opens once a guest or walk-in is chosen. -->
-      <AppDialog v-if="isPhone" :open="formOpen" :title="t('desk.recordGift')" @update:open="onFormOpenChange">
+      <!-- Below 1200px: the form is a popup that opens once a guest or walk-in is chosen. -->
+      <AppDialog v-if="formAsDialog" :open="formOpen" :title="t('desk.recordGift')" @update:open="onFormOpenChange">
         <GiftForm
           ref="giftFormRef"
           :guest="selected"
@@ -285,7 +285,9 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
       <div class="row">
         <h2>{{ t('desk.recent') }}</h2>
         <span class="spacer" />
-        <RouterLink to="/sync" class="small">{{ t('desk.syncCenter') }}</RouterLink>
+        <RouterLink to="/sync" class="btn btn-small sync-center-btn">
+          <AppIcon name="sync" :size="16" />{{ t('desk.syncCenter') }}
+        </RouterLink>
       </div>
       <TransactionList :items="recent">
         <template #actions="{ item }">
@@ -342,6 +344,7 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
 
 <style scoped>
 .walk-in-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.sync-center-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
 .refresh-btn { flex-shrink: 0; min-height: 44px; height: 44px; }
 .row-actions { justify-content: flex-start; margin-top: 2px; }
 .row-actions .btn-small { display: inline-flex; align-items: center; gap: 4px; }

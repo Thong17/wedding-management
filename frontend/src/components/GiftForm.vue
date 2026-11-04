@@ -41,6 +41,20 @@ watch(isItem, async (on) => {
 })
 
 const quickAmounts = computed(() => (props.currency === 'KHR' ? [20000, 40000, 50000, 100000] : [10, 20, 50, 100]))
+// Common wedding gifts besides money, one tap each (in the current language); the text can still be
+// edited, e.g. "Gold watch". Grouped: gold and jewellery, things for the new home, big gifts.
+const ITEM_PRESETS = [
+  'gold', 'ring', 'necklace', 'bracelet', 'earrings', 'watch',
+  'riceCooker', 'fridge', 'tv', 'washingMachine',
+  'motorbike', 'car', 'house', 'land',
+] as const
+const quickItems = computed(() => ITEM_PRESETS.map((key) => t(`giftForm.items.${key}`)))
+
+function pickItem(name: string) {
+  item.value = name
+  delete errors.value.item
+  itemInput.value?.focus()
+}
 
 watch(
   () => props.guest?.id,
@@ -154,6 +168,18 @@ defineExpose({ setWalkIn, focusWalkIn, focusAmount })
       <span class="muted small">{{ t('giftForm.itemHint') }}</span>
       <span class="field-error" v-if="errors.item">{{ errors.item }}</span>
     </label>
+    <div v-if="isItem" class="row">
+      <button
+        v-for="name in quickItems"
+        :key="name"
+        type="button"
+        class="btn-small"
+        :class="{ 'btn-primary': item.trim() === name }"
+        @click="pickItem(name)"
+      >
+        {{ name }}
+      </button>
+    </div>
     <template v-else>
       <label>
         {{ t('giftForm.amount', { currency }) }}

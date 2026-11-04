@@ -222,6 +222,8 @@ th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color
 .menu-item .indicator { display: inline-flex; margin-left: auto; }
 .menu-label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
 .menu-sep { height: 1px; margin: 4px 0; background: var(--c-border); }
+/* The tooltip's anchor around a whole dropdown (language, theme): takes no space of its own. */
+.menu-tooltip-anchor { display: inline-flex; }
 /* Round icon button that opens a menu (language, theme). */
 .menu-trigger { width: 36px; min-height: 36px; height: 36px; padding: 0; border-radius: 50%; corner-shape: round; color: var(--c-muted); }
 .menu-trigger:hover,

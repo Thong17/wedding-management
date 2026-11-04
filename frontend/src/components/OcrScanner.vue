@@ -83,12 +83,16 @@ function stopCamera() {
 async function capture() {
   const v = video.value
   if (!v || !v.videoWidth) return
-  // Crop to the on-screen guide box (with a little margin) so stray text
-  // around the name doesn't clutter the OCR results.
-  const sx = Math.round(v.videoWidth * 0.05)
-  const sy = Math.round(v.videoHeight * 0.3)
-  const sw = v.videoWidth - 2 * sx
-  const sh = v.videoHeight - 2 * sy
+  // Crop to the on-screen guide box (with a little margin) so stray text around the name doesn't
+  // clutter the OCR results. The preview is height-capped and fills its box (object-fit: cover), so
+  // only the middle of the camera frame is on screen: map the guide to that visible part.
+  const scale = Math.max(v.clientWidth / v.videoWidth, v.clientHeight / v.videoHeight) || 1
+  const visibleW = v.clientWidth / scale
+  const visibleH = v.clientHeight / scale
+  const sx = Math.round((v.videoWidth - visibleW) / 2 + visibleW * 0.05)
+  const sy = Math.round((v.videoHeight - visibleH) / 2 + visibleH * 0.3)
+  const sw = Math.round(visibleW * 0.9)
+  const sh = Math.round(visibleH * 0.4)
   const canvas = document.createElement('canvas')
   canvas.width = sw
   canvas.height = sh
@@ -236,7 +240,9 @@ onBeforeUnmount(() => {
 .file-btn.disabled { opacity: 0.5; pointer-events: none; }
 .preview { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: var(--radius-md); align-self: flex-start; }
 .camera { position: relative; width: 100%; max-width: 420px; border-radius: var(--radius-md); overflow: hidden; background: #000; }
-.camera video { width: 100%; display: block; }
+/* Phones film in portrait: cap the height so the preview doesn't fill the screen; the video fills the
+   box and is cropped at top and bottom (capture() reads only what is visible). */
+.camera video { width: 100%; max-height: min(50dvh, 420px); display: block; object-fit: cover; }
 .guide {
   position: absolute; left: 10%; right: 10%; top: 35%; bottom: 35%;
   border: 2px dashed rgba(255, 255, 255, 0.85); border-radius: var(--radius-sm);

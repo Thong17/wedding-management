@@ -22,25 +22,29 @@ const current = computed({
 </script>
 
 <template>
-  <DropdownMenuRoot>
-    <AppTooltip :text="t('theme.label')" side="bottom">
-      <DropdownMenuTrigger class="btn menu-trigger" :aria-label="t('theme.label')">
-        <AppIcon name="palette" />
-      </DropdownMenuTrigger>
-    </AppTooltip>
-    <DropdownMenuPortal>
-      <DropdownMenuContent class="menu" align="end" :side-offset="6">
-        <DropdownMenuRadioGroup v-model="current">
-          <DropdownMenuRadioItem v-for="name in THEMES" :key="name" :value="name" class="menu-item">
-            <!-- Fixed colors, so each swatch previews its own theme whatever theme is active. -->
-            <span class="swatch" :style="{ background: SWATCHES[name].bg, '--accent': SWATCHES[name].accent }" aria-hidden="true" />
-            {{ t(`theme.${name}`) }}
-            <DropdownMenuItemIndicator class="indicator"><AppIcon name="check" :size="16" /></DropdownMenuItemIndicator>
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenuPortal>
-  </DropdownMenuRoot>
+  <!-- The tooltip wraps the whole menu: inside it, the menu's button would anchor to the tooltip
+       instead of the menu, and the menu would never open. -->
+  <AppTooltip :text="t('theme.label')" side="bottom">
+    <span class="menu-tooltip-anchor">
+      <DropdownMenuRoot>
+        <DropdownMenuTrigger class="btn menu-trigger" :aria-label="t('theme.label')">
+          <AppIcon name="palette" />
+        </DropdownMenuTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuContent class="menu" align="end" :side-offset="6">
+            <DropdownMenuRadioGroup v-model="current">
+              <DropdownMenuRadioItem v-for="name in THEMES" :key="name" :value="name" class="menu-item">
+                <!-- Fixed colors, so each swatch previews its own theme whatever theme is active. -->
+                <span class="swatch" :style="{ background: SWATCHES[name].bg, '--accent': SWATCHES[name].accent }" aria-hidden="true" />
+                {{ t(`theme.${name}`) }}
+                <DropdownMenuItemIndicator class="indicator"><AppIcon name="check" :size="16" /></DropdownMenuItemIndicator>
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenuPortal>
+      </DropdownMenuRoot>
+    </span>
+  </AppTooltip>
 </template>
 
 <style scoped>
