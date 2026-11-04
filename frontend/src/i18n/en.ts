@@ -354,6 +354,9 @@ export default {
     stopCamera: 'Stop camera',
     startCamera: '📷 Start camera',
     upload: '🖼️ Photo / upload',
+    language: 'Card language:',
+    // Each written in itself, so it can be found whatever the app's language.
+    lang: { khm: 'ខ្មែរ', eng: 'English', both: 'ខ្មែរ + English' },
     fitHint: "Fit the guest's name inside the box, then tap Capture.",
     scannedAlt: 'Scanned card',
     reading: 'Reading text… {n}%',

@@ -354,6 +354,8 @@ const km: typeof en = {
     stopCamera: 'បិទកាមេរ៉ា',
     startCamera: '📷 បើកកាមេរ៉ា',
     upload: '🖼️ រូបថត / ផ្ទុកឡើង',
+    language: 'ភាសាលើកាត៖',
+    lang: { khm: 'ខ្មែរ', eng: 'English', both: 'ខ្មែរ + English' },
     fitHint: 'ដាក់ឈ្មោះភ្ញៀវឱ្យនៅក្នុងប្រអប់ រួចចុច ថត។',
     scannedAlt: 'កាតដែលបានស្កេន',
     reading: 'កំពុងអានអក្សរ… {n}%',
