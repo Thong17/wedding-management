@@ -79,6 +79,8 @@ onBeforeUnmount(stop)
 </template>
 
 <style scoped>
-.region { width: 100%; max-width: min(420px, 50dvh); min-height: 240px; border-radius: var(--radius-md); overflow: hidden; background: #000; }
-.region :deep(video) { width: 100% !important; height: auto !important; display: block; object-fit: cover; }
+/* Always a square preview, at most 420px and half the screen. Cameras that ignore the square request
+   are cropped to it; the library scans a centred square, so the guide still shows where codes are read. */
+.region { position: relative; width: 100%; max-width: min(420px, 50dvh); aspect-ratio: 1; border-radius: var(--radius-md); overflow: hidden; background: #000; }
+.region :deep(video) { width: 100% !important; height: 100% !important; display: block; object-fit: cover; }
 </style>
