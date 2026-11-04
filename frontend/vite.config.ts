@@ -27,7 +27,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/admin\//],
+        // Served by Django / Caddy on the same domain in production, not by the app.
+        navigateFallbackDenylist: [/^\/api\//, /^\/admin(\/|$)/, /^\/static\//, /^\/media\//],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {

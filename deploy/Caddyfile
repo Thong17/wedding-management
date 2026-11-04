@@ -1,0 +1,45 @@
+# One HTTPS site: the app, the API under /api, Django admin under /admin.
+# SITE_ADDRESS is e.g. giftdesk.duckdns.org — Caddy gets and renews the Let's Encrypt certificate itself.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		-Server
+	}
+
+	# API and admin → Django (gunicorn).
+	@django path /api/* /admin /admin/*
+	handle @django {
+		reverse_proxy backend:8000
+	}
+
+	# Django admin's CSS/JS (collectstatic).
+	handle_path /static/* {
+		root * /var/www/static
+		file_server
+	}
+
+	# Public uploads (profile pictures). Client documents are NOT here: they live in a separate
+	# volume that Caddy can't see, and are only sent by Django to signed-in admins.
+	handle_path /media/* {
+		root * /var/www/media
+		header Cache-Control "public, max-age=2592000"
+		file_server
+	}
+
+	# The app. Unknown paths fall back to index.html so the Vue router handles them.
+	handle {
+		root * /srv
+		# The service worker and entry files must be re-checked on every visit, so updates reach phones.
+		@entry path / /index.html /sw.js /registerSW.js /manifest.webmanifest
+		header @entry Cache-Control "no-cache"
+		# Built files have content hashes in their names, so they can be cached forever.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}

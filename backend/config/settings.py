@@ -6,9 +6,15 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-key-change-me-in-production-0123456789")
+DEV_SECRET_KEY = "dev-insecure-key-change-me-in-production-0123456789"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", DEV_SECRET_KEY)
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,*").split(",")
+
+if not DEBUG and SECRET_KEY == DEV_SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY: the built-in development key must never be used in production.")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -54,12 +60,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": Path(os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3")),
+if os.environ.get("POSTGRES_DB"):
+    # Production (docker-compose.prod.yml): PostgreSQL.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["POSTGRES_DB"],
+            "USER": os.environ.get("POSTGRES_USER", "postgres"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": os.environ.get("POSTGRES_HOST", "db"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": 60,
+        }
     }
-}
+else:
+    # Development: SQLite.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": Path(os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3")),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -74,6 +95,8 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+# `collectstatic` target (Django admin's CSS/JS); the web server serves it in production.
+STATIC_ROOT = Path(os.environ.get("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles"))
 
 # User uploads (profile pictures). Served by Django only while DEBUG is on;
 # in production the web server must serve MEDIA_ROOT at MEDIA_URL.
@@ -110,6 +133,19 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     "CORS_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173",
 ).split(",")
+
+# Admin login forms need the site's own HTTPS origin, e.g. "https://giftdesk.duckdns.org".
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+
+if not DEBUG:
+    # Behind Caddy, which terminates HTTPS and says so in X-Forwarded-Proto. Without this, links
+    # Django builds (profile picture URLs) would say http:// and browsers would block them.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    # Caddy (deploy/Caddyfile) redirects http → https and sends Strict-Transport-Security itself.
+    SILENCED_SYSTEM_CHECKS = ["security.W004", "security.W008"]
 
 # Gift sync limits
 GIFT_SYNC_MAX_BATCH = 100

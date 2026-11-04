@@ -31,6 +31,11 @@ Backend env: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CORS_
 > Phones: camera scanning and the service worker require **HTTPS** (or `localhost`).
 > Serve the built frontend over HTTPS for use on mobile devices.
 
+## Deploy
+
+Production runs on one DigitalOcean droplet with Docker Compose (PostgreSQL + Django + Caddy with automatic
+HTTPS). Step-by-step guide: [docs/deploy.md](docs/deploy.md).
+
 ## Tests
 
 ```bash
