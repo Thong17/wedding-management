@@ -203,8 +203,10 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
       </div>
       <span class="spacer" />
       <div class="stat right">
-        <span class="muted small">{{ t('desk.recordedHere', { n: desk.counted.length }) }}</span>
-        <strong>{{ formatMoney(desk.localTotal, currency) }}</strong>
+        <span class="muted small">
+          {{ t(desk.eventTotals.allDesks ? 'desk.recordedAll' : 'desk.recordedHere', { n: desk.eventTotals.count }) }}
+        </span>
+        <strong>{{ formatMoney(desk.eventTotals.total, currency) }}</strong>
       </div>
     </div>
     <div v-if="loadError" class="banner banner-danger">{{ loadError }}</div>

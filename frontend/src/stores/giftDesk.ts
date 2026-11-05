@@ -77,14 +77,20 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
   // open and online; the last copy is kept on this device for offline use. null until known.
   const serverMarks = shallowRef<Map<number, number> | null>(null)
   const serverRecent = shallowRef<ApiGift[]>([])
+  const serverTotals = shallowRef<{ count: number; total: string } | null>(null)
   const feedKey = (id: number) => `wms.deskFeed.${id}`
   function readSavedFeed(id: number) {
     try {
       const saved = localStorage.getItem(feedKey(id))
       if (!saved) return
-      const { marks, recent } = JSON.parse(saved) as { marks: [number, number][]; recent: ApiGift[] }
+      const { marks, recent, totals } = JSON.parse(saved) as {
+        marks: [number, number][]
+        recent: ApiGift[]
+        totals?: { count: number; total: string }
+      }
       serverMarks.value = new Map(marks)
       serverRecent.value = recent
+      serverTotals.value = totals ?? null
     } catch {
       // nothing saved, or unreadable: wait for the server
     }
@@ -98,8 +104,9 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
       const marks = feed.marks.map((m) => [m.guest, m.count] as [number, number])
       serverMarks.value = new Map(marks)
       serverRecent.value = feed.recent
+      serverTotals.value = feed.totals ?? null
       try {
-        localStorage.setItem(feedKey(id), JSON.stringify({ marks, recent: feed.recent }))
+        localStorage.setItem(feedKey(id), JSON.stringify({ marks, recent: feed.recent, totals: feed.totals }))
       } catch {
         // storage full or blocked: still shown now
       }
@@ -119,6 +126,21 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     const local = new Set(transactions.value.map((t) => t.txnId))
     for (const [txnId, g] of fromServer) if (!local.has(txnId)) merged.push(g)
     return merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, RECENT_LIMIT)
+  })
+
+  /**
+   * The event's total on all desks: the server's plus this device's gifts not uploaded yet. Only this
+   * device's until the server's is known (never been online with this desk open).
+   */
+  const eventTotals = computed(() => {
+    const notOnServerYet = counted.value.filter((t) => t.status !== 'synced')
+    const base = serverTotals.value
+    if (!base) return { count: counted.value.length, total: localTotal.value, allDesks: false }
+    return {
+      count: base.count + notOnServerYet.length,
+      total: Number(base.total) + notOnServerYet.reduce((sum, t) => sum + (t.amount ? Number(t.amount) : 0), 0),
+      allDesks: true,
+    }
   })
 
   /**
@@ -163,6 +185,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     unsubscribe = onTransactionsChanged(() => void loadTransactions())
     serverMarks.value = null
     serverRecent.value = []
+    serverTotals.value = null
     readSavedFeed(id)
     clearInterval(feedTimer)
     feedTimer = setInterval(() => void refreshFeed(), FEED_REFRESH_MS)
@@ -296,6 +319,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     recentGifts,
     giftedGuestIds,
     localTotal,
+    eventTotals,
     open,
     close,
     refreshGuests,

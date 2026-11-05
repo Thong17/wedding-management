@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
@@ -127,6 +127,8 @@ class GiftDeskFeedView(APIView):
 
     - `marks`: guests that already have gifts, as [{"guest": id, "count": n}] (voided gifts and walk-ins
       left out), for the "gift recorded" badges and the repeat-gift warning;
+    - `totals`: {"count": n, "total": "amount"} over every gift not voided (item gifts count but add no
+      money), for the desk's event-wide total;
     - `recent`: the latest gifts from all desks (newest first, voided ones included and flagged), with
       who recorded each.
 
@@ -146,10 +148,12 @@ class GiftDeskFeedView(APIView):
             .annotate(count=Count("id"))
             .order_by("guest")
         )
+        totals = gifts.filter(voided=False).aggregate(count=Count("id"), total=Sum("amount"))
         recent = gifts.select_related("guest", "recorded_by").order_by("-client_created_at", "-id")[: self.RECENT_LIMIT]
         return Response(
             {
                 "marks": [{"guest": r["guest"], "count": r["count"]} for r in marks],
+                "totals": {"count": totals["count"], "total": f"{totals['total'] or 0:.2f}"},
                 "recent": GiftSerializer(recent, many=True).data,
             }
         )

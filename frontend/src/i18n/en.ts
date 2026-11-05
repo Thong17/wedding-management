@@ -270,6 +270,7 @@ export default {
     refreshing: 'Refreshing…',
     refresh: 'Refresh guest list',
     recordedHere: 'Recorded here ({n})',
+    recordedAll: 'All desks ({n})',
     notCached: 'This event is not saved on this device yet. Open it once while online.',
     tabSearch: '🔎 Search',
     tabQr: '▦ Scan QR',

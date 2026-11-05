@@ -50,5 +50,11 @@ const recorder = (item: GiftTransaction) =>
 <style scoped>
 .item { padding: 10px 0; display: flex; flex-direction: column; gap: 4px; }
 /* Voided on the server: still listed, but clearly not counted. */
+.item.voided {
+  background: color-mix(in srgb, var(--c-danger-soft) 55%, transparent);
+  border-radius: 8px;
+  padding-inline: 8px;
+  margin-inline: -8px;
+}
 .item.voided .value { text-decoration: line-through; color: var(--c-muted); }
 </style>

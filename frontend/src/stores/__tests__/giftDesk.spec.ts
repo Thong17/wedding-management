@@ -149,6 +149,22 @@ describe('guests marked on other desks', () => {
     desk.close()
   })
 
+  it("totals every desk's gifts: the server's plus this device's not uploaded yet", async () => {
+    const desk = useGiftDeskStore()
+    await desk.open(1)
+    await desk.recordGift({ guestId: 10, guestName: 'Sokha Chan', amount: '5', currency: 'USD', method: 'cash', note: '' })
+    expect(desk.eventTotals).toEqual({ count: 1, total: 5, allDesks: false }) // server's total not known yet
+
+    server.use(
+      mswHttp.get(`${API_URL}/events/1/desk-feed/`, () =>
+        HttpResponse.json({ marks: [{ guest: 10, count: 2 }], totals: { count: 4, total: '120.00' }, recent: [] }),
+      ),
+    )
+    await desk.refreshFeed()
+    expect(desk.eventTotals).toEqual({ count: 5, total: 125, allDesks: true })
+    desk.close()
+  })
+
   it('keeps the last known marks for offline use', async () => {
     server.use(mswHttp.get(`${API_URL}/events/1/desk-feed/`, () => HttpResponse.json({ marks: [{ guest: 10, count: 1 }], recent: [] })))
     const first = useGiftDeskStore()

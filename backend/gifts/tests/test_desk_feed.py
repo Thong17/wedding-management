@@ -35,6 +35,8 @@ class GiftDeskFeedTests(APITestCase):
         res = self.client.get(self.url)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["marks"], [{"guest": self.sokha.pk, "count": 2}])
+        # Totals cover walk-ins too, but not voided gifts.
+        self.assertEqual(res.data["totals"], {"count": 3, "total": "30.00"})
 
     def test_a_desk_only_login_sees_every_desk_s_marks_and_recent_gifts(self):
         desk = make_user("desk", client=self.org)
