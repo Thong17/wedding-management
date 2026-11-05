@@ -29,7 +29,7 @@ const error = ref<string | null>(null)
 // What the signed-in user's role allows here. Screens hide what isn't allowed; the server checks again.
 const allowed = (perm: PermissionCode) => can(event.value, perm)
 const full = computed(() => !!event.value?.full_access)
-const canSeeGifts = computed(() => allowed('gift_edit') || allowed('report_view'))
+const canSeeGifts = computed(() => allowed('gift_edit') || allowed('gift_void') || allowed('report_view'))
 const teamCount = ref(0)
 // Forms open in dialogs.
 const guestOpen = ref(false)
@@ -296,9 +296,9 @@ async function deleteEvent() {
                 <td class="small">{{ g.note }}</td>
                 <td class="small">{{ g.recorded_by_username }}</td>
                 <td>
-                  <div v-if="allowed('gift_edit')" class="row-actions">
-                    <button class="btn-small" @click="startGiftEdit(g)">{{ t('common.edit') }}</button>
-                    <button class="btn-small btn-danger" @click="voidGift(g)">{{ t('gifts.void') }}</button>
+                  <div v-if="allowed('gift_edit') || allowed('gift_void')" class="row-actions">
+                    <button v-if="allowed('gift_edit')" class="btn-small" @click="startGiftEdit(g)">{{ t('common.edit') }}</button>
+                    <button v-if="allowed('gift_void')" class="btn-small btn-danger" @click="voidGift(g)">{{ t('gifts.void') }}</button>
                   </div>
                 </td>
               </tr>

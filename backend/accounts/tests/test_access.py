@@ -144,6 +144,41 @@ class RolePermissionTests(Base):
         EventAssignment.objects.filter(user=self.customer).update(role=Role.objects.create(name="Fixer", client=self.org, permissions=["gift_edit"]))
         self.assertEqual(self.client.patch(url, body, format="json").status_code, 200)
 
+    def test_editing_and_voiding_are_separate(self):
+        gift = Gift.objects.create(
+            client_txn_id=uuid.uuid4(), event=self.event, guest=self.guest, amount=10, currency="USD",
+            client_created_at=timezone.now(), recorded_by=self.admin,
+        )
+        url = f"/api/events/{self.event.pk}/gifts/{gift.pk}/"
+        assign(self.customer, self.event, permissions=["gift_edit"])
+        self.as_(self.customer)
+        self.assertEqual(self.client.post(f"{url}void/", {"updated_at": gift.updated_at.isoformat()}, format="json").status_code, 403)
+        EventAssignment.objects.filter(user=self.customer).update(role=Role.objects.create(name="Voider", client=self.org, permissions=["gift_void"]))
+        self.assertEqual(self.client.patch(url, {"amount": "20", "updated_at": gift.updated_at.isoformat()}, format="json").status_code, 403)
+        self.assertEqual(self.client.post(f"{url}void/", {"updated_at": gift.updated_at.isoformat()}, format="json").status_code, 200)
+
+    def test_own_permissions_cover_only_gifts_the_user_recorded(self):
+        def gift_by(user):
+            return Gift.objects.create(
+                client_txn_id=uuid.uuid4(), event=self.event, guest=self.guest, amount=10, currency="USD",
+                client_created_at=timezone.now(), recorded_by=user,
+            )
+
+        mine, theirs = gift_by(self.customer), gift_by(self.admin)
+        url = lambda g: f"/api/events/{self.event.pk}/gifts/{g.pk}/"  # noqa: E731
+        assign(self.customer, self.event, permissions=["gift_desk", "gift_edit_own", "gift_void_own"])
+        self.as_(self.customer)
+        # Reading one's own gift (the desk does before a change) is fine; the whole list is not.
+        self.assertEqual(self.client.get(url(mine)).status_code, 200)
+        self.assertEqual(self.client.get(url(theirs)).status_code, 403)
+        self.assertEqual(self.client.get(f"/api/events/{self.event.pk}/gifts/").status_code, 403)
+        body = lambda g: {"amount": "20", "updated_at": g.updated_at.isoformat()}  # noqa: E731
+        self.assertEqual(self.client.patch(url(theirs), body(theirs), format="json").status_code, 403)
+        self.assertEqual(self.client.patch(url(mine), body(mine), format="json").status_code, 200)
+        mine.refresh_from_db()
+        self.assertEqual(self.client.post(f"{url(theirs)}void/", {"updated_at": theirs.updated_at.isoformat()}, format="json").status_code, 403)
+        self.assertEqual(self.client.post(f"{url(mine)}void/", {"updated_at": mine.updated_at.isoformat()}, format="json").status_code, 200)
+
     def test_sync_needs_gift_desk_per_event(self):
         assign(self.customer, self.event, permissions=["guest_add"])
         self.as_(self.customer)

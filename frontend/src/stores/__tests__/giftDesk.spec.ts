@@ -187,6 +187,40 @@ describe('recent gifts from every desk', () => {
     recorded_by_username: 'dara', received_at: '', updated_at: '', voided: false, ...over,
   })
 
+  it('loads every gift for the All and Voided tabs only when asked', async () => {
+    let asked = 0
+    server.use(
+      mswHttp.get(`${API_URL}/events/1/desk-feed/`, () =>
+        HttpResponse.json({
+          marks: [],
+          totals: { count: 1, total: '20.00' },
+          recent: [apiGift({ id: 2, client_txn_id: 'b', client_created_at: '2026-11-04T10:00:00Z', voided: true }), apiGift({ id: 1, client_txn_id: 'a' })],
+        }),
+      ),
+      mswHttp.get(`${API_URL}/events/1/desk-gifts/`, () => {
+        asked++
+        return HttpResponse.json([
+          apiGift({ id: 2, client_txn_id: 'b', client_created_at: '2026-11-04T10:00:00Z', voided: true }),
+          apiGift({ id: 1, client_txn_id: 'a' }),
+        ])
+      }),
+    )
+    const desk = useGiftDeskStore()
+    await desk.open(1)
+    expect(asked).toBe(0)
+    expect(desk.allGiftsLoaded).toBe(false)
+
+    desk.showAllGifts(true)
+    await vi.waitFor(() => expect(desk.allGiftsLoaded).toBe(true))
+    await desk.recordGift({ guestId: 10, guestName: 'Sokha Chan', amount: '5', currency: 'USD', method: 'cash', note: '' })
+    expect(desk.allGifts.map((g) => g.txnId).slice(1)).toEqual(['b', 'a']) // newest first; this device's gift is newest
+    expect(desk.voidedGifts.map((g) => g.txnId)).toEqual(['b'])
+    // This device's tab has only what was recorded here; Recent leaves voided gifts out.
+    expect(desk.deviceGifts.map((g) => g.guestNameSnapshot)).toEqual(['Sokha Chan'])
+    expect(desk.recentGifts.map((g) => g.txnId).slice(1)).toEqual(['a'])
+    desk.close()
+  })
+
   it("merges other desks' gifts with this device's, the server's copy winning once synced", async () => {
     const desk = useGiftDeskStore()
     await desk.open(1)

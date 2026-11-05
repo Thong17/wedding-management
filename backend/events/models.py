@@ -31,7 +31,12 @@ class Permission(models.TextChoices):
     """What a role can allow on an event. Client admins and the platform admin always have all of them."""
 
     GIFT_DESK = "gift_desk", "Gift desk"
-    GIFT_EDIT = "gift_edit", "Edit & void gifts"
+    GIFT_VIEW_ALL = "gift_view_all", "See all desks' gifts"
+    GIFT_VIEW_TOTAL = "gift_view_total", "View gift total"
+    GIFT_EDIT = "gift_edit", "Edit any gift"
+    GIFT_EDIT_OWN = "gift_edit_own", "Edit own gifts"
+    GIFT_VOID = "gift_void", "Void any gift"
+    GIFT_VOID_OWN = "gift_void_own", "Void own gifts"
     GUEST_ADD = "guest_add", "Add guests"
     GUEST_EDIT = "guest_edit", "Edit guests"
     GUEST_DELETE = "guest_delete", "Delete guests"

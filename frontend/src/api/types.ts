@@ -21,7 +21,12 @@ export type UserType = 'platform_admin' | 'client_admin' | 'customer'
 /** What a role can allow on an event (backend events.models.Permission). */
 export type PermissionCode =
   | 'gift_desk'
+  | 'gift_view_all'
+  | 'gift_view_total'
   | 'gift_edit'
+  | 'gift_edit_own'
+  | 'gift_void'
+  | 'gift_void_own'
   | 'guest_add'
   | 'guest_edit'
   | 'guest_delete'
@@ -207,6 +212,8 @@ export interface ApiGift {
   item: string
   note: string
   client_created_at: string
+  /** Who recorded it (user id), null if that login was deleted. */
+  recorded_by: number | null
   recorded_by_username: string
   received_at: string
   updated_at: string

@@ -43,7 +43,7 @@ function fromApiGift(g: ApiGift): GiftTransaction {
     createdAt: g.client_created_at,
     deviceId: '',
     recordedBy: g.recorded_by_username,
-    recordedById: null,
+    recordedById: g.recorded_by ?? null,
     status: 'synced',
     attempts: 0,
     nextAttemptAt: 0,
@@ -110,23 +110,53 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
       } catch {
         // storage full or blocked: still shown now
       }
+      if (wantAllGifts.value) await refreshAllGifts()
     } catch {
       // offline or server unreachable: keep showing the last known feed
     }
   }
 
   /**
-   * Recent gifts from every desk, newest first: this device's records (with their upload status) and
-   * the server's latest. For gifts on the server, the server's copy wins, as it has corrections and
-   * voids made from other desks.
+   * Gifts from every desk, newest first: this device's records (with their upload status) and the
+   * server's. For gifts on the server, the server's copy wins, as it has corrections and voids made
+   * from other desks.
    */
-  const recentGifts = computed(() => {
-    const fromServer = new Map(serverRecent.value.map((g) => [g.client_txn_id, fromApiGift(g)]))
+  function withLocal(serverGifts: ApiGift[]): GiftTransaction[] {
+    const fromServer = new Map(serverGifts.map((g) => [g.client_txn_id, fromApiGift(g)]))
     const merged = transactions.value.map((t) => (t.status === 'synced' && fromServer.get(t.txnId)) || t)
     const local = new Set(transactions.value.map((t) => t.txnId))
     for (const [txnId, g] of fromServer) if (!local.has(txnId)) merged.push(g)
-    return merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, RECENT_LIMIT)
+    return merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  }
+  // Recent leaves voided gifts out: they have their own tab.
+  const recentGifts = computed(() => withLocal(serverRecent.value).filter((t) => !t.voided).slice(0, RECENT_LIMIT))
+
+  // Every gift on the event, for the "All gifts" and "Voided" tabs: fetched only while one of them is
+  // open (wantAllGifts), with the feed. Until it arrives, or offline, what this device knows.
+  const wantAllGifts = ref(false)
+  const serverAll = shallowRef<ApiGift[] | null>(null)
+  const allGiftsLoaded = computed(() => serverAll.value !== null)
+  const allGifts = computed(() => withLocal(serverAll.value ?? serverRecent.value))
+  const voidedGifts = computed(() => allGifts.value.filter((t) => t.voided))
+  // Recorded on this device (voided ones too), with the server's corrections where it has them.
+  const deviceGifts = computed(() => {
+    const here = new Set(transactions.value.map((t) => t.txnId))
+    return allGifts.value.filter((t) => here.has(t.txnId))
   })
+  async function refreshAllGifts() {
+    const id = eventId.value
+    if (id == null || !navigator.onLine) return
+    try {
+      const gifts = await giftsApi.deskGifts(id)
+      if (eventId.value === id) serverAll.value = gifts
+    } catch {
+      // keep the last list
+    }
+  }
+  function showAllGifts(on: boolean) {
+    wantAllGifts.value = on
+    if (on) void refreshAllGifts()
+  }
 
   /**
    * The event's total on all desks: the server's plus this device's gifts not uploaded yet. Only this
@@ -186,6 +216,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     serverMarks.value = null
     serverRecent.value = []
     serverTotals.value = null
+    serverAll.value = null
     readSavedFeed(id)
     clearInterval(feedTimer)
     feedTimer = setInterval(() => void refreshFeed(), FEED_REFRESH_MS)
@@ -226,7 +257,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
 
   /**
    * Correct a recorded gift. Not uploaded yet: changed on this device, then uploaded with the new values.
-   * Already on the server: corrected there (needs the gift_edit permission and a connection), then
+   * Already on the server: corrected there (needs gift_edit, or gift_edit_own for this login's own gifts, and a connection), then
    * mirrored here. Guest and walk-in name stay as recorded.
    */
   async function editGift(txn: GiftTransaction, change: Pick<GiftInput, 'amount' | 'method' | 'item' | 'note'>) {
@@ -302,6 +333,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     unsubscribe = null
     clearInterval(feedTimer)
     window.removeEventListener('online', onOnline)
+    wantAllGifts.value = false
   }
 
   return {
@@ -317,6 +349,11 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     giftCountFor,
     refreshFeed,
     recentGifts,
+    allGifts,
+    allGiftsLoaded,
+    voidedGifts,
+    deviceGifts,
+    showAllGifts,
     giftedGuestIds,
     localTotal,
     eventTotals,

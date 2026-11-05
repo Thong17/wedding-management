@@ -5,7 +5,7 @@ from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -40,14 +40,31 @@ class GiftViewSet(
     serializer_class = GiftSerializer
     http_method_names = ["get", "patch", "post", "head", "options"]
 
+    # Any gift / only gifts the user recorded, per action. The server's gift list is for reconciling:
+    # people who can correct any gift or see the report. One gift can also be read by whoever may
+    # correct it (the desk reads it before an edit or void).
+    RULES = {
+        "list": ((Permission.GIFT_EDIT, Permission.GIFT_VOID, Permission.REPORT_VIEW), ()),
+        "retrieve": (
+            (Permission.GIFT_EDIT, Permission.GIFT_VOID, Permission.REPORT_VIEW),
+            (Permission.GIFT_EDIT_OWN, Permission.GIFT_VOID_OWN),
+        ),
+        "partial_update": ((Permission.GIFT_EDIT,), (Permission.GIFT_EDIT_OWN,)),
+        "void": ((Permission.GIFT_VOID,), (Permission.GIFT_VOID_OWN,)),
+    }
+
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)  # authentication, lock check
         event = get_object_or_404(Event, pk=self.kwargs["event_pk"])
-        if self.action in ("list", "retrieve"):
-            # The server's gift list is for reconciling: people who can correct gifts or see the report.
-            access.require(request.user, event, any_of=(Permission.GIFT_EDIT, Permission.REPORT_VIEW))
-        else:
-            access.require(request.user, event, permission=Permission.GIFT_EDIT)
+        any_gift, own_gifts = self.RULES.get(self.action, ((Permission.GIFT_EDIT,), ()))
+        perms = access.require(request.user, event, any_of=any_gift + own_gifts)
+        self.any_gift = bool(perms.intersection(any_gift))
+
+    def check_object_permissions(self, request, obj):
+        super().check_object_permissions(request, obj)
+        # Allowed only for own gifts: someone else's is refused.
+        if not self.any_gift and obj.recorded_by_id != request.user.id:
+            raise PermissionDenied("Your role on this event only allows this for gifts you recorded.")
 
     def get_queryset(self):
         qs = Gift.objects.filter(event_id=self.kwargs["event_pk"]).select_related("guest", "recorded_by")
@@ -122,6 +139,21 @@ class GiftSyncView(APIView):
         return Response({"results": sync_transactions(request.user, items)})
 
 
+# Who may see other desks' gifts (amounts, who recorded them) at the desk. Editing or voiding any gift
+# and the report already show every gift on the event's page, so they count too.
+SEE_ALL_GIFTS = (Permission.GIFT_VIEW_ALL, Permission.GIFT_EDIT, Permission.GIFT_VOID, Permission.REPORT_VIEW)
+# Who may see the event's gift total at the desk (the report has it too).
+SEE_TOTAL = (Permission.GIFT_VIEW_TOTAL, Permission.REPORT_VIEW)
+
+
+def _desk_gifts(request, event_pk):
+    """The event's gifts, for anyone with access to its desk, gifts or report; and the user's
+    permissions on the event."""
+    event = get_object_or_404(Event, pk=event_pk)
+    perms = access.require(request.user, event, any_of=(Permission.GIFT_DESK, *SEE_ALL_GIFTS, *SEE_TOTAL))
+    return Gift.objects.filter(event=event), perms
+
+
 class GiftDeskFeedView(APIView):
     """GET → what every gift desk on an event shares, so desks see each other's work:
 
@@ -132,28 +164,39 @@ class GiftDeskFeedView(APIView):
     - `recent`: the latest gifts from all desks (newest first, voided ones included and flagged), with
       who recorded each.
 
-    For anyone with access to the event's desk, gifts or report. Read-only: corrections still need
-    the gift_edit permission on the gift endpoints.
+    For anyone with access to the event's desk, gifts or report. `recent` only for those who may see
+    all desks' gifts (otherwise empty), `totals` only for those who may see the total (otherwise null):
+    a desk without them sees just its own gifts, but still which guests are already marked. Read-only:
+    corrections need the edit / void permissions on the gift endpoints.
     """
 
     RECENT_LIMIT = 30
 
     def get(self, request, event_pk):
-        event = get_object_or_404(Event, pk=event_pk)
-        access.require(request.user, event, any_of=(Permission.GIFT_DESK, Permission.GIFT_EDIT, Permission.REPORT_VIEW))
-        gifts = Gift.objects.filter(event=event)
+        gifts, perms = _desk_gifts(request, event_pk)
         marks = (
             gifts.filter(voided=False, guest__isnull=False)
             .values("guest")
             .annotate(count=Count("id"))
             .order_by("guest")
         )
-        totals = gifts.filter(voided=False).aggregate(count=Count("id"), total=Sum("amount"))
-        recent = gifts.select_related("guest", "recorded_by").order_by("-client_created_at", "-id")[: self.RECENT_LIMIT]
-        return Response(
-            {
-                "marks": [{"guest": r["guest"], "count": r["count"]} for r in marks],
-                "totals": {"count": totals["count"], "total": f"{totals['total'] or 0:.2f}"},
-                "recent": GiftSerializer(recent, many=True).data,
-            }
-        )
+        feed = {"marks": [{"guest": r["guest"], "count": r["count"]} for r in marks], "totals": None, "recent": []}
+        if perms.intersection(SEE_TOTAL):
+            totals = gifts.filter(voided=False).aggregate(count=Count("id"), total=Sum("amount"))
+            feed["totals"] = {"count": totals["count"], "total": f"{totals['total'] or 0:.2f}"}
+        if perms.intersection(SEE_ALL_GIFTS):
+            recent = gifts.select_related("guest", "recorded_by").order_by("-client_created_at", "-id")[: self.RECENT_LIMIT]
+            feed["recent"] = GiftSerializer(recent, many=True).data
+        return Response(feed)
+
+
+class GiftDeskListView(APIView):
+    """GET → every gift on the event from all desks (newest first, voided ones included and flagged),
+    for the desk's "All gifts" and "Voided" tabs. Only for those who may see all desks' gifts; read-only."""
+
+    def get(self, request, event_pk):
+        gifts, perms = _desk_gifts(request, event_pk)
+        if not perms.intersection(SEE_ALL_GIFTS):
+            raise PermissionDenied(f"Your role on this event doesn't allow: {Permission.GIFT_VIEW_ALL.label}.")
+        gifts = gifts.select_related("guest", "recorded_by").order_by("-client_created_at", "-id")
+        return Response(GiftSerializer(gifts, many=True).data)

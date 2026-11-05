@@ -16,6 +16,7 @@ import { parseScannedCode } from '@/offline/guestSearch'
 import { GiftValidationError, isUnsynced, type GiftInput, type ValidationErrors } from '@/offline/transactionRepo'
 import { errorMessage } from '@/api/http'
 import type { ApiEvent } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
 import { useEventsStore } from '@/stores/events'
 import { useGiftDeskStore } from '@/stores/giftDesk'
 import { useSyncStore } from '@/stores/sync'
@@ -59,17 +60,51 @@ const noDesk = computed(() => !!event.value && !can(event.value, 'gift_desk'))
 const previousCount = computed(() =>
   selected.value ? desk.giftCountFor(selected.value.id) : 0,
 )
-// Every desk's latest gifts, merged with this device's (including ones not uploaded yet).
-const recent = computed(() => desk.recentGifts)
+// Gifts, merged with this device's (including ones not uploaded yet): the latest few (voided left out),
+// this device's, all of them, or only the voided ones. Other desks' gifts only with the "see all desks'
+// gifts" permission (or edit & void / the report, which show them anyway); the server enforces it too.
+// The full list is fetched only while its tabs are open.
+type ListTab = 'recent' | 'device' | 'all' | 'voided'
+const canSeeAll = computed(
+  () => !!event.value && ((['gift_view_all', 'gift_edit', 'gift_void', 'report_view'] as const).some((p) => can(event.value, p))),
+)
+const listTabs = computed<ListTab[]>(() => (canSeeAll.value ? ['recent', 'device', 'all', 'voided'] : ['recent', 'device', 'voided']))
+const listTab = ref<ListTab>('recent')
+function showList(tab: ListTab) {
+  listTab.value = tab
+  desk.showAllGifts(canSeeAll.value && (tab === 'all' || tab === 'voided'))
+}
+const listed = computed(() => {
+  switch (listTab.value) {
+    case 'recent':
+      return desk.recentGifts
+    case 'device':
+      return desk.deviceGifts
+    case 'all':
+      return desk.allGifts
+    default:
+      return desk.voidedGifts
+  }
+})
+const LIST_TAB_LABEL = { recent: 'desk.listRecent', device: 'desk.listDevice', all: 'desk.listAll', voided: 'desk.listVoided' } as const
 
 // Correcting or removing a recorded gift. Not uploaded yet: anyone at the desk, even offline.
-// Already on the server: the "edit & void gifts" permission and a connection.
+// Already on the server: a connection, and the edit / void permission for any gift, or the "own" one
+// for gifts this login recorded. The server checks again.
 const sync = useSyncStore()
-const canEditOnServer = computed(() => !!event.value && can(event.value, 'gift_edit'))
+const auth = useAuthStore()
 type GiftAccess = 'local' | 'server' | 'offline' | 'none'
-function access(txn: GiftTransaction): GiftAccess {
+const RIGHTS = { edit: ['gift_edit', 'gift_edit_own'], void: ['gift_void', 'gift_void_own'] } as const
+function isOwn(txn: GiftTransaction) {
+  const me = auth.recorder
+  if (!me) return false
+  return txn.recordedById != null ? txn.recordedById === me.id : txn.recordedBy === me.username
+}
+function access(txn: GiftTransaction, change: 'edit' | 'void'): GiftAccess {
   if (isUnsynced(txn)) return 'local'
-  if (txn.status !== 'synced' || txn.voided || txn.serverGiftId == null || !canEditOnServer.value) return 'none'
+  if (txn.status !== 'synced' || txn.voided || txn.serverGiftId == null || !event.value) return 'none'
+  const [any, own] = RIGHTS[change]
+  if (!can(event.value, any) && !(can(event.value, own) && isOwn(txn))) return 'none'
   return sync.browserOnline ? 'server' : 'offline'
 }
 
@@ -285,27 +320,40 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
     </div>
 
     <section class="card stack">
-      <div class="row">
-        <h2>{{ t('desk.recent') }}</h2>
-        <span class="spacer" />
-        <RouterLink to="/sync" class="btn btn-small sync-center-btn">
-          <AppIcon name="sync" :size="16" />{{ t('desk.syncCenter') }}
-        </RouterLink>
+      <div class="list-head">
+        <div class="tabs" role="tablist">
+          <button
+            v-for="tab in listTabs"
+            :key="tab"
+            role="tab"
+            :aria-selected="listTab === tab"
+            :class="{ active: listTab === tab }"
+            @click="showList(tab)"
+          >
+            {{ t(LIST_TAB_LABEL[tab]) }}
+          </button>
+        </div>
+        <AppTooltip :text="t('desk.syncCenter')">
+          <RouterLink to="/sync" class="btn btn-small sync-center-btn" :aria-label="t('desk.syncCenter')">
+            <AppIcon name="sync" :size="16" /><span class="sync-center-label">{{ t('desk.syncCenter') }}</span>
+          </RouterLink>
+        </AppTooltip>
       </div>
-      <TransactionList :items="recent">
+      <p v-if="canSeeAll && (listTab === 'all' || listTab === 'voided') && !desk.allGiftsLoaded" class="muted small">{{ t('desk.listPartial') }}</p>
+      <TransactionList :items="listed">
         <template #actions="{ item }">
-          <div v-if="access(item) !== 'none'" class="row-actions">
-            <AppTooltip :text="access(item) === 'offline' ? t('desk.needsConnection') : null">
+          <div v-if="access(item, 'edit') !== 'none' || access(item, 'void') !== 'none'" class="row-actions">
+            <AppTooltip v-if="access(item, 'edit') !== 'none'" :text="access(item, 'edit') === 'offline' ? t('desk.needsConnection') : null">
               <span class="tooltip-wrap">
-                <button type="button" class="btn-small" :disabled="access(item) === 'offline'" @click="startEdit(item)">
+                <button type="button" class="btn-small" :disabled="access(item, 'edit') === 'offline'" @click="startEdit(item)">
                   <AppIcon name="edit" :size="14" />{{ t('common.edit') }}
                 </button>
               </span>
             </AppTooltip>
-            <AppTooltip :text="access(item) === 'offline' ? t('desk.needsConnection') : null">
+            <AppTooltip v-if="access(item, 'void') !== 'none'" :text="access(item, 'void') === 'offline' ? t('desk.needsConnection') : null">
               <span class="tooltip-wrap">
-                <button type="button" class="btn-small btn-danger" :disabled="access(item) === 'offline'" @click="removeGift(item)">
-                  <AppIcon name="trash" :size="14" />{{ access(item) === 'local' ? t('common.delete') : t('gifts.void') }}
+                <button type="button" class="btn-small btn-danger" :disabled="access(item, 'void') === 'offline'" @click="removeGift(item)">
+                  <AppIcon name="trash" :size="14" />{{ access(item, 'void') === 'local' ? t('common.delete') : t('gifts.void') }}
                 </button>
               </span>
             </AppTooltip>
@@ -347,7 +395,14 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
 
 <style scoped>
 .walk-in-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.sync-center-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.list-head { display: flex; align-items: center; gap: 8px; }
+.list-head .tabs { flex: 1; min-width: 0; }
+.sync-center-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; flex-shrink: 0; }
+/* Phones: icon only (the name is in the tooltip and for screen readers). */
+@media (max-width: 599px) {
+  .sync-center-label { display: none; }
+  .sync-center-btn { min-width: 36px; justify-content: center; }
+}
 .refresh-btn { flex-shrink: 0; min-height: 44px; height: 44px; }
 .row-actions { justify-content: flex-start; margin-top: 2px; }
 .row-actions .btn-small { display: inline-flex; align-items: center; gap: 4px; }

@@ -3,7 +3,12 @@ import type { PermissionCode } from '@/api/types'
 /** Every permission a role can include, in the order screens list them (matches backend Permission). */
 export const PERMISSIONS: PermissionCode[] = [
   'gift_desk',
+  'gift_view_all',
+  'gift_view_total',
   'gift_edit',
+  'gift_edit_own',
+  'gift_void',
+  'gift_void_own',
   'guest_add',
   'guest_edit',
   'guest_delete',

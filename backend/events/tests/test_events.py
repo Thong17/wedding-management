@@ -28,7 +28,7 @@ class EventTests(APITestCase):
         data = self.create_event()
         self.assertEqual((data["role"], data["full_access"], data["client"]), ("owner", True, self.org.pk))
         self.assertEqual(data["currency"], "USD")
-        self.assertEqual(len(data["permissions"]), 8)
+        self.assertEqual(len(data["permissions"]), 13)
 
     def test_outsider_cannot_see_event(self):
         data = self.create_event()

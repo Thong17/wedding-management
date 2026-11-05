@@ -152,10 +152,13 @@ export const giftsApi = {
     http
       .get<{
         marks: { guest: number; count: number }[]
-        totals?: { count: number; total: string }
+        // Both left out (null / empty) for logins not allowed to see other desks' gifts.
+        totals?: { count: number; total: string } | null
         recent: ApiGift[]
       }>(`/events/${eventId}/desk-feed/`)
       .then((r) => r.data),
+  /** Every gift on the event from all desks, newest first (voided ones included), for the desk's tabs. */
+  deskGifts: (eventId: number) => http.get<ApiGift[]>(`/events/${eventId}/desk-gifts/`).then((r) => r.data),
   update: (eventId: number, id: number, data: Partial<Pick<ApiGift, 'amount' | 'method' | 'item' | 'note'>> & { updated_at: string }) =>
     http.patch<ApiGift>(`/events/${eventId}/gifts/${id}/`, data).then((r) => r.data),
   void: (eventId: number, id: number, updatedAt: string) =>
