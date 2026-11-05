@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from accounts.api import ClientDocumentViewSet, ClientViewSet, UserViewSet
 from accounts.views import change_password, health, me
 from events.views import EventViewSet, GuestViewSet, RoleViewSet, permission_catalog
-from gifts.views import GiftSyncView, GiftViewSet
+from gifts.views import GiftDeskFeedView, GiftSyncView, GiftViewSet
 
 router = DefaultRouter()
 router.register(r"events", EventViewSet, basename="event")
@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/auth/password/", change_password, name="change-password"),
     path("api/permissions/", permission_catalog, name="permission-catalog"),
     path("api/gifts/sync/", GiftSyncView.as_view(), name="gift-sync"),
+    path("api/events/<int:event_pk>/desk-feed/", GiftDeskFeedView.as_view(), name="desk-feed"),
     path("api/", include(router.urls)),
 ]
 

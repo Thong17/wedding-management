@@ -144,6 +144,11 @@ export const guestsApi = {
 export const giftsApi = {
   list: (eventId: number) => http.get<ApiGift[]>(`/events/${eventId}/gifts/`).then((r) => r.data),
   get: (eventId: number, id: number) => http.get<ApiGift>(`/events/${eventId}/gifts/${id}/`).then((r) => r.data),
+  /** What all desks on the event share: guests with gifts (id + count) and the latest gifts, newest first. */
+  deskFeed: (eventId: number) =>
+    http
+      .get<{ marks: { guest: number; count: number }[]; recent: ApiGift[] }>(`/events/${eventId}/desk-feed/`)
+      .then((r) => r.data),
   update: (eventId: number, id: number, data: Partial<Pick<ApiGift, 'amount' | 'method' | 'item' | 'note'>> & { updated_at: string }) =>
     http.patch<ApiGift>(`/events/${eventId}/gifts/${id}/`, data).then((r) => r.data),
   void: (eventId: number, id: number, updatedAt: string) =>

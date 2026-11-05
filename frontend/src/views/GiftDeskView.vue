@@ -57,9 +57,10 @@ const currency = computed(() => event.value?.currency ?? 'USD')
 // From the event's stored permissions, so this also holds offline. The server re-checks every upload.
 const noDesk = computed(() => !!event.value && !can(event.value, 'gift_desk'))
 const previousCount = computed(() =>
-  selected.value ? desk.counted.filter((t) => t.guestId === selected.value!.id).length : 0,
+  selected.value ? desk.giftCountFor(selected.value.id) : 0,
 )
-const recent = computed(() => desk.transactions.slice(0, 30))
+// Every desk's latest gifts, merged with this device's (including ones not uploaded yet).
+const recent = computed(() => desk.recentGifts)
 
 // Correcting or removing a recorded gift. Not uploaded yet: anyone at the desk, even offline.
 // Already on the server: the "edit & void gifts" permission and a connection.

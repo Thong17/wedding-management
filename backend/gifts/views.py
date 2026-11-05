@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count
 from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
@@ -119,3 +120,36 @@ class GiftSyncView(APIView):
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
         return Response({"results": sync_transactions(request.user, items)})
+
+
+class GiftDeskFeedView(APIView):
+    """GET → what every gift desk on an event shares, so desks see each other's work:
+
+    - `marks`: guests that already have gifts, as [{"guest": id, "count": n}] (voided gifts and walk-ins
+      left out), for the "gift recorded" badges and the repeat-gift warning;
+    - `recent`: the latest gifts from all desks (newest first, voided ones included and flagged), with
+      who recorded each.
+
+    For anyone with access to the event's desk, gifts or report. Read-only: corrections still need
+    the gift_edit permission on the gift endpoints.
+    """
+
+    RECENT_LIMIT = 30
+
+    def get(self, request, event_pk):
+        event = get_object_or_404(Event, pk=event_pk)
+        access.require(request.user, event, any_of=(Permission.GIFT_DESK, Permission.GIFT_EDIT, Permission.REPORT_VIEW))
+        gifts = Gift.objects.filter(event=event)
+        marks = (
+            gifts.filter(voided=False, guest__isnull=False)
+            .values("guest")
+            .annotate(count=Count("id"))
+            .order_by("guest")
+        )
+        recent = gifts.select_related("guest", "recorded_by").order_by("-client_created_at", "-id")[: self.RECENT_LIMIT]
+        return Response(
+            {
+                "marks": [{"guest": r["guest"], "count": r["count"]} for r in marks],
+                "recent": GiftSerializer(recent, many=True).data,
+            }
+        )

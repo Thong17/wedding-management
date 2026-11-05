@@ -275,7 +275,7 @@ export default {
     tabQr: '▦ Scan QR',
     tabOcr: '📝 Scan text',
     recordGift: 'Record gift',
-    recent: 'Recent on this device',
+    recent: 'Recent gifts',
     syncCenter: 'Sync center',
     found: 'Found {name}',
     walkInButton: 'Walk-in guest (not on the list)',
@@ -294,7 +294,7 @@ export default {
     noPermission: "Your role on this event doesn't include the gift desk. Ask the event's organiser if you need it.",
   },
   giftForm: {
-    already: 'Already {n} gift(s) recorded for this guest on this device.',
+    already: 'Already {n} gift(s) recorded for this guest (on any desk).',
     walkIn: 'Walk-in guest name (not on the list)',
     walkInPlaceholder: 'Or search and select a guest',
     amount: 'Amount ({currency})',
@@ -332,7 +332,7 @@ export default {
   },
   search: {
     placeholder: 'Search name, nickname or phone…',
-    giftedTitle: 'A gift is already recorded on this device',
+    giftedTitle: 'A gift is already recorded for this guest (on any desk)',
     gifted: 'Gift recorded',
     noMatch: 'No matching guest. You can record it as a walk-in guest.',
     noGuests: 'No guests saved on this device yet.',
@@ -381,6 +381,8 @@ export default {
     lastAttempt: 'Last attempt: {error}',
     attempts: '({n} attempt) | ({n} attempts)',
     notEditable: 'This gift is being uploaded right now. Try again in a moment.',
+    by: 'by {name}',
+    byYou: 'by you',
     voided: 'Voided',
   },
   report: {

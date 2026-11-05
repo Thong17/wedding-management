@@ -134,3 +134,77 @@ describe('correcting and removing recorded gifts', () => {
     expect(desk.giftedGuestIds.has(10)).toBe(false)
   })
 })
+
+describe('guests marked on other desks', () => {
+  it('shows guests that already have gifts on the server, from any desk', async () => {
+    server.use(mswHttp.get(`${API_URL}/events/1/desk-feed/`, () => HttpResponse.json({ marks: [{ guest: 10, count: 2 }], recent: [] })))
+    const desk = useGiftDeskStore()
+    await desk.open(1)
+    expect(desk.giftedGuestIds.has(10)).toBe(true) // recorded elsewhere: nothing on this device
+    expect(desk.giftCountFor(10)).toBe(2)
+
+    // A gift recorded here and not uploaded yet adds to the server's count.
+    await desk.recordGift({ guestId: 10, guestName: 'Sokha Chan', amount: '5', currency: 'USD', method: 'cash', note: '' })
+    expect(desk.giftCountFor(10)).toBe(3)
+    desk.close()
+  })
+
+  it('keeps the last known marks for offline use', async () => {
+    server.use(mswHttp.get(`${API_URL}/events/1/desk-feed/`, () => HttpResponse.json({ marks: [{ guest: 10, count: 1 }], recent: [] })))
+    const first = useGiftDeskStore()
+    await first.open(1)
+    first.close()
+
+    server.resetHandlers() // the server is unreachable again
+    setActivePinia(createPinia())
+    const later = useGiftDeskStore()
+    await later.open(1)
+    expect(later.giftedGuestIds.has(10)).toBe(true)
+    later.close()
+  })
+})
+
+describe('recent gifts from every desk', () => {
+  const apiGift = (over: Record<string, unknown>) => ({
+    id: 1, client_txn_id: 'x', event: 1, guest: 10, guest_name: 'Sokha Chan', walk_in_name: '', amount: '20.00',
+    currency: 'USD', method: 'cash', item: '', note: '', client_created_at: '2026-11-04T09:00:00Z',
+    recorded_by_username: 'dara', received_at: '', updated_at: '', voided: false, ...over,
+  })
+
+  it("merges other desks' gifts with this device's, the server's copy winning once synced", async () => {
+    const desk = useGiftDeskStore()
+    await desk.open(1)
+    const mine = await desk.recordGift({ guestId: 10, guestName: 'Sokha Chan', amount: '25', currency: 'USD', method: 'cash', note: '' })
+    const uploaded = await desk.recordGift({ guestId: 10, guestName: 'Sokha Chan', amount: '30', currency: 'USD', method: 'cash', note: '' })
+    await vi.waitFor(async () => {
+      await desk.loadTransactions()
+      expect(desk.transactions.every((t) => t.status === 'pending')).toBe(true)
+    })
+    await claimBatch(10, { user: DEMO_USER }).then((claimed) =>
+      Promise.all(claimed.filter((t) => t.txnId === uploaded.txnId).map((t) => markSynced(t.txnId, 7))),
+    )
+
+    server.use(
+      mswHttp.get(`${API_URL}/events/1/desk-feed/`, () =>
+        HttpResponse.json({
+          marks: [],
+          recent: [
+            // Another desk's gift, recorded long after ours.
+            apiGift({ id: 9, client_txn_id: 'other-desk', client_created_at: '2099-01-01T00:00:00Z', recorded_by_username: 'dara' }),
+            // Our uploaded gift, corrected on the server since.
+            apiGift({ id: 7, client_txn_id: uploaded.txnId, amount: '35.00', client_created_at: uploaded.createdAt, recorded_by_username: 'demo' }),
+          ],
+        }),
+      ),
+    )
+    await desk.refreshFeed()
+    await desk.loadTransactions()
+
+    const list = desk.recentGifts
+    expect(list[0]).toMatchObject({ txnId: 'other-desk', recordedBy: 'dara', status: 'synced' })
+    expect(list.find((t) => t.txnId === uploaded.txnId)?.amount).toBe('35.00')
+    expect(list.find((t) => t.txnId === mine.txnId)).toMatchObject({ amount: '25.00' })
+    expect(list).toHaveLength(3)
+    desk.close()
+  })
+})

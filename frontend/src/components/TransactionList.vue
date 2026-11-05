@@ -2,12 +2,19 @@
 import { useI18n } from 'vue-i18n'
 import AppTooltip from '@/components/AppTooltip.vue'
 import type { GiftTransaction } from '@/offline/db'
+import { useAuthStore } from '@/stores/auth'
 import { formatDateTime, formatGiftValue, methodLabel } from '@/utils/format'
 
 defineProps<{ items: GiftTransaction[]; showEvent?: boolean }>()
 defineSlots<{ actions?: (props: { item: GiftTransaction }) => unknown }>()
 
 const { t } = useI18n()
+const auth = useAuthStore()
+// Gifts sync between desks, so say who recorded each one ("you" for this login).
+const recorder = (item: GiftTransaction) =>
+  (item.recordedById != null && item.recordedById === auth.user?.id) || item.recordedBy === auth.user?.username
+    ? t('txn.byYou')
+    : t('txn.by', { name: item.recordedBy })
 </script>
 
 <template>
@@ -22,6 +29,7 @@ const { t } = useI18n()
       </div>
       <div class="row small muted">
         <span>{{ formatDateTime(item.createdAt) }} · {{ methodLabel(item.method) }}</span>
+        <span v-if="item.recordedBy">· {{ recorder(item) }}</span>
         <span v-if="showEvent">· {{ t('txn.event', { id: item.eventId }) }}</span>
         <span v-if="item.note">· {{ item.note }}</span>
         <span class="spacer" />
