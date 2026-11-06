@@ -15,3 +15,7 @@ globalThis.ResizeObserver ??= class {
 
 // jsdom has no canvas either; the invitation's particles and QR codes simply draw nothing.
 HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext
+
+// Nor media playback: audio "plays" silently (the invitation's sound).
+HTMLMediaElement.prototype.play = () => Promise.resolve()
+HTMLMediaElement.prototype.pause = () => {}

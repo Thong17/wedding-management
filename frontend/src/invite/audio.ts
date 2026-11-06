@@ -63,16 +63,22 @@ export class InviteAudio {
   private musicOn = false
   private muted: boolean
   private settings: SoundSettings
+  private keepAlive: HTMLAudioElement | null = null
   private readonly onVisibility = () => this.visibilityChanged()
+  // iOS may leave the engine "interrupted" (after a call, the lock screen, another app) and only lets a
+  // tap restart it: any tap on the page does.
+  private readonly onTap = () => this.wake()
 
   constructor(settings: SoundSettings, muted = false) {
     this.settings = settings
     this.muted = muted
     document.addEventListener('visibilitychange', this.onVisibility)
+    document.addEventListener('pointerdown', this.onTap, true)
   }
 
   /** Create the audio engine. Must run inside a tap (browsers block sound otherwise). */
   unlock() {
+    this.playThroughSilentSwitch()
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
     if (!this.ctx && Ctx) {
       this.ctx = new Ctx()
@@ -95,7 +101,7 @@ export class InviteAudio {
     }
     void this.ctx?.resume()
     // An uploaded song has to start playing within the tap too (iOS); it stays silent until faded in.
-    if (this.settings.music === 'upload' && this.settings.songUrl) this.prepareSong()?.play().catch(() => undefined)
+    if (this.settings.music === 'upload' && this.settings.songUrl) playQuietly(this.prepareSong())
   }
 
   /** Chime and whoosh as the invitation opens; `reverse` (closing) runs the chime downward. */
@@ -116,7 +122,7 @@ export class InviteAudio {
     if (music === 'none') return
     this.fadeMusic(this.musicLevel(), 2.5)
     if (music === 'upload') {
-      if (songUrl) void this.prepareSong()?.play().catch(() => undefined)
+      if (songUrl) playQuietly(this.prepareSong())
       return
     }
     if (this.scheduler) return
@@ -131,6 +137,8 @@ export class InviteAudio {
 
   setMuted(muted: boolean) {
     this.muted = muted
+    if (muted) this.keepAlive?.pause()
+    else playQuietly(this.keepAlive)
     if (!this.ctx || !this.master) return
     this.master.gain.setTargetAtTime(muted ? 0 : 1, this.ctx.currentTime, 0.15)
     if (muted) this.pauseMusic()
@@ -154,10 +162,43 @@ export class InviteAudio {
 
   dispose() {
     document.removeEventListener('visibilitychange', this.onVisibility)
+    document.removeEventListener('pointerdown', this.onTap, true)
     clearInterval(this.scheduler)
     this.song?.pause()
+    this.keepAlive?.pause()
     void this.ctx?.close()
     this.ctx = null
+  }
+
+  /**
+   * iPhones treat sound made in the browser like a game's: the Ring/Silent switch mutes it, so most
+   * guests would hear nothing. Mark this page's sound as media playback instead (like a video), which
+   * plays on silent too: the Audio Session API where Safari has it (iOS 17+), and on older iOS by playing
+   * a silent looping track, which switches the page to playback. Runs within the tap, as play() must.
+   */
+  private playThroughSilentSwitch() {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession
+    if (session) {
+      try {
+        session.type = 'playback'
+      } catch {
+        // not allowed here: the silent track below still works
+      }
+    }
+    if (!this.keepAlive) {
+      this.keepAlive = new Audio(silentWav())
+      this.keepAlive.loop = true
+      this.keepAlive.setAttribute('playsinline', '')
+    }
+    if (!this.muted) playQuietly(this.keepAlive)
+  }
+
+  /** A tap after iOS interrupted the sound: pick up again. */
+  private wake() {
+    if (!this.ctx || this.muted) return
+    if (this.ctx.state !== 'running') void this.ctx.resume()
+    if (this.keepAlive?.paused) playQuietly(this.keepAlive)
+    if (this.musicOn && !document.hidden) this.startMusic()
   }
 
   private musicLevel() {
@@ -188,10 +229,15 @@ export class InviteAudio {
     if (!this.ctx) return
     if (document.hidden) {
       this.pauseMusic()
-      setTimeout(() => document.hidden && void this.ctx?.suspend(), 700)
-    } else {
+      setTimeout(() => {
+        if (!document.hidden) return
+        this.keepAlive?.pause()
+        void this.ctx?.suspend()
+      }, 700)
+    } else if (!this.muted) {
       void this.ctx.resume()
-      if (this.musicOn && !this.muted) this.startMusic()
+      playQuietly(this.keepAlive)
+      if (this.musicOn) this.startMusic()
     }
   }
 
@@ -297,6 +343,43 @@ export class InviteAudio {
     noise.start(at)
     noise.stop(at + length)
   }
+}
+
+/** Start playing, ignoring refusals (no tap yet) and browsers whose play() returns no promise. */
+function playQuietly(media: HTMLMediaElement | null) {
+  try {
+    void media?.play()?.catch(() => undefined)
+  } catch {
+    // refused: a later tap tries again
+  }
+}
+
+let silentUrl: string | null = null
+/** Half a second of silence as a WAV file (8 kHz, 8-bit mono), built once, for the silent-switch workaround. */
+function silentWav(): string {
+  if (silentUrl) return silentUrl
+  const samples = 4000
+  const bytes = new Uint8Array(44 + samples)
+  const view = new DataView(bytes.buffer)
+  const text = (at: number, s: string) => [...s].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)))
+  text(0, 'RIFF')
+  view.setUint32(4, 36 + samples, true)
+  text(8, 'WAVE')
+  text(12, 'fmt ')
+  view.setUint32(16, 16, true) // format chunk size
+  view.setUint16(20, 1, true) // PCM
+  view.setUint16(22, 1, true) // mono
+  view.setUint32(24, 8000, true) // sample rate
+  view.setUint32(28, 8000, true) // bytes per second
+  view.setUint16(32, 1, true) // block align
+  view.setUint16(34, 8, true) // bits per sample
+  text(36, 'data')
+  view.setUint32(40, samples, true)
+  bytes.fill(128, 44) // 8-bit silence is the middle value
+  let binary = ''
+  bytes.forEach((b) => (binary += String.fromCharCode(b)))
+  silentUrl = `data:audio/wav;base64,${btoa(binary)}`
+  return silentUrl
 }
 
 const SOUND_KEY = 'wms.inviteSound'
