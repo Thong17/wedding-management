@@ -1,3 +1,5 @@
+import type { InviteConfig, InviteImages } from '@/invite/config'
+
 import type { GiftMethod, GuestSide } from '@/offline/db'
 
 export interface ApiUser {
@@ -27,6 +29,7 @@ export type PermissionCode =
   | 'gift_edit_own'
   | 'gift_void'
   | 'gift_void_own'
+  | 'invite_edit'
   | 'guest_add'
   | 'guest_edit'
   | 'guest_delete'
@@ -197,6 +200,24 @@ export interface GuestListResponse {
   full: boolean
   results: ApiGuest[]
 }
+
+/** The editor's view of an event's e-invite (GET/PUT /events/<id>/invite/). */
+export interface ApiInvite {
+  /** The public link is /e-invite/<slug>; null until first published (or chosen). */
+  slug: string | null
+  status: 'draft' | 'published'
+  /** Published, and the draft was changed since. */
+  has_changes: boolean
+  published_at: string | null
+  /** Send back with every save / publish (409 if someone else saved meanwhile). */
+  revision: number
+  draft: InviteConfig
+  /** Picture id → URL. */
+  images: InviteImages
+}
+
+/** A published invitation, as guests get it (no login). Date and venue are already filled in. */
+export type ApiPublicInvite = InviteConfig & { images: InviteImages }
 
 export interface ApiGift {
   id: number

@@ -4,6 +4,8 @@ import { useAuthStore } from '@/stores/auth'
 declare module 'vue-router' {
   interface RouteMeta {
     public?: boolean
+    /** Shown on its own: no header, sidebar, breadcrumbs or lock screen (the guest invitation). */
+    bare?: boolean
     /** Breadcrumb i18n key; EVENT_CRUMB is replaced with the event's name. */
     crumb?: string
     /** Route name of the parent breadcrumb (and where the back button goes). */
@@ -37,6 +39,8 @@ const router = createRouter({
     { path: '/business', name: 'business', component: () => import('@/views/BusinessProfileView.vue'), meta: { crumb: 'crumb.business', parent: 'events', clientAdmin: true } },
     { path: '/roles', name: 'roles', component: () => import('@/views/RolesView.vue'), meta: { crumb: 'crumb.roles', parent: 'events', managers: true } },
     { path: '/profile', name: 'profile', component: () => import('@/views/ProfileView.vue'), meta: { crumb: 'crumb.profile', parent: 'events' } },
+    // A published wedding invitation, for guests (no login).
+    { path: '/e-invite/:slug', name: 'public-invite', component: () => import('@/views/PublicInviteView.vue'), props: true, meta: { public: true, bare: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

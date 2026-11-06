@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import axios from 'axios'
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
@@ -12,6 +12,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import EventForm from '@/components/EventForm.vue'
 import EventTeam from '@/components/EventTeam.vue'
+import InviteDesigner from '@/components/invite/InviteDesigner.vue'
 import { confirmDialog } from '@/utils/confirmDialog'
 import { formatDateTime, formatGiftValue, methodLabel, methodOptions, sideLabel, sideOptions } from '@/utils/format'
 import { downloadGuestCsvTemplate, exportGuestsXlsx } from '@/utils/guestExport'
@@ -24,7 +25,9 @@ const router = useRouter()
 const { t } = useI18n()
 
 const event = ref<ApiEvent | null>(null)
-const tab = ref<'guests' | 'gifts' | 'team'>('guests')
+const tab = ref<'guests' | 'gifts' | 'team' | 'invite'>('guests')
+const inviteOpened = ref(false)
+watch(tab, (now) => now === 'invite' && (inviteOpened.value = true))
 const error = ref<string | null>(null)
 
 // What the signed-in user's role allows here. Screens hide what isn't allowed; the server checks again.
@@ -223,6 +226,7 @@ async function deleteEvent() {
         <button :class="{ active: tab === 'guests' }" @click="tab = 'guests'">{{ t('detail.tabGuests', { n: guests.length }) }}</button>
         <button v-if="canSeeGifts" :class="{ active: tab === 'gifts' }" @click="tab = 'gifts'">{{ t('detail.tabGifts', { n: gifts.length }) }}</button>
         <button v-if="full" :class="{ active: tab === 'team' }" @click="tab = 'team'">{{ t('detail.tabTeam', { n: teamCount }) }}</button>
+        <button v-if="allowed('invite_edit')" :class="{ active: tab === 'invite' }" @click="tab = 'invite'">{{ t('detail.tabInvite') }}</button>
       </div>
 
       <!-- Guests -->
@@ -345,6 +349,9 @@ async function deleteEvent() {
         <EventTeam :event="event" @count="teamCount = $event" />
         <div class="danger-zone"><button class="btn-danger btn-small" @click="deleteEvent">{{ t('members.deleteEvent') }}</button></div>
       </div>
+
+      <!-- E-Invite designer. Loaded the first time the tab opens, then kept so unsaved edits survive tab switches. -->
+      <InviteDesigner v-if="allowed('invite_edit') && inviteOpened" v-show="tab === 'invite'" :event="event" />
     </div>
     <AppSkeleton v-else-if="!error" variant="page" />
   </div>

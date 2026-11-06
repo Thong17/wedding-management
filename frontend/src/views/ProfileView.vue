@@ -8,6 +8,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import ChangePassword from '@/components/ChangePassword.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSyncStore } from '@/stores/sync'
+import { resizeImage } from '@/utils/resizeImage'
 import { toast } from '@/utils/toast'
 
 const AVATAR_PX = 256
@@ -36,18 +37,11 @@ onBeforeUnmount(() => setPreview(null))
 
 /** Center-crop to a square and shrink, so phone photos upload as a few dozen KB. */
 async function toAvatar(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file)
-  const side = Math.min(bitmap.width, bitmap.height)
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = AVATAR_PX
-  const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = '#fff' // JPEG has no transparency
-  ctx.fillRect(0, 0, AVATAR_PX, AVATAR_PX)
-  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, AVATAR_PX, AVATAR_PX)
-  bitmap.close()
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9))
-  if (!blob) throw new Error(t('profile.pictureUnreadable'))
-  return blob
+  try {
+    return await resizeImage(file, { maxSide: AVATAR_PX, square: true, quality: 0.9 })
+  } catch {
+    throw new Error(t('profile.pictureUnreadable'))
+  }
 }
 
 async function onPick(e: Event) {

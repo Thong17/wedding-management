@@ -6,6 +6,8 @@ import type {
   ApiClientDocument,
   ApiEvent,
   ApiGift,
+  ApiInvite,
+  ApiPublicInvite,
   ApiGuest,
   ApiManagedUser,
   ApiRole,
@@ -22,6 +24,7 @@ import type {
   SyncItemPayload,
   SyncItemResult,
 } from './types'
+import type { InviteConfig } from '@/invite/config'
 
 export const authApi = {
   async login(username: string, password: string): Promise<void> {
@@ -165,4 +168,22 @@ export const giftsApi = {
     http.post<ApiGift>(`/events/${eventId}/gifts/${id}/void/`, { updated_at: updatedAt }).then((r) => r.data),
   sync: (transactions: SyncItemPayload[]) =>
     http.post<{ results: SyncItemResult[] }>('/gifts/sync/', { transactions }).then((r) => r.data),
+}
+
+/** The event's e-invite: the draft being designed, publishing it, and its pictures. */
+export const invitesApi = {
+  get: (eventId: number) => http.get<ApiInvite>(`/events/${eventId}/invite/`).then((r) => r.data),
+  save: (eventId: number, data: { draft: InviteConfig; slug?: string | null; revision: number }) =>
+    http.put<ApiInvite>(`/events/${eventId}/invite/`, data).then((r) => r.data),
+  publish: (eventId: number, revision: number) =>
+    http.post<ApiInvite>(`/events/${eventId}/invite/publish/`, { revision }).then((r) => r.data),
+  unpublish: (eventId: number) => http.post<ApiInvite>(`/events/${eventId}/invite/unpublish/`).then((r) => r.data),
+  uploadImage(eventId: number, image: Blob) {
+    const form = new FormData()
+    form.append('image', image, image.type === 'image/png' ? 'image.png' : 'image.jpg')
+    return http.post<{ id: number; url: string }>(`/events/${eventId}/invite/images/`, form, { timeout: 60_000 }).then((r) => r.data)
+  },
+  /** A published invitation, for guests: no login, so not through the signed-in client. */
+  public: (slug: string) =>
+    axios.get<ApiPublicInvite>(`${API_URL}/public/invites/${encodeURIComponent(slug)}/`, { timeout: 15_000 }).then((r) => r.data),
 }

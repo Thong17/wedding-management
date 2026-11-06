@@ -1,4 +1,4 @@
-# MEDIA_BACKEND=files: profile pictures from the media volume. Client documents live in a separate
+# MEDIA_BACKEND=files: profile pictures and invitation pictures from the media volume. Client documents live in a separate
 # volume that Caddy can't see, and are only sent by Django to signed-in admins.
 handle_path /media/* {
 	root * /var/www/media

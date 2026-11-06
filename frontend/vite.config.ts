@@ -34,11 +34,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The e-invite fonts (Fontsource: <family>-<subset>-<weight>-normal|italic-<hash>.woff2) are only for
+        // invitations: fetched when one is opened (runtime cache below), not part of the gift desk's install.
+        globIgnores: ['**/*-normal-*.woff2', '**/*-italic-*.woff2'],
         navigateFallback: 'index.html',
         // Served by Django / Caddy on the same domain in production, not by the app.
         navigateFallbackDenylist: [/^\/api\//, /^\/admin(\/|$)/, /^\/static\//, /^\/media\//],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
+          {
+            // Invitation fonts: content-hashed file names, so cache them for good once used.
+            urlPattern: ({ url }) => /-(normal|italic)-[\w-]+\.woff2$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'invite-fonts', expiration: { maxEntries: 60 } },
+          },
           {
             // Profile pictures, so the navbar avatar still shows offline. Every upload gets a
             // new file name, so a cached picture is never stale.

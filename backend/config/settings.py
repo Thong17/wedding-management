@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "accounts",
     "events",
     "gifts",
+    "invites",
 ]
 
 MIDDLEWARE = [

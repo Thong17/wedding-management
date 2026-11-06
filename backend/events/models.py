@@ -37,6 +37,7 @@ class Permission(models.TextChoices):
     GIFT_EDIT_OWN = "gift_edit_own", "Edit own gifts"
     GIFT_VOID = "gift_void", "Void any gift"
     GIFT_VOID_OWN = "gift_void_own", "Void own gifts"
+    INVITE_EDIT = "invite_edit", "Design e-invite"
     GUEST_ADD = "guest_add", "Add guests"
     GUEST_EDIT = "guest_edit", "Edit guests"
     GUEST_DELETE = "guest_delete", "Delete guests"

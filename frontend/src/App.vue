@@ -20,6 +20,9 @@ const auth = useAuthStore()
 const route = useRoute()
 const { t } = useI18n()
 
+// Before the first navigation finishes the route is still empty: go by the address, so a guest's
+// invitation never flashes the app header first.
+const bare = computed(() => !!route.meta.bare || (!route.matched.length && location.pathname.startsWith('/e-invite/')))
 // A locked login sees only the lock screen; the Sync center stays open so this device's gifts are never stuck.
 const locked = computed(() => !!auth.lockReason && route.name !== 'login' && route.name !== 'sync')
 // Admins (platform and client) get a sidebar; customers keep the simple top bar.
@@ -46,6 +49,9 @@ onBeforeUnmount(() => observer?.disconnect())
 <template>
   <!-- One provider for every AppTooltip: after one shows, the next opens without waiting. -->
   <TooltipProvider :delay-duration="300" :skip-delay-duration="200">
+    <!-- Pages shown on their own, such as a guest's invitation: none of the app around them. -->
+    <RouterView v-if="bare" />
+    <template v-else>
     <header ref="header" class="app-header no-print" v-if="route.name !== 'login'">
       <div class="container row header-inner">
         <button v-if="withSidebar" type="button" class="btn-icon menu-btn" :aria-label="t('nav.open')" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">
@@ -82,6 +88,7 @@ onBeforeUnmount(() => observer?.disconnect())
         <RouterView />
       </main>
     </div>
+    </template>
 
     <div class="toasts" aria-live="polite">
       <div v-for="msg in toasts" :key="msg.id" class="toast" :class="`toast-${msg.kind}`">{{ msg.message }}</div>
