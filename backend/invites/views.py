@@ -14,15 +14,16 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
-from accounts.uploads import image_extension
+from accounts.uploads import audio_extension, image_extension
 from events import access
 from events.models import Event, Permission
 
-from .config import clean_config, default_config, image_ids_in
+from .config import LANGUAGES, clean_config, default_config, file_ids_in, upgrade
 from .models import EInvite, InviteImage
 
 IMAGE_MAX_BYTES = 5 * 1024 * 1024
-# Pictures per invite, used or not (uploads not yet saved into the design count too).
+AUDIO_MAX_BYTES = 12 * 1024 * 1024
+# Files (pictures and songs) per invite, used or not (uploads not yet saved into the design count too).
 MAX_IMAGES = 40
 # Unused pictures are removed once this old (younger ones may belong to a design not saved yet).
 UNUSED_IMAGE_GRACE = timedelta(days=1)
@@ -54,7 +55,7 @@ def _editor_payload(request, event, invite):
         "has_changes": invite.has_changes,
         "published_at": invite.published_at,
         "revision": invite.revision,
-        "draft": invite.draft,
+        "draft": upgrade(invite.draft),
         "images": _image_urls(request, invite),
     }
 
@@ -71,9 +72,16 @@ def _clean_slug(value, invite):
 
 
 def _new_slug(config):
-    """From the couple's names (Latin letters only) plus a random tail, e.g. sokha-dara-7k2p."""
-    content = config.get("content", {})
-    base = slugify(f"{content.get('partner1', '')} {content.get('partner2', '')}")[:40].strip("-") or "wedding"
+    """From the couple's names (Latin letters only, so the English ones first) plus a random tail,
+    e.g. sokha-dara-7k2p."""
+    text = upgrade(config).get("content", {}).get("text", {})
+    base = ""
+    for lang in ("en", *LANGUAGES):
+        words = text.get(lang) or {}
+        base = slugify(f"{words.get('partner1', '')} {words.get('partner2', '')}")[:40].strip("-")
+        if base:
+            break
+    base = base or "wedding"
     while True:
         slug = f"{base}-{secrets.token_hex(2)}"
         if not EInvite.objects.filter(slug=slug).exists():
@@ -82,7 +90,7 @@ def _new_slug(config):
 
 def _remove_unused_images(invite):
     """Delete pictures neither the draft nor the published design uses, past the grace period."""
-    used = image_ids_in(invite.draft) | image_ids_in(invite.published)
+    used = file_ids_in(invite.draft) | file_ids_in(invite.published)
     stale = invite.images.exclude(id__in=used).filter(created_at__lt=timezone.now() - UNUSED_IMAGE_GRACE)
     for image in stale:
         image.delete()  # the file goes too (models._delete_image_file)
@@ -119,8 +127,8 @@ class InviteView(APIView):
             return conflict
         if invite is None:
             invite = EInvite(event=event)
-        image_ids = set(invite.images.values_list("id", flat=True)) if invite.pk else set()
-        invite.draft = clean_config(request.data.get("draft"), image_ids, event)
+        files = dict(invite.images.values_list("id", "kind")) if invite.pk else {}
+        invite.draft = clean_config(request.data.get("draft"), files, event)
         if request.data.get("slug"):
             invite.slug = _clean_slug(request.data["slug"], invite)
         invite.revision += 1
@@ -169,6 +177,18 @@ class InviteUnpublishView(APIView):
         return Response(_editor_payload(request, event, invite))
 
 
+def _store_upload(request, event, upload, ext, kind, field):
+    """Keep an uploaded file for the event's invite (creating the invite if needed) → 201 {"id", "url"}."""
+    invite, _ = EInvite.objects.select_for_update().get_or_create(event=event, defaults={"draft": default_config(event)})
+    _remove_unused_images(invite)
+    if invite.images.count() >= MAX_IMAGES:
+        raise ValidationError({field: f"This invitation already has {MAX_IMAGES} files. Remove some first."})
+    stored = InviteImage(invite=invite, kind=kind)
+    stored.file.save(f"{kind}.{ext}", upload, save=False)
+    stored.save()
+    return Response({"id": stored.id, "url": request.build_absolute_uri(stored.file.url)}, status=status.HTTP_201_CREATED)
+
+
 class InviteImageView(APIView):
     """POST multipart {"image"} → {"id", "url"}. JPEG, PNG, WebP or GIF up to 5 MB, judged by content."""
 
@@ -185,14 +205,27 @@ class InviteImageView(APIView):
         ext = image_extension(upload)
         if ext is None:
             raise ValidationError({"image": "Upload a JPEG, PNG, WebP or GIF picture."})
-        invite, _ = EInvite.objects.select_for_update().get_or_create(event=event, defaults={"draft": default_config(event)})
-        _remove_unused_images(invite)
-        if invite.images.count() >= MAX_IMAGES:
-            raise ValidationError({"image": f"This invitation already has {MAX_IMAGES} pictures. Remove some first."})
-        image = InviteImage(invite=invite)
-        image.file.save(f"image.{ext}", upload, save=False)
-        image.save()
-        return Response({"id": image.id, "url": request.build_absolute_uri(image.file.url)}, status=status.HTTP_201_CREATED)
+        return _store_upload(request, event, upload, ext, InviteImage.Kind.IMAGE, "image")
+
+
+class InviteAudioView(APIView):
+    """POST multipart {"audio"} → {"id", "url"}: background music. MP3, M4A/AAC, OGG or WAV up to 12 MB,
+    judged by content."""
+
+    parser_classes = [MultiPartParser]
+
+    @transaction.atomic
+    def post(self, request, event_pk):
+        event = _event_for_editing(request, event_pk)
+        upload = request.FILES.get("audio")
+        if upload is None:
+            raise ValidationError({"audio": "Choose a song."})
+        if upload.size > AUDIO_MAX_BYTES:
+            raise ValidationError({"audio": "The song must be 12 MB or smaller."})
+        ext = audio_extension(upload)
+        if ext is None:
+            raise ValidationError({"audio": "Upload an MP3, M4A, OGG or WAV file."})
+        return _store_upload(request, event, upload, ext, InviteImage.Kind.AUDIO, "audio")
 
 
 class PublicInviteThrottle(AnonRateThrottle):
@@ -203,7 +236,8 @@ class PublicInviteView(APIView):
     """GET → a published invitation, for anyone with the link (no login).
 
     Only the published design, with the event's date and venue filled in where the design leaves them
-    blank, and the pictures it uses. Nothing else about the event, its guests or its client.
+    blank (venue in each language), and the files it uses. Nothing else about the event, its guests or
+    its client.
     """
 
     authentication_classes = []
@@ -214,12 +248,19 @@ class PublicInviteView(APIView):
         invite = EInvite.objects.select_related("event").filter(slug=slug, published__isnull=False).first()
         if invite is None:
             return Response({"detail": "Invitation not found."}, status=status.HTTP_404_NOT_FOUND)
-        config = invite.published
+        config = upgrade(invite.published)
         content = {**config.get("content", {})}
         content["date"] = content.get("date") or invite.event.date.isoformat()
-        content["venue"] = content.get("venue") or invite.event.venue
-        return Response({
+        content["text"] = {
+            lang: {**words, "venue": words.get("venue") or invite.event.venue}
+            for lang, words in (content.get("text") or {}).items()
+        }
+        response = Response({
             **config,
             "content": content,
-            "images": _image_urls(request, invite, image_ids_in(config)),
+            "images": _image_urls(request, invite, file_ids_in(config)),
         })
+        # Browsers may reuse it briefly (the page's early request and the app's share one download) and
+        # show a stale copy while fetching a fresh one; a republish reaches guests within a minute.
+        response["Cache-Control"] = "public, max-age=60, stale-while-revalidate=600"
+        return response

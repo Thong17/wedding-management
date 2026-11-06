@@ -18,10 +18,12 @@ import {
   FONTS,
   LANGUAGES,
   MAX_GALLERY,
+  MUSIC,
   OPENING_STYLES,
   withDefaults as fillDefaults,
   type InviteConfig,
   type InviteImages,
+  type InviteLanguage,
   type PreviewDevice,
 } from '@/invite/config'
 import { inviteLabels } from '@/invite/labels'
@@ -74,6 +76,7 @@ async function load() {
   loadError.value = null
   try {
     apply(await invitesApi.get(props.event.id))
+    editLang.value = draft.value.content.language
   } catch (err) {
     loadError.value = errorMessage(err)
   } finally {
@@ -176,6 +179,32 @@ async function upload(file: File, kind: 'hero' | 'gallery' | 'cover' | 'emblem')
   }
 }
 const imageUrl = (id: number | null) => (id != null ? images.value[String(id)] ?? null : null)
+
+// The organizer's own song for the background music (uploaded as is; the server checks it).
+const SONG_MAX_BYTES = 12 * 1024 * 1024
+const songInput = ref<HTMLInputElement | null>(null)
+async function onSongPick(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (file.size > SONG_MAX_BYTES) {
+    toast(t('invite.songTooBig'), 'error')
+    return
+  }
+  uploading.value = 'song'
+  try {
+    const { id, url } = await invitesApi.uploadAudio(props.event.id, file)
+    images.value = { ...images.value, [String(id)]: url }
+    draft.value.audio.music_file = id
+    draft.value.audio.music = 'upload'
+  } catch (err) {
+    toast(errorMessage(err), 'error')
+  } finally {
+    uploading.value = null
+  }
+}
+const musicOptions = computed(() => MUSIC.map((m) => ({ value: m, label: t(`invite.musics.${m}`) })))
 const galleryInput = ref<HTMLInputElement | null>(null)
 async function onGalleryPick(e: Event) {
   const input = e.target as HTMLInputElement
@@ -201,7 +230,13 @@ const openingOptions = computed(() => OPENING_STYLES.map((s) => ({ value: s, lab
 const emblemOptions = computed(() => EMBLEMS.map((s) => ({ value: s, label: t(`invite.emblems.${s}`) })))
 const languageOptions = computed(() => LANGUAGES.map((l) => ({ value: l, label: t(`invite.languages.${l}`) })))
 // What a blank greeting or title shows, as the placeholder.
-const defaults = computed(() => inviteLabels(draft.value.content.language))
+const defaults = computed(() => inviteLabels(editLang.value))
+
+// The words are written per language. Fields left blank show the other language's words (which guests
+// then see too) as their placeholder.
+const editLang = ref<InviteLanguage>('km')
+const words = computed(() => draft.value.content.text[editLang.value])
+const otherWords = computed(() => draft.value.content.text[editLang.value === 'km' ? 'en' : 'km'])
 
 // Live preview beside the settings, and the full-screen Preview.
 const sideDevice = ref<PreviewDevice>('phone')
@@ -309,14 +344,32 @@ function replaySide() {
             <summary><AppIcon name="edit" :size="16" />{{ t('invite.content') }}</summary>
             <div class="stack">
               <label>{{ t('invite.language') }} <AppSelect v-model="draft.content.language" :options="languageOptions" /></label>
-              <div class="row two">
-                <label class="grow">{{ t('invite.partner1') }} <input v-model="draft.content.partner1" maxlength="80" /></label>
-                <label class="grow">{{ t('invite.partner2') }} <input v-model="draft.content.partner2" maxlength="80" /></label>
+              <!-- The words, written per language; guests switch with the language button. -->
+              <div class="write-in">
+                <span class="picker-label">{{ t('invite.writingIn') }}</span>
+                <div class="segmented" role="group" :aria-label="t('invite.writingIn')">
+                  <button
+                    v-for="l in LANGUAGES"
+                    :key="l"
+                    type="button"
+                    class="btn-small"
+                    :class="{ active: editLang === l }"
+                    :aria-pressed="editLang === l"
+                    @click="editLang = l"
+                  >
+                    {{ t(`invite.languages.${l}`) }}
+                  </button>
+                </div>
+                <span class="muted small">{{ t('invite.writingHint') }}</span>
               </div>
-              <label>{{ t('invite.titleField') }} <input v-model="draft.content.title" maxlength="120" :placeholder="defaults.defaultTitle" /></label>
+              <div class="row two">
+                <label class="grow">{{ t('invite.partner1') }} <input v-model="words.partner1" maxlength="80" :placeholder="otherWords.partner1" /></label>
+                <label class="grow">{{ t('invite.partner2') }} <input v-model="words.partner2" maxlength="80" :placeholder="otherWords.partner2" /></label>
+              </div>
+              <label>{{ t('invite.titleField') }} <input v-model="words.title" maxlength="120" :placeholder="defaults.defaultTitle" /></label>
               <label>
                 {{ t('invite.greeting') }}
-                <textarea v-model="draft.content.greeting" rows="2" maxlength="200" :placeholder="defaults.defaultGreeting" />
+                <textarea v-model="words.greeting" rows="2" maxlength="200" :placeholder="defaults.defaultGreeting" />
               </label>
               <div class="row two">
                 <label class="grow">
@@ -328,11 +381,11 @@ function replaySide() {
               </div>
               <label>
                 {{ t('invite.venue') }}
-                <input v-model="draft.content.venue" maxlength="255" :placeholder="event.venue || ''" />
-                <span v-if="!draft.content.venue && event.venue" class="muted small">{{ t('invite.usesEventVenue') }}</span>
+                <input v-model="words.venue" maxlength="255" :placeholder="otherWords.venue || event.venue || ''" />
+                <span v-if="!words.venue && !otherWords.venue && event.venue" class="muted small">{{ t('invite.usesEventVenue') }}</span>
               </label>
-              <label>{{ t('invite.address') }} <textarea v-model="draft.content.address" rows="2" maxlength="300" /></label>
-              <label>{{ t('invite.message') }} <textarea v-model="draft.content.message" rows="4" maxlength="2000" /></label>
+              <label>{{ t('invite.address') }} <textarea v-model="words.address" rows="2" maxlength="300" :placeholder="otherWords.address" /></label>
+              <label>{{ t('invite.message') }} <textarea v-model="words.message" rows="4" maxlength="2000" :placeholder="otherWords.message" /></label>
               <label>
                 {{ t('invite.mapsUrl') }}
                 <input v-model.trim="draft.content.maps_url" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/…" />
@@ -404,6 +457,28 @@ function replaySide() {
             </div>
           </details>
 
+          <details class="section card" open>
+            <summary><AppIcon name="music" :size="16" />{{ t('invite.sound') }}</summary>
+            <div class="stack">
+              <label>{{ t('invite.music') }} <AppSelect v-model="draft.audio.music" :options="musicOptions" /></label>
+              <div v-if="draft.audio.music === 'upload'" class="song">
+                <audio v-if="imageUrl(draft.audio.music_file)" :src="imageUrl(draft.audio.music_file)!" controls preload="none" class="song-player" />
+                <p v-else class="muted small">{{ t('invite.noSong') }}</p>
+                <button type="button" class="btn-small" :disabled="uploading === 'song'" @click="songInput?.click()">
+                  <AppIcon name="music" :size="14" />{{ uploading === 'song' ? t('invite.uploading') : imageUrl(draft.audio.music_file) ? t('invite.changeSong') : t('invite.uploadSong') }}
+                </button>
+                <span class="muted small">{{ t('invite.songHint') }}</span>
+                <input ref="songInput" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/wav,.mp3,.m4a,.ogg,.wav" hidden @change="onSongPick" />
+              </div>
+              <label v-if="draft.audio.music !== 'none'">
+                {{ t('invite.volume', { n: draft.audio.volume }) }}
+                <input v-model.number="draft.audio.volume" type="range" min="0" max="100" step="5" class="volume" />
+              </label>
+              <label class="check"><input v-model="draft.audio.open_sound" type="checkbox" />{{ t('invite.openSound') }}</label>
+              <p class="muted small">{{ t('invite.soundHint') }}</p>
+            </div>
+          </details>
+
           <details class="section card">
             <summary><AppIcon name="globe" :size="16" />{{ t('invite.link') }}</summary>
             <div class="stack">
@@ -435,7 +510,7 @@ function replaySide() {
           </div>
           <div class="preview-area">
             <InvitePreviewFrame :device="sideDevice">
-              <InvitationView ref="sideView" :config="draft" :images="images" :event="eventFacts" start-open />
+              <InvitationView ref="sideView" :config="draft" :images="images" :event="eventFacts" :language="editLang" start-open />
             </InvitePreviewFrame>
           </div>
         </div>
@@ -533,6 +608,11 @@ textarea { resize: vertical; }
   font-size: 0.8rem;
   border-style: dashed;
 }
+.write-in { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: var(--c-bg); }
+.song { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.song .btn-small { display: inline-flex; align-items: center; gap: 4px; }
+.song-player { width: 100%; height: 40px; }
+.volume { padding: 0; min-height: 0; accent-color: var(--c-primary); }
 .slug-row { display: flex; align-items: center; gap: 6px; }
 .slug-row .prefix { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }
 .slug-row input { flex: 1; min-width: 0; }

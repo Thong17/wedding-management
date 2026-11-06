@@ -23,6 +23,51 @@
     <title>Wedding Gift Desk</title>
   </head>
   <body>
+    <!--
+      A guest's invitation (/e-invite/…): show its loading screen at once, before the app's code has
+      downloaded, and start fetching the invitation in parallel. PublicInviteView takes over from here
+      (same look, real progress) and removes this. Other pages remove it straight away.
+    -->
+    <style>
+      #invite-boot { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; color: #f3dfa6; font-family: Georgia, 'Times New Roman', serif; background: radial-gradient(ellipse at 50% 42%, rgb(255 255 255 / 0.12), transparent 60%), radial-gradient(ellipse at 50% 120%, rgb(0 0 0 / 0.45), transparent 60%), var(--boot-cover, #6e1423); }
+      #invite-boot[hidden] { display: none; }
+      #invite-boot .ring { position: relative; width: clamp(120px, 34vmin, 168px); aspect-ratio: 1; }
+      #invite-boot svg { position: absolute; inset: 0; width: 100%; height: 100%; animation: invite-boot-spin 1.4s linear infinite; }
+      #invite-boot .glow { position: absolute; inset: 22%; border-radius: 50%; background: radial-gradient(circle, rgb(243 223 166 / 0.45), rgb(201 161 74 / 0.12) 60%, transparent 72%); animation: invite-boot-glow 1.8s ease-in-out infinite; }
+      @keyframes invite-boot-spin { to { transform: rotate(360deg); } }
+      @keyframes invite-boot-glow { 50% { transform: scale(1.12); opacity: 0.6; } }
+      @media (prefers-reduced-motion: reduce) { #invite-boot svg, #invite-boot .glow { animation: none; } }
+    </style>
+    <div id="invite-boot" hidden aria-busy="true">
+      <div class="ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="54" fill="none" stroke="rgb(243 223 166 / 0.18)" stroke-width="2" />
+          <circle cx="60" cy="60" r="54" fill="none" stroke="#e3c06f" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="80 260" />
+        </svg>
+        <span class="glow"></span>
+      </div>
+    </div>
+    <script>
+      ;(function () {
+        var boot = document.getElementById('invite-boot')
+        var match = location.pathname.match(/^\/e-invite\/([^/]+)\/?$/)
+        if (!match) return boot.remove()
+        boot.hidden = false
+        try {
+          var saved = JSON.parse(localStorage.getItem('wms.invite.' + decodeURIComponent(match[1])) || 'null')
+          var cover = saved && saved.animation && saved.animation.cover_color
+          if (/^#[0-9a-f]{6}$/i.test(cover)) boot.style.setProperty('--boot-cover', cover)
+        } catch (e) {}
+        // Same-origin API in production: fetch the invitation now, so it is (HTTP-)cached by the time
+        // the app asks for it.
+        var preload = document.createElement('link')
+        preload.rel = 'preload'
+        preload.as = 'fetch'
+        preload.crossOrigin = 'anonymous'
+        preload.href = '/api/public/invites/' + match[1] + '/'
+        document.head.appendChild(preload)
+      })()
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

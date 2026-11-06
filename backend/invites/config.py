@@ -2,7 +2,11 @@
 
 Mirrored by frontend/src/invite/config.ts (same keys, option lists and defaults). A design is
 
-    {"version": 1, "template": "classic", "design": {...}, "content": {...}, "animation": {...}}
+    {"version": 2, "template": "classic", "design": {...}, "content": {...}, "animation": {...}, "audio": {...}}
+
+The invitation's words are written per language, `content.text = {"km": {...}, "en": {...}}`, so guests
+can switch between Khmer and English; `content.language` is the one it opens in. Version 1 designs
+(one language, the words directly in `content`) are converted when read.
 
 `clean_config` turns whatever an editor sends into a complete, valid design: unknown keys are dropped,
 missing ones get their default, and invalid values raise a ValidationError naming the field.
@@ -13,7 +17,7 @@ from datetime import date, time
 
 from rest_framework.exceptions import ValidationError
 
-VERSION = 1
+VERSION = 2
 TEMPLATES = ("classic",)
 # Font pairings (names / text). Each also covers Khmer script.
 FONTS = ("classic", "romantic", "modern", "khmer-royal", "khmer-elegant")
@@ -21,6 +25,8 @@ CARD_STYLES = ("framed", "ornate", "minimal")
 OPENING_STYLES = ("gatefold", "envelope", "fade")
 EMBLEMS = ("seal", "monogram", "image")
 LANGUAGES = ("km", "en")
+# Background music: tunes the browser plays itself (no files), the organizer's own song, or none.
+MUSIC = ("musicbox", "harp", "upload", "none")
 MAX_GALLERY = 12
 
 _COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -45,6 +51,15 @@ def _bool(value, field):
     if not isinstance(value, bool):
         raise ValidationError({field: "Must be true or false."})
     return value
+
+
+def _number(low, high):
+    def check(value, field):
+        if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+            raise ValidationError({field: f"A whole number from {low} to {high}."})
+        return value
+
+    return check
 
 
 def _text(max_length):
@@ -87,7 +102,19 @@ def _url(value, field):
     return value
 
 
-# Section → key → (default, validator). Image fields hold InviteImage ids and are checked separately.
+# The invitation's words, written once per language (content.text.km / content.text.en). Blank venue
+# means the event's venue.
+TEXT_FIELDS = {
+    "greeting": _text(200),
+    "title": _text(120),
+    "partner1": _text(80),
+    "partner2": _text(80),
+    "venue": _text(255),
+    "address": _text(300),
+    "message": _text(2000),
+}
+
+# Section → key → (default, validator). File fields hold InviteImage ids and are checked separately.
 SCHEMA = {
     "design": {
         "background": ("#fbf6ee", _color),
@@ -102,15 +129,8 @@ SCHEMA = {
     },
     "content": {
         "language": ("km", _choice(LANGUAGES)),
-        "greeting": ("", _text(200)),
-        "title": ("", _text(120)),
-        "partner1": ("", _text(80)),
-        "partner2": ("", _text(80)),
         "date": ("", _date),
         "time": ("", _time),
-        "venue": ("", _text(255)),
-        "address": ("", _text(300)),
-        "message": ("", _text(2000)),
         "maps_url": ("", _url),
     },
     "animation": {
@@ -120,11 +140,17 @@ SCHEMA = {
         "emblem": ("monogram", _choice(EMBLEMS)),
         "particles": (True, _bool),
     },
+    "audio": {
+        "music": ("musicbox", _choice(MUSIC)),
+        "volume": (60, _number(0, 100)),
+        "open_sound": (True, _bool),
+    },
 }
-# Image fields: section → key → many (a list) or one.
-IMAGE_FIELDS = {
-    "content": {"hero_photo": False, "gallery": True},
-    "animation": {"cover_image": False, "emblem_image": False},
+# File fields: section → key → (many: a list or one, kind of file).
+FILE_FIELDS = {
+    "content": {"hero_photo": (False, "image"), "gallery": (True, "image")},
+    "animation": {"cover_image": (False, "image"), "emblem_image": (False, "image")},
+    "audio": {"music_file": (False, "audio")},
 }
 
 
@@ -133,12 +159,14 @@ def default_config(event=None):
     config = {"version": VERSION, "template": TEMPLATES[0]}
     for section, fields in SCHEMA.items():
         config[section] = {key: default for key, (default, _) in fields.items()}
-    for section, fields in IMAGE_FIELDS.items():
-        for key, many in fields.items():
+    config["content"]["text"] = {lang: {key: "" for key in TEXT_FIELDS} for lang in LANGUAGES}
+    for section, fields in FILE_FIELDS.items():
+        for key, (many, _) in fields.items():
             config[section][key] = [] if many else None
     if event is not None:
         first, second = _split_names(event.name)
-        config["content"]["partner1"], config["content"]["partner2"] = first, second
+        for lang in LANGUAGES:
+            config["content"]["text"][lang].update(partner1=first, partner2=second)
     return config
 
 
@@ -150,11 +178,26 @@ def _split_names(name):
     return (name or "").strip()[:80], ""
 
 
-def clean_config(data, image_ids, event=None):
-    """A complete, valid design from submitted `data`. `image_ids`: the ids of this invite's pictures.
-    Fields left out get their defaults (with `event`, the couple's names suggested from its name)."""
+def upgrade(data):
+    """A version 1 design (the words directly in `content`, one language) in the version 2 shape."""
+    if not isinstance(data, dict):
+        return data
+    content = data.get("content")
+    if isinstance(content, dict) and "text" not in content and any(key in content for key in TEXT_FIELDS):
+        language = content.get("language") if content.get("language") in LANGUAGES else LANGUAGES[0]
+        words = {key: value for key, value in content.items() if key in TEXT_FIELDS}
+        rest = {key: value for key, value in content.items() if key not in TEXT_FIELDS}
+        data = {**data, "content": {**rest, "text": {language: words}}, "version": VERSION}
+    return data
+
+
+def clean_config(data, files, event=None):
+    """A complete, valid design from submitted `data`. `files`: this invite's uploads, id → kind
+    ("image" or "audio"). Fields left out get their defaults (with `event`, the couple's names
+    suggested from its name)."""
     if not isinstance(data, dict):
         raise ValidationError({"draft": "Send the design as an object."})
+    data = upgrade(data)
     config = default_config(event)
     template = data.get("template", TEMPLATES[0])
     config["template"] = _choice(TEMPLATES)(template, "template")
@@ -165,10 +208,23 @@ def clean_config(data, image_ids, event=None):
         for key, (default, check) in fields.items():
             if key in given:
                 config[section][key] = check(given[key], f"{section}.{key}")
-    for section, fields in IMAGE_FIELDS.items():
+
+    text = (data.get("content") or {}).get("text") or {}
+    if not isinstance(text, dict):
+        raise ValidationError({"content.text": "Must be an object."})
+    for lang in LANGUAGES:
+        words = text.get(lang) or {}
+        if not isinstance(words, dict):
+            raise ValidationError({f"content.text.{lang}": "Must be an object."})
+        for key, check in TEXT_FIELDS.items():
+            if key in words:
+                config["content"]["text"][lang][key] = check(words[key], f"content.text.{lang}.{key}")
+
+    for section, fields in FILE_FIELDS.items():
         given = data.get(section) or {}
-        for key, many in fields.items():
+        for key, (many, kind) in fields.items():
             field = f"{section}.{key}"
+            unknown = "Unknown picture." if kind == "image" else "Unknown song."
             value = given.get(key)
             if many:
                 value = value or []
@@ -176,22 +232,23 @@ def clean_config(data, image_ids, event=None):
                     raise ValidationError({field: "Must be a list of picture ids."})
                 if len(value) > MAX_GALLERY:
                     raise ValidationError({field: f"At most {MAX_GALLERY} photos."})
-                if any(v not in image_ids for v in value):
-                    raise ValidationError({field: "Unknown picture."})
+                if any(files.get(v) != kind for v in value):
+                    raise ValidationError({field: unknown})
                 config[section][key] = list(dict.fromkeys(value))  # no duplicates, order kept
             else:
-                if value is not None and (not isinstance(value, int) or value not in image_ids):
-                    raise ValidationError({field: "Unknown picture."})
+                if value is not None and (isinstance(value, bool) or not isinstance(value, int) or files.get(value) != kind):
+                    raise ValidationError({field: unknown})
                 config[section][key] = value
     return config
 
 
-def image_ids_in(config):
-    """Every picture id a design uses."""
+def file_ids_in(config):
+    """Every upload id a design uses (pictures and song)."""
     ids = set()
-    for section, fields in IMAGE_FIELDS.items():
-        for key, many in fields.items():
-            value = (config or {}).get(section, {}).get(key)
+    config = upgrade(config) or {}
+    for section, fields in FILE_FIELDS.items():
+        for key, (many, _) in fields.items():
+            value = config.get(section, {}).get(key)
             if many:
                 ids.update(value or [])
             elif value is not None:

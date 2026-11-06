@@ -11,6 +11,12 @@ import type { InviteFont } from './config'
 export interface FontPairing {
   names: string
   text: string
+  /**
+   * For the English version of a Khmer pairing: Khmer fonts carry Latin letters too, but heavy ones
+   * (Moul's look like a slab), so English words use these instead. Khmer letters still fall back to the
+   * Khmer fonts later in the stack.
+   */
+  latin?: { names: string; text: string }
   /** Loads the pairing's font files (CSS with @font-face). */
   load: () => Promise<unknown>
   /** What document.fonts.load must have ready before the text is shown. */
@@ -63,6 +69,7 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
   'khmer-royal': {
     names: `'Moul', 'Playfair Display', ${SERIF}`,
     text: `${KHMER_TEXT}, 'Cormorant Garamond', ${SERIF}`,
+    latin: { names: `'Playfair Display', 'Moul', ${SERIF}`, text: `'Cormorant Garamond', ${KHMER_TEXT}, ${SERIF}` },
     load: () =>
       Promise.all([
         import('@fontsource/moul/400.css'),
@@ -76,6 +83,7 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
   'khmer-elegant': {
     names: `'Noto Serif Khmer', 'Playfair Display', ${SERIF}`,
     text: `'Noto Serif Khmer', 'Cormorant Garamond', ${SERIF}`,
+    latin: { names: `'Playfair Display', 'Noto Serif Khmer', ${SERIF}`, text: `'Cormorant Garamond', 'Noto Serif Khmer', ${SERIF}` },
     load: () =>
       Promise.all([
         import('@fontsource/noto-serif-khmer/400.css'),

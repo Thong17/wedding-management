@@ -3,13 +3,15 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 /**
  * Golden glowing particles drifting upward, on a canvas filling the parent. `burst` speeds them up and
- * brightens them (while the invitation opens). Paused while off screen or in a hidden tab; a handful of
- * still sparks with "reduce motion".
+ * brightens them (while the invitation opens). `scale` makes the sparks bigger (behind the open card,
+ * where they glow through the paper). Paused while off screen or in a hidden tab; a handful of still
+ * sparks with "reduce motion".
  */
-const props = withDefaults(defineProps<{ color?: string; count?: number; burst?: boolean }>(), {
+const props = withDefaults(defineProps<{ color?: string; count?: number; burst?: boolean; scale?: number }>(), {
   color: '#e8c873',
   count: 70,
   burst: false,
+  scale: 1,
 })
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -28,7 +30,7 @@ function spawn(anywhere: boolean): Spark {
   return {
     x: Math.random() * width,
     y: anywhere ? Math.random() * height : height + 10,
-    r: 0.6 + Math.random() * 2.2,
+    r: (0.6 + Math.random() * 2.2) * props.scale,
     vy: 0.15 + Math.random() * 0.45,
     vx: (Math.random() - 0.5) * 0.2,
     phase: Math.random() * Math.PI * 2,

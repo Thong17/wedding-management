@@ -31,8 +31,7 @@ const Designer = defineComponent(() => () => h(TooltipProvider, null, () => h(In
 
 function invite(over: Partial<ApiInvite> = {}): ApiInvite {
   const draft = defaultConfig()
-  draft.content.partner1 = 'Sokha'
-  draft.content.partner2 = 'Dara'
+  for (const lang of ['km', 'en'] as const) Object.assign(draft.content.text[lang], { partner1: 'Sokha', partner2: 'Dara' })
   return { slug: null, status: 'draft', has_changes: false, published_at: null, revision: 0, draft, images: {}, ...over }
 }
 
@@ -65,7 +64,7 @@ describe('InviteDesigner', () => {
     await save().trigger('click')
     await flushPromises()
     expect(saved).toHaveLength(1)
-    expect(saved[0]).toMatchObject({ revision: 0, draft: { content: { title: 'Our Wedding Day' } } })
+    expect(saved[0]).toMatchObject({ revision: 0, draft: { content: { text: { km: { title: 'Our Wedding Day' } } } } })
     expect(save().attributes('disabled')).toBeDefined()
 
     await wrapper.findAll('.toolbar button').find((b) => b.text().includes('Publish'))!.trigger('click')

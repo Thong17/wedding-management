@@ -1,25 +1,28 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue'
-import { contrastOn, initials, type InviteConfig, type InviteImages } from '@/invite/config'
+import { contrastOn, initials, type InviteConfig, type InviteImages, type InviteText } from '@/invite/config'
 import type { InviteLabels } from '@/invite/labels'
 import InviteEmblem from './InviteEmblem.vue'
 import InviteParticles from './InviteParticles.vue'
 
 /**
  * The invitation's cover, and the opening animation that takes it away. Tapping (or Enter / Space)
- * emits `open`; the parent then sets `opening`, the animation plays, and `done` is emitted at its end.
+ * emits `open`; the parent then sets `mode` to 'opening', the animation plays, and `done` is emitted at
+ * its end. 'closing' plays the same animation backwards (the cover comes back) and emits `closed`.
  * Styles: gatefold (two doors swing open in 3D), envelope (the flap lifts, the cover slides away),
  * fade. "Reduce motion" gets a short fade whatever the style.
  */
 const props = defineProps<{
   config: InviteConfig
+  /** The couple's names in the language shown. */
+  names: Pick<InviteText, 'partner1' | 'partner2'>
   images: InviteImages
   labels: InviteLabels
   namesFont: string
   fontsReady: boolean
-  opening: boolean
+  mode: 'idle' | 'opening' | 'closing'
 }>()
-const emit = defineEmits<{ open: []; done: [] }>()
+const emit = defineEmits<{ open: []; done: []; closed: [] }>()
 
 const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 const DURATION = { gatefold: 2300, envelope: 2300, fade: 1500 } as const
@@ -29,27 +32,31 @@ const style = computed(() => (reduced ? 'reduced' : anim.value.style))
 const coverImage = computed(() => (anim.value.cover_image != null ? props.images[String(anim.value.cover_image)] : null))
 const emblemImage = computed(() => (anim.value.emblem_image != null ? props.images[String(anim.value.emblem_image)] : null))
 const ink = computed(() => contrastOn(anim.value.cover_color))
-const pair = computed(() => initials(props.config.content))
-const names = computed(() => [props.config.content.partner1, props.config.content.partner2].filter(Boolean))
-// Gatefold: one whole face while closed (no seam through the seal), two doors once it opens.
+const pair = computed(() => initials(props.names))
+const names = computed(() => [props.names.partner1, props.names.partner2].filter(Boolean))
+const moving = computed(() => props.mode !== 'idle')
+// Gatefold: one whole face while closed (no seam through the seal), two doors while it moves.
 const leaves = computed(() =>
-  style.value !== 'gatefold' ? (['whole'] as const) : props.opening ? (['left', 'right'] as const) : (['whole'] as const),
+  style.value === 'gatefold' && moving.value ? (['left', 'right'] as const) : (['whole'] as const),
 )
 
 let timer: ReturnType<typeof setTimeout> | undefined
 watch(
-  () => props.opening,
-  (on) => {
+  () => props.mode,
+  (mode) => {
     clearTimeout(timer)
-    if (on) timer = setTimeout(() => emit('done'), reduced ? 450 : DURATION[anim.value.style])
+    if (mode === 'idle') return
+    const ms = reduced ? 450 : DURATION[anim.value.style]
+    timer = setTimeout(() => (mode === 'opening' ? emit('done') : emit('closed')), ms)
   },
+  { immediate: true },
 )
 onBeforeUnmount(() => clearTimeout(timer))
 
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
-    if (!props.opening) emit('open')
+    if (!moving.value) emit('open')
   }
 }
 </script>
@@ -57,12 +64,12 @@ function onKey(e: KeyboardEvent) {
 <template>
   <div
     class="cover"
-    :class="[`style-${style}`, { opening }]"
+    :class="[`style-${style}`, { opening: mode === 'opening', closing: mode === 'closing' }]"
     :style="{ '--cover': anim.cover_color, '--ink': ink, '--gold': config.design.accent }"
     role="button"
     tabindex="0"
     :aria-label="labels.tapToOpen"
-    @click="!opening && emit('open')"
+    @click="!moving && emit('open')"
     @keydown="onKey"
   >
     <div v-for="leaf in leaves" :key="leaf" class="leaf" :class="`leaf-${leaf}`">
@@ -91,7 +98,7 @@ function onKey(e: KeyboardEvent) {
         </div>
       </div>
     </div>
-    <InviteParticles v-if="anim.particles" :color="'#f0d488'" :burst="opening" />
+    <InviteParticles v-if="anim.particles" :color="'#f0d488'" :burst="moving" />
     <p class="hint" :class="{ ready: fontsReady }">{{ labels.tapToOpen }}</p>
   </div>
 </template>
@@ -190,7 +197,7 @@ function onKey(e: KeyboardEvent) {
 .eyebrow, .names, .hint { opacity: 0; transition: opacity 0.6s ease; }
 .eyebrow.ready, .names.ready { opacity: 1; }
 .hint.ready { opacity: 1; }
-.opening .hint { opacity: 0; transition-duration: 0.3s; }
+.opening .hint, .closing .hint { opacity: 0; transition-duration: 0.3s; }
 .eyebrow:lang(km), .hint:lang(km) { letter-spacing: 0.02em; text-transform: none; }
 
 @keyframes seal-breathe {
@@ -244,6 +251,20 @@ function onKey(e: KeyboardEvent) {
 @keyframes cover-dissolve { to { opacity: 0; transform: scale(1.08); filter: blur(6px) brightness(1.4); } }
 
 .opening.style-reduced { animation: cover-out 0.4s ease forwards; }
+
+/* Closing: each opening animation backwards, its start mirrored, so the cover comes back the way it left. */
+.closing { cursor: default; }
+.closing.style-gatefold { animation: cover-out 0.5s ease 0s reverse both; }
+.closing.style-gatefold .leaf-left { animation: door-left 1.7s cubic-bezier(0.8, 0, 0.4, 0.98) 0.15s reverse both; }
+.closing.style-gatefold .leaf-right { animation: door-right 1.7s cubic-bezier(0.8, 0, 0.4, 0.98) 0.15s reverse both; }
+.closing.style-gatefold .seal { animation: seal-flare 0.7s ease-in 1.6s reverse both; }
+.closing.style-envelope { animation: cover-out 0.4s ease 0s reverse both; }
+.closing.style-envelope .leaf-whole { animation: envelope-away 1.1s cubic-bezier(0.7, 0, 0.4, 1) 0.15s reverse both; }
+.closing.style-envelope .flap { animation: flap-open 0.9s cubic-bezier(0.7, 0, 0.5, 1) 1.1s reverse both; }
+.closing.style-envelope .seal { animation: seal-lift 0.5s ease-out 1.8s reverse both; }
+.closing.style-fade { animation: cover-dissolve 1s ease 0.05s reverse both; }
+.closing.style-fade .seal { animation: seal-flare 0.6s ease-in 0.9s reverse both; }
+.closing.style-reduced { animation: cover-out 0.4s ease reverse both; }
 @keyframes cover-out { to { opacity: 0; visibility: hidden; } }
 
 @media (prefers-reduced-motion: reduce) {

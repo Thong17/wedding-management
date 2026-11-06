@@ -46,12 +46,18 @@ def invite_image_path(instance, filename):
 
 
 class InviteImage(models.Model):
-    """A picture for an invite (photo, cover, emblem), on the public upload storage.
+    """A file for an invite on the public upload storage: a picture (photo, cover, emblem) or a song
+    (background music).
 
-    The design refers to pictures by id. Files are never kept in the database.
+    The design refers to files by id. Files are never kept in the database.
     """
 
+    class Kind(models.TextChoices):
+        IMAGE = "image", "Picture"
+        AUDIO = "audio", "Song"
+
     invite = models.ForeignKey(EInvite, on_delete=models.CASCADE, related_name="images")
+    kind = models.CharField(max_length=8, choices=Kind.choices, default=Kind.IMAGE)
     file = models.FileField(upload_to=invite_image_path)
     created_at = models.DateTimeField(auto_now_add=True)
 

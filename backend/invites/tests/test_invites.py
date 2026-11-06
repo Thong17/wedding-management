@@ -64,17 +64,20 @@ class InviteTests(APITestCase):
     def test_a_new_invite_starts_from_defaults_with_the_couple_s_names_from_the_event(self):
         data = self.client.get(self.url).data
         self.assertEqual((data["status"], data["revision"], data["slug"]), ("draft", 0, None))
-        self.assertEqual((data["draft"]["content"]["partner1"], data["draft"]["content"]["partner2"]), ("Sokha", "Dara"))
+        for lang in ("km", "en"):
+            words = data["draft"]["content"]["text"][lang]
+            self.assertEqual((words["partner1"], words["partner2"]), ("Sokha", "Dara"))
+        self.assertEqual(data["draft"]["audio"], {"music": "musicbox", "volume": 60, "open_sound": True, "music_file": None})
         self.assertEqual(data["draft"]["animation"]["style"], "gatefold")
         self.assertFalse(EInvite.objects.exists())  # nothing stored until it is saved
 
     def test_saving_keeps_valid_values_drops_unknown_keys_and_fills_defaults(self):
-        res = self.save({"design": {"background": "#112233", "nonsense": 1}, "content": {"greeting": "  Welcome  "}})
+        res = self.save({"design": {"background": "#112233", "nonsense": 1}, "content": {"text": {"en": {"greeting": "  Welcome  "}}}})
         self.assertEqual(res.status_code, 200)
         draft = res.data["draft"]
         self.assertEqual(draft["design"]["background"], "#112233")
         self.assertNotIn("nonsense", draft["design"])
-        self.assertEqual(draft["content"]["greeting"], "Welcome")
+        self.assertEqual(draft["content"]["text"]["en"]["greeting"], "Welcome")
         self.assertEqual(draft["design"]["font"], "classic")  # default filled in
         self.assertEqual(res.data["revision"], 1)
 
@@ -85,6 +88,10 @@ class InviteTests(APITestCase):
             ({"content": {"maps_url": "javascript:alert(1)"}}, "content.maps_url"),
             ({"content": {"date": "12/12/2026"}}, "content.date"),
             ({"content": {"gallery": [999]}}, "content.gallery"),
+            ({"content": {"text": {"en": {"title": "x" * 121}}}}, "content.text.en.title"),
+            ({"audio": {"music": "rock"}}, "audio.music"),
+            ({"audio": {"volume": 101}}, "audio.volume"),
+            ({"audio": {"music_file": 999}}, "audio.music_file"),
             ({"animation": {"enabled": "yes"}}, "animation.enabled"),
         ]
         for draft, field in cases:
@@ -95,7 +102,7 @@ class InviteTests(APITestCase):
 
     def test_a_stale_revision_is_refused_with_the_current_version(self):
         self.save({}, revision=0)
-        res = self.save({"content": {"title": "Late"}}, revision=0)
+        res = self.save({"content": {"text": {"en": {"title": "Late"}}}}, revision=0)
         self.assertEqual(res.status_code, 409)
         self.assertEqual(res.data["current"]["revision"], 1)
 
@@ -114,21 +121,21 @@ class InviteTests(APITestCase):
     # Publishing
 
     def test_publishing_picks_a_link_and_guests_see_only_the_published_design(self):
-        self.save({"content": {"title": "Our Wedding"}}, revision=0)
+        self.save({"content": {"text": {"en": {"title": "Our Wedding"}}}}, revision=0)
         res = self.publish()
         self.assertEqual(res.status_code, 200)
         slug = res.data["slug"]
         self.assertRegex(slug, r"^sokha-dara-[0-9a-f]{4}$")
         self.assertEqual((res.data["status"], res.data["has_changes"]), ("published", False))
 
-        self.save({"content": {"title": "Changed, not published"}})
+        self.save({"content": {"text": {"en": {"title": "Changed, not published"}}}})
         self.assertTrue(self.client.get(self.url).data["has_changes"])
         public = self.public(slug)
         self.assertEqual(public.status_code, 200)
-        self.assertEqual(public.data["content"]["title"], "Our Wedding")
+        self.assertEqual(public.data["content"]["text"]["en"]["title"], "Our Wedding")
 
         self.publish()  # republish
-        self.assertEqual(self.public(slug).data["content"]["title"], "Changed, not published")
+        self.assertEqual(self.public(slug).data["content"]["text"]["en"]["title"], "Changed, not published")
         self.assertEqual(self.client.get(self.url).data["slug"], slug)  # the link stays the same
 
     def test_publishing_needs_a_saved_draft(self):
@@ -158,12 +165,18 @@ class InviteTests(APITestCase):
         self.save({}, revision=0)
         slug = self.publish().data["slug"]
         data = self.public(slug).data
-        self.assertEqual((data["content"]["date"], data["content"]["venue"]), ("2026-12-12", "Sokha Hotel"))
+        self.assertEqual(data["content"]["date"], "2026-12-12")
+        self.assertEqual({lang: words["venue"] for lang, words in data["content"]["text"].items()}, {"km": "Sokha Hotel", "en": "Sokha Hotel"})
         body = str(data)
         for private in ("Private Guest", "012 345 678", "owner", "Planner Co"):
             self.assertNotIn(private, body)
         for key in ("revision", "event", "slug", "draft", "published"):
             self.assertNotIn(key, data)
+
+    def test_the_public_page_may_be_cached_briefly(self):
+        self.save({}, revision=0)
+        slug = self.publish().data["slug"]
+        self.assertIn("max-age=60", self.public(slug)["Cache-Control"])
 
     def test_drafts_and_unknown_links_are_not_found(self):
         self.save({}, revision=0, slug="still-a-draft")
@@ -200,3 +213,45 @@ class InviteTests(APITestCase):
         self.save({"content": {"gallery": [used]}})
         self.assertEqual(list(InviteImage.objects.values_list("id", flat=True)), [used])
         self.assertFalse(unused_file.storage.exists(path))
+
+    # Music and older designs
+
+    def upload_song(self, content, name="song.mp3"):
+        return self.client.post(
+            reverse("invite-audio", args=[self.event.pk]), {"audio": SimpleUploadedFile(name, content)}, format="multipart",
+        )
+
+    def test_a_song_uploads_and_plays_on_the_public_page_once_chosen(self):
+        song = self.upload_song(b"ID3" + b"\x00" * 64)
+        self.assertEqual(song.status_code, 201)
+        song_id = song.data["id"]
+        # A song is not a picture, and a picture is not a song.
+        self.assertEqual(self.save({"content": {"hero_photo": song_id}}, revision=0).status_code, 400)
+        self.assertEqual(self.save({"audio": {"music": "upload", "music_file": song_id}}, revision=0).status_code, 200)
+        slug = self.publish().data["slug"]
+        data = self.public(slug).data
+        self.assertEqual(data["audio"]["music_file"], song_id)
+        self.assertTrue(data["images"][str(song_id)].endswith(".mp3"))
+
+    def test_only_real_songs_of_limited_size_are_accepted(self):
+        self.assertEqual(self.upload_song(PNG, "fake.mp3").status_code, 400)
+        self.assertEqual(self.upload_song(b"ID3" + b"\x00" * (12 * 1024 * 1024), "big.mp3").status_code, 400)
+        for content, ext in [(b"OggS" + b"\x00" * 32, "ogg"), (b"\x00\x00\x00\x20ftypM4A " + b"\x00" * 32, "m4a"), (b"RIFF\x00\x00\x00\x00WAVE" + b"\x00" * 32, "wav")]:
+            with self.subTest(ext=ext):
+                res = self.upload_song(content, f"song.{ext}")
+                self.assertEqual(res.status_code, 201)
+                self.assertTrue(res.data["url"].endswith(f".{ext}"))
+
+    def test_a_design_from_before_bilingual_text_is_read_in_the_new_shape(self):
+        old = {"version": 1, "content": {"language": "en", "title": "Old title", "partner1": "Sokha", "date": ""}}
+        EInvite.objects.create(event=self.event, slug="old-design", draft=old, published=old, revision=1)
+        draft = self.client.get(self.url).data["draft"]
+        self.assertEqual(draft["content"]["text"], {"en": {"title": "Old title", "partner1": "Sokha"}})
+        public = self.public("old-design").data
+        self.assertEqual(public["content"]["text"]["en"]["title"], "Old title")
+        self.assertEqual(public["content"]["text"]["en"]["venue"], "Sokha Hotel")
+        # Saving it stores the new shape, every field filled in.
+        saved = self.save(draft, revision=1).data["draft"]
+        self.assertEqual(saved["version"], 2)
+        self.assertEqual(saved["content"]["text"]["en"]["title"], "Old title")
+        self.assertEqual(saved["content"]["text"]["km"]["title"], "")

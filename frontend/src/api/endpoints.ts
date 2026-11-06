@@ -183,7 +183,13 @@ export const invitesApi = {
     form.append('image', image, image.type === 'image/png' ? 'image.png' : 'image.jpg')
     return http.post<{ id: number; url: string }>(`/events/${eventId}/invite/images/`, form, { timeout: 60_000 }).then((r) => r.data)
   },
+  /** A song for the background music: MP3, M4A, OGG or WAV, checked by the server. */
+  uploadAudio(eventId: number, song: File) {
+    const form = new FormData()
+    form.append('audio', song, song.name)
+    return http.post<{ id: number; url: string }>(`/events/${eventId}/invite/audio/`, form, { timeout: 120_000 }).then((r) => r.data)
+  },
   /** A published invitation, for guests: no login, so not through the signed-in client. */
-  public: (slug: string) =>
-    axios.get<ApiPublicInvite>(`${API_URL}/public/invites/${encodeURIComponent(slug)}/`, { timeout: 15_000 }).then((r) => r.data),
+  public: (slug: string, timeout = 15_000) =>
+    axios.get<ApiPublicInvite>(`${API_URL}/public/invites/${encodeURIComponent(slug)}/`, { timeout }).then((r) => r.data),
 }

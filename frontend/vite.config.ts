@@ -49,6 +49,29 @@ export default defineConfig({
             options: { cacheName: 'invite-fonts', expiration: { maxEntries: 60 } },
           },
           {
+            // Invitation pictures: a new file name on every upload, so a cached one is never stale. Not the
+            // songs: audio is fetched in ranges, which a cached copy can't answer (the browser's own HTTP
+            // cache keeps them instead).
+            urlPattern: ({ url }) => url.pathname.startsWith('/media/invites/') && !/\.(mp3|m4a|ogg|wav)$/i.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'invite-images',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // A published invitation: the latest when the network answers within 4 s, else the last copy.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/public/invites/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'invite-data',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
             // Profile pictures, so the navbar avatar still shows offline. Every upload gets a
             // new file name, so a cached picture is never stale.
             urlPattern: ({ url }) => url.pathname.startsWith('/media/avatars/'),

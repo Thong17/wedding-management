@@ -25,6 +25,11 @@ const LABELS = {
     errorTitle: 'មិនអាចបើកលិខិតអញ្ជើញបានទេ',
     errorText: 'សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្ដងទៀត។',
     retry: 'ព្យាយាមម្ដងទៀត',
+    preparing: 'កំពុងរៀបចំលិខិតអញ្ជើញ…',
+    soundOn: 'បើកសំឡេង',
+    soundOff: 'បិទសំឡេង',
+    switchLanguage: 'Switch to English',
+    otherLanguage: 'EN',
   },
   en: {
     tapToOpen: 'Tap to open the invitation',
@@ -45,6 +50,11 @@ const LABELS = {
     errorTitle: 'The invitation could not be opened',
     errorText: 'Please check your connection and try again.',
     retry: 'Try again',
+    preparing: 'Preparing your invitation…',
+    soundOn: 'Turn sound on',
+    soundOff: 'Turn sound off',
+    switchLanguage: 'ប្ដូរទៅភាសាខ្មែរ',
+    otherLanguage: 'ខ្មែរ',
   },
 } as const
 

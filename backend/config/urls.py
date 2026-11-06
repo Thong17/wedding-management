@@ -9,7 +9,7 @@ from accounts.api import ClientDocumentViewSet, ClientViewSet, UserViewSet
 from accounts.views import change_password, health, me
 from events.views import EventViewSet, GuestViewSet, RoleViewSet, permission_catalog
 from gifts.views import GiftDeskFeedView, GiftDeskListView, GiftSyncView, GiftViewSet
-from invites.views import InviteImageView, InvitePublishView, InviteUnpublishView, InviteView, PublicInviteView
+from invites.views import InviteAudioView, InviteImageView, InvitePublishView, InviteUnpublishView, InviteView, PublicInviteView
 
 router = DefaultRouter()
 router.register(r"events", EventViewSet, basename="event")
@@ -35,6 +35,7 @@ urlpatterns = [
     path("api/events/<int:event_pk>/invite/publish/", InvitePublishView.as_view(), name="invite-publish"),
     path("api/events/<int:event_pk>/invite/unpublish/", InviteUnpublishView.as_view(), name="invite-unpublish"),
     path("api/events/<int:event_pk>/invite/images/", InviteImageView.as_view(), name="invite-images"),
+    path("api/events/<int:event_pk>/invite/audio/", InviteAudioView.as_view(), name="invite-audio"),
     path("api/public/invites/<slug:slug>/", PublicInviteView.as_view(), name="public-invite"),
     path("api/", include(router.urls)),
 ]

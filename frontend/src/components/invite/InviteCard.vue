@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import QRCode from 'qrcode'
 import { computed, ref, watch } from 'vue'
-import type { InviteConfig, InviteImages } from '@/invite/config'
+import type { InviteConfig, InviteImages, InviteView } from '@/invite/config'
 import { formatInviteDate, formatInviteTime, type InviteLabels } from '@/invite/labels'
 import InviteDivider from './InviteDivider.vue'
 
@@ -12,8 +12,8 @@ import InviteDivider from './InviteDivider.vue'
  */
 const props = defineProps<{
   config: InviteConfig
-  /** Content with the event's date and venue already filled in. */
-  content: InviteConfig['content']
+  /** The words in the language shown, with the event's date and venue already filled in. */
+  content: InviteView
   images: InviteImages
   labels: InviteLabels
   namesFont: string
@@ -142,7 +142,8 @@ function step(by: number) {
 }
 .style-framed,
 .style-ornate {
-  background: var(--paper);
+  /* Slightly translucent, so the golden particles drifting behind the card glow softly through it. */
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.08);
   border-radius: 4px;
 }
@@ -150,7 +151,14 @@ function step(by: number) {
 .style-ornate.with-border {
   outline: 3px double var(--gold);
   outline-offset: -16px;
-  box-shadow: inset 0 0 0 26px var(--paper), inset 0 0 0 27px color-mix(in srgb, var(--gold) 45%, transparent), 0 30px 80px rgb(0 0 0 / 0.18);
+}
+/* Ornate: a second, finer gold line inside the double border. */
+.style-ornate.with-border::before {
+  content: '';
+  position: absolute;
+  inset: 26px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  pointer-events: none;
 }
 .style-minimal { background: transparent; }
 

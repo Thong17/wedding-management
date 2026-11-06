@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contrastOn, defaultConfig, effectiveContent, initials, withDefaults } from '@/invite/config'
+import { contrastOn, defaultConfig, initials, viewIn, withDefaults } from '@/invite/config'
 import { formatInviteDate, formatInviteTime } from '@/invite/labels'
 
 describe('invite config', () => {
@@ -14,10 +14,29 @@ describe('invite config', () => {
   it("uses the event's date and venue where the design leaves them blank", () => {
     const config = defaultConfig()
     const event = { date: '2026-12-12', venue: 'Sokha Hotel' }
-    expect(effectiveContent(config, event)).toMatchObject({ date: '2026-12-12', venue: 'Sokha Hotel' })
-    config.content.venue = 'Garden'
-    expect(effectiveContent(config, event).venue).toBe('Garden')
-    expect(effectiveContent(config, null).date).toBe('') // public data comes already filled in
+    expect(viewIn(config, 'km', event)).toMatchObject({ date: '2026-12-12', venue: 'Sokha Hotel', language: 'km' })
+    config.content.text.km.venue = 'Garden'
+    expect(viewIn(config, 'km', event).venue).toBe('Garden')
+    expect(viewIn(config, 'km', null).date).toBe('') // public data comes already filled in
+  })
+
+  it('shows the words in the language asked for, borrowing names, places and the message when blank', () => {
+    const config = defaultConfig()
+    Object.assign(config.content.text.km, { partner1: 'សុខា', title: 'សិរីមង្គល' })
+    Object.assign(config.content.text.en, { partner1: 'Sokha', message: 'Welcome' })
+    // A blank English title stays blank: the card shows the English default wording, not the Khmer title.
+    expect(viewIn(config, 'en')).toMatchObject({ partner1: 'Sokha', title: '', message: 'Welcome', language: 'en' })
+    expect(viewIn(config, 'km')).toMatchObject({ partner1: 'សុខា', title: 'សិរីមង្គល', message: 'Welcome' })
+  })
+
+  it('reads a design from before bilingual words in the new shape', () => {
+    const old = { content: { language: 'en', title: 'Old title', partner1: 'Sokha', date: '2026-12-12' } }
+    const config = withDefaults(old as never)
+    expect(config.content.text.en).toMatchObject({ title: 'Old title', partner1: 'Sokha', greeting: '' })
+    expect(config.content.text.km.title).toBe('')
+    expect(config.content.date).toBe('2026-12-12')
+    expect('title' in config.content).toBe(false)
+    expect(config.audio).toEqual({ music: 'musicbox', music_file: null, volume: 60, open_sound: true })
   })
 
   it('takes initials for the monogram, Khmer names included', () => {
