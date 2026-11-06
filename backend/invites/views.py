@@ -235,9 +235,9 @@ class PublicInviteThrottle(AnonRateThrottle):
 class PublicInviteView(APIView):
     """GET → a published invitation, for anyone with the link (no login).
 
-    Only the published design, with the event's date and venue filled in where the design leaves them
-    blank (venue in each language), and the files it uses. Nothing else about the event, its guests or
-    its client.
+    Only the published design (in today's shape: fields older designs had are dropped), the files it
+    uses, and the event's date and venue (`event`) for the card. Nothing else about the event, its
+    guests or its client.
     """
 
     authentication_classes = []
@@ -248,16 +248,13 @@ class PublicInviteView(APIView):
         invite = EInvite.objects.select_related("event").filter(slug=slug, published__isnull=False).first()
         if invite is None:
             return Response({"detail": "Invitation not found."}, status=status.HTTP_404_NOT_FOUND)
-        config = upgrade(invite.published)
-        content = {**config.get("content", {})}
-        content["date"] = content.get("date") or invite.event.date.isoformat()
-        content["text"] = {
-            lang: {**words, "venue": words.get("venue") or invite.event.venue}
-            for lang, words in (content.get("text") or {}).items()
-        }
+        try:
+            config = clean_config(invite.published, dict(invite.images.values_list("id", "kind")), invite.event)
+        except ValidationError:  # stored before a rule tightened: show it as it was
+            config = upgrade(invite.published)
         response = Response({
             **config,
-            "content": content,
+            "event": {"date": invite.event.date.isoformat(), "venue": invite.event.venue},
             "images": _image_urls(request, invite, file_ids_in(config)),
         })
         # Browsers may reuse it briefly (the page's early request and the app's share one download) and

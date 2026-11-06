@@ -106,7 +106,7 @@ onMounted(() => {
 <template>
   <div class="public-invite">
     <Transition name="reveal">
-      <InvitationView v-if="state === 'ready' && config" :config="config" :images="invite!.images" />
+      <InvitationView v-if="state === 'ready' && config" :config="config" :images="invite!.images" :event="invite!.event" />
     </Transition>
     <!-- While loading: a gold ring filling as the invitation, its fonts and first pictures arrive. -->
     <Transition name="loader">

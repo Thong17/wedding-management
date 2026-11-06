@@ -85,8 +85,7 @@ class InviteTests(APITestCase):
         cases = [
             ({"design": {"background": "red"}}, "design.background"),
             ({"design": {"font": "comic-sans"}}, "design.font"),
-            ({"content": {"maps_url": "javascript:alert(1)"}}, "content.maps_url"),
-            ({"content": {"date": "12/12/2026"}}, "content.date"),
+            ({"content": {"timeline": [{"maps_url": "javascript:alert(1)"}]}}, "content.timeline.0.maps_url"),
             ({"content": {"gallery": [999]}}, "content.gallery"),
             ({"content": {"text": {"en": {"title": "x" * 121}}}}, "content.text.en.title"),
             ({"audio": {"music": "rock"}}, "audio.music"),
@@ -165,12 +164,12 @@ class InviteTests(APITestCase):
         self.save({}, revision=0)
         slug = self.publish().data["slug"]
         data = self.public(slug).data
-        self.assertEqual(data["content"]["date"], "2026-12-12")
-        self.assertEqual({lang: words["venue"] for lang, words in data["content"]["text"].items()}, {"km": "Sokha Hotel", "en": "Sokha Hotel"})
+        # Of the event, only its date and venue (the card's own date, and its place without a programme).
+        self.assertEqual(data["event"], {"date": "2026-12-12", "venue": "Sokha Hotel"})
         body = str(data)
         for private in ("Private Guest", "012 345 678", "owner", "Planner Co"):
             self.assertNotIn(private, body)
-        for key in ("revision", "event", "slug", "draft", "published"):
+        for key in ("revision", "slug", "draft", "published"):
             self.assertNotIn(key, data)
 
     def test_the_public_page_may_be_cached_briefly(self):
@@ -243,15 +242,86 @@ class InviteTests(APITestCase):
                 self.assertTrue(res.data["url"].endswith(f".{ext}"))
 
     def test_a_design_from_before_bilingual_text_is_read_in_the_new_shape(self):
-        old = {"version": 1, "content": {"language": "en", "title": "Old title", "partner1": "Sokha", "date": ""}}
+        old = {"version": 1, "content": {"language": "en", "title": "Old title", "partner1": "Sokha", "venue": "Old hall", "date": "2026-01-01"}}
         EInvite.objects.create(event=self.event, slug="old-design", draft=old, published=old, revision=1)
         draft = self.client.get(self.url).data["draft"]
-        self.assertEqual(draft["content"]["text"], {"en": {"title": "Old title", "partner1": "Sokha"}})
+        self.assertEqual(draft["content"]["text"]["en"]["title"], "Old title")
         public = self.public("old-design").data
         self.assertEqual(public["content"]["text"]["en"]["title"], "Old title")
-        self.assertEqual(public["content"]["text"]["en"]["venue"], "Sokha Hotel")
+        # Fields the editor no longer has (date, venue: the programme holds those now) are dropped.
+        self.assertNotIn("venue", public["content"]["text"]["en"])
+        self.assertNotIn("date", public["content"])
+        self.assertEqual(public["event"]["venue"], "Sokha Hotel")
         # Saving it stores the new shape, every field filled in.
         saved = self.save(draft, revision=1).data["draft"]
         self.assertEqual(saved["version"], 2)
         self.assertEqual(saved["content"]["text"]["en"]["title"], "Old title")
         self.assertEqual(saved["content"]["text"]["km"]["title"], "")
+
+    # The programme
+
+    def test_the_programme_has_parts_each_with_its_place_map_and_moments(self):
+        timeline = [
+            {
+                "date": "2026-12-12", "maps_url": "https://maps.app.goo.gl/home",
+                "text": {"en": {"title": " Morning ", "place": "Bride's home"}, "km": {"title": "ពេលព្រឹក"}},
+                "items": [
+                    {"time": "06:30", "text": {"en": {"title": "Guests arrive"}}},
+                    {"time": "07:00", "text": {"en": {"title": "Start"}}, "extra": 1},
+                ],
+            },
+            {"text": {"en": {"title": "Evening"}}, "items": [{"time": "17:00", "text": {"en": {"title": "Guests arrive"}}}]},
+        ]
+        res = self.save({"content": {"timeline": timeline}}, revision=0)
+        self.assertEqual(res.status_code, 200)
+        morning, evening = res.data["draft"]["content"]["timeline"]
+        self.assertEqual(
+            {k: morning[k] for k in ("date", "maps_url", "text")},
+            {
+                "date": "2026-12-12", "maps_url": "https://maps.app.goo.gl/home",
+                "text": {"km": {"title": "ពេលព្រឹក", "place": "", "address": ""}, "en": {"title": "Morning", "place": "Bride's home", "address": ""}},
+            },
+        )
+        self.assertEqual(morning["items"][1], {"time": "07:00", "text": {"km": {"title": ""}, "en": {"title": "Start"}}})
+        self.assertEqual((evening["date"], evening["maps_url"], len(evening["items"])), ("", "", 1))
+        slug = self.publish().data["slug"]
+        self.assertEqual(len(self.public(slug).data["content"]["timeline"][0]["items"]), 2)
+
+    def test_programme_parts_and_moments_are_checked(self):
+        cases = [
+            ({"content": {"timeline": [{"maps_url": "ftp://x"}]}}, "content.timeline.0.maps_url"),
+            ({"content": {"timeline": [{"date": "tomorrow"}]}}, "content.timeline.0.date"),
+            ({"content": {"timeline": [{}, {"items": [{"time": "7pm"}]}]}}, "content.timeline.1.items.0.time"),
+            ({"content": {"timeline": [{"items": [{"text": {"en": {"title": "x" * 161}}}]}]}}, "content.timeline.0.items.0.text.en.title"),
+            ({"content": {"timeline": [{}] * 11}}, "content.timeline"),
+            ({"content": {"timeline": [{"items": [{}] * 31}]}}, "content.timeline.0.items"),
+        ]
+        for draft, field in cases:
+            with self.subTest(field=field):
+                res = self.save(draft, revision=0)
+                self.assertEqual(res.status_code, 400)
+                self.assertIn(field, res.data)
+
+    # Bank QR codes
+
+    def test_up_to_two_bank_qr_codes_with_labels(self):
+        aba, acleda, third = (self.upload().data["id"] for _ in range(3))
+        qrs = [{"image": aba, "label": " ABA · Sokha "}, {"image": acleda}]
+        res = self.save({"content": {"bank_qrs": qrs}}, revision=0)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["draft"]["content"]["bank_qrs"], [{"image": aba, "label": "ABA · Sokha"}, {"image": acleda, "label": ""}])
+        slug = self.publish().data["slug"]
+        public = self.public(slug).data
+        self.assertEqual(len(public["content"]["bank_qrs"]), 2)
+        self.assertEqual(set(public["images"]), {str(aba), str(acleda)})  # their pictures are sent along
+        self.assertEqual(self.save({"content": {"bank_qrs": [{"image": aba}, {"image": acleda}, {"image": third}]}}).status_code, 400)
+
+    def test_a_bank_qr_code_must_be_one_of_the_invite_s_pictures(self):
+        song = self.client.post(
+            reverse("invite-audio", args=[self.event.pk]), {"audio": SimpleUploadedFile("s.mp3", b"ID3" + b"\x00" * 64)}, format="multipart",
+        ).data["id"]
+        for image in (999, song, None, "1"):
+            with self.subTest(image=image):
+                res = self.save({"content": {"bank_qrs": [{"image": image}]}}, revision=0)
+                self.assertEqual(res.status_code, 400)
+                self.assertIn("content.bank_qrs.0.image", res.data)

@@ -17,13 +17,19 @@ import {
   EMBLEMS,
   FONTS,
   LANGUAGES,
+  MAX_BANK_QRS,
   MAX_GALLERY,
+  MAX_MOMENTS,
+  MAX_PARTS,
   MUSIC,
   OPENING_STYLES,
+  newMoment,
+  newPart,
   withDefaults as fillDefaults,
   type InviteConfig,
   type InviteImages,
   type InviteLanguage,
+  type ProgrammePart,
   type PreviewDevice,
 } from '@/invite/config'
 import { inviteLabels } from '@/invite/labels'
@@ -156,10 +162,17 @@ async function copyLink() {
 
 // Pictures: shrunk in the browser first, then uploaded; the design refers to them by id.
 const uploading = ref<string | null>(null)
-async function upload(file: File, kind: 'hero' | 'gallery' | 'cover' | 'emblem') {
+type UploadKind = 'hero' | 'gallery' | 'cover' | 'emblem' | 'bank0' | 'bank1'
+// Logos and bank QR codes stay sharp PNGs (a blurred QR code would not scan); photos become JPEGs.
+const SHRINK: Partial<Record<UploadKind, Parameters<typeof resizeImage>[1]>> = {
+  emblem: { maxSide: 600, type: 'image/png' },
+  bank0: { maxSide: 1400, type: 'image/png' },
+  bank1: { maxSide: 1400, type: 'image/png' },
+}
+async function upload(file: File, kind: UploadKind) {
   uploading.value = kind
   try {
-    const blob = await resizeImage(file, kind === 'emblem' ? { maxSide: 600, type: 'image/png' } : { maxSide: 2000 }).catch(() => {
+    const blob = await resizeImage(file, SHRINK[kind] ?? { maxSide: 2000 }).catch(() => {
       throw new Error(t('invite.unreadable'))
     })
     const { id, url } = await invitesApi.uploadImage(props.event.id, blob)
@@ -168,6 +181,7 @@ async function upload(file: File, kind: 'hero' | 'gallery' | 'cover' | 'emblem')
     if (kind === 'hero') c.content.hero_photo = id
     else if (kind === 'gallery') c.content.gallery = [...c.content.gallery, id]
     else if (kind === 'cover') c.animation.cover_image = id
+    else if (kind === 'bank0' || kind === 'bank1') setBankQr(Number(kind.slice(4)), id)
     else {
       c.animation.emblem_image = id
       c.animation.emblem = 'image'
@@ -179,6 +193,17 @@ async function upload(file: File, kind: 'hero' | 'gallery' | 'cover' | 'emblem')
   }
 }
 const imageUrl = (id: number | null) => (id != null ? images.value[String(id)] ?? null : null)
+
+// Bank QR codes: slot 1 and 2. Replacing one keeps its label; removing the first moves the second up.
+const bankSlots = computed(() => Array.from({ length: Math.min(MAX_BANK_QRS, draft.value.content.bank_qrs.length + 1) }, (_, i) => i))
+function setBankQr(slot: number, image: number) {
+  const list = draft.value.content.bank_qrs
+  if (list[slot]) list[slot].image = image
+  else list.push({ image, label: '' })
+}
+function removeBankQr(slot: number) {
+  draft.value.content.bank_qrs = draft.value.content.bank_qrs.filter((_, i) => i !== slot)
+}
 
 // The organizer's own song for the background music (uploaded as is; the server checks it).
 const SONG_MAX_BYTES = 12 * 1024 * 1024
@@ -235,8 +260,39 @@ const defaults = computed(() => inviteLabels(editLang.value))
 // The words are written per language. Fields left blank show the other language's words (which guests
 // then see too) as their placeholder.
 const editLang = ref<InviteLanguage>('km')
+const otherLang = computed<InviteLanguage>(() => (editLang.value === 'km' ? 'en' : 'km'))
 const words = computed(() => draft.value.content.text[editLang.value])
-const otherWords = computed(() => draft.value.content.text[editLang.value === 'km' ? 'en' : 'km'])
+const otherWords = computed(() => draft.value.content.text[otherLang.value])
+
+// The programme: parts of the day (each with its place and map) and their moments. Add, reorder, remove.
+function moved<T>(list: T[], index: number, by: number): T[] {
+  const copy = [...list]
+  const to = index + by
+  if (to < 0 || to >= copy.length) return copy
+  ;[copy[index], copy[to]] = [copy[to], copy[index]]
+  return copy
+}
+function addPart() {
+  const parts = draft.value.content.timeline
+  const part = newPart()
+  part.date = parts[parts.length - 1]?.date ?? '' // often the same day as the part before
+  parts.push(part)
+}
+function movePart(index: number, by: number) {
+  draft.value.content.timeline = moved(draft.value.content.timeline, index, by)
+}
+function removePart(index: number) {
+  draft.value.content.timeline = draft.value.content.timeline.filter((_, i) => i !== index)
+}
+function addMoment(part: ProgrammePart) {
+  part.items.push(newMoment())
+}
+function moveMoment(part: ProgrammePart, index: number, by: number) {
+  part.items = moved(part.items, index, by)
+}
+function removeMoment(part: ProgrammePart, index: number) {
+  part.items = part.items.filter((_, i) => i !== index)
+}
 
 // Live preview beside the settings, and the full-screen Preview.
 const sideDevice = ref<PreviewDevice>('phone')
@@ -343,55 +399,51 @@ function replaySide() {
           <details class="section card" open>
             <summary><AppIcon name="edit" :size="16" />{{ t('invite.content') }}</summary>
             <div class="stack">
-              <label>{{ t('invite.language') }} <AppSelect v-model="draft.content.language" :options="languageOptions" /></label>
-              <!-- The words, written per language; guests switch with the language button. -->
-              <div class="write-in">
-                <span class="picker-label">{{ t('invite.writingIn') }}</span>
-                <div class="segmented" role="group" :aria-label="t('invite.writingIn')">
-                  <button
-                    v-for="l in LANGUAGES"
-                    :key="l"
-                    type="button"
-                    class="btn-small"
-                    :class="{ active: editLang === l }"
-                    :aria-pressed="editLang === l"
-                    @click="editLang = l"
-                  >
-                    {{ t(`invite.languages.${l}`) }}
-                  </button>
-                </div>
-                <span class="muted small">{{ t('invite.writingHint') }}</span>
+              <!-- The words, written per language (guests switch with the language button); the tab picks which. -->
+              <div class="tabs lang-tabs" role="tablist" :aria-label="t('invite.writingIn')">
+                <button
+                  v-for="l in LANGUAGES"
+                  :key="l"
+                  type="button"
+                  role="tab"
+                  :aria-selected="editLang === l"
+                  :class="{ active: editLang === l }"
+                  @click="editLang = l"
+                >
+                  {{ t(`invite.languages.${l}`) }}
+                </button>
               </div>
+              <label>{{ t('invite.language') }} <AppSelect v-model="draft.content.language" :options="languageOptions" /></label>
               <div class="row two">
-                <label class="grow">{{ t('invite.partner1') }} <input v-model="words.partner1" maxlength="80" :placeholder="otherWords.partner1" /></label>
-                <label class="grow">{{ t('invite.partner2') }} <input v-model="words.partner2" maxlength="80" :placeholder="otherWords.partner2" /></label>
+                <label class="grow">{{ t('invite.groom') }} <input v-model="words.partner1" maxlength="80" :placeholder="otherWords.partner1" /></label>
+                <label class="grow">{{ t('invite.bride') }} <input v-model="words.partner2" maxlength="80" :placeholder="otherWords.partner2" /></label>
               </div>
               <label>{{ t('invite.titleField') }} <input v-model="words.title" maxlength="120" :placeholder="defaults.defaultTitle" /></label>
               <label>
                 {{ t('invite.greeting') }}
-                <textarea v-model="words.greeting" rows="2" maxlength="200" :placeholder="defaults.defaultGreeting" />
+                <textarea v-model="words.greeting" rows="3" maxlength="200" :placeholder="defaults.defaultGreeting" />
               </label>
-              <div class="row two">
-                <label class="grow">
-                  {{ t('invite.date') }}
-                  <AppDatePicker v-model="draft.content.date" />
-                  <span class="muted small">{{ draft.content.date ? '' : t('invite.usesEventDate', { date: event.date }) }}</span>
-                </label>
-                <label class="time">{{ t('invite.time') }} <input v-model="draft.content.time" type="time" /></label>
+              <label>{{ t('invite.message') }} <textarea v-model="words.message" rows="6" maxlength="2000" :placeholder="otherWords.message" /></label>
+              <!-- Bank QR codes for gifts, shown below the message. -->
+              <div class="bank-edit">
+                <span class="picker-label">{{ t('invite.bankQrs') }}</span>
+                <div v-for="slot in bankSlots" :key="slot" class="bank-slot">
+                  <InviteImagePicker
+                    :label="t('invite.bankQrN', { n: slot + 1 })"
+                    :url="imageUrl(draft.content.bank_qrs[slot]?.image ?? null)"
+                    :busy="uploading === `bank${slot}`"
+                    @pick="upload($event, slot === 0 ? 'bank0' : 'bank1')"
+                    @clear="removeBankQr(slot)"
+                  />
+                  <input
+                    v-if="draft.content.bank_qrs[slot]"
+                    v-model="draft.content.bank_qrs[slot].label"
+                    maxlength="80"
+                    :aria-label="t('invite.bankLabel')"
+                    :placeholder="t('invite.bankLabelPlaceholder')"
+                  />
+                </div>
               </div>
-              <label>
-                {{ t('invite.venue') }}
-                <input v-model="words.venue" maxlength="255" :placeholder="otherWords.venue || event.venue || ''" />
-                <span v-if="!words.venue && !otherWords.venue && event.venue" class="muted small">{{ t('invite.usesEventVenue') }}</span>
-              </label>
-              <label>{{ t('invite.address') }} <textarea v-model="words.address" rows="2" maxlength="300" :placeholder="otherWords.address" /></label>
-              <label>{{ t('invite.message') }} <textarea v-model="words.message" rows="4" maxlength="2000" :placeholder="otherWords.message" /></label>
-              <label>
-                {{ t('invite.mapsUrl') }}
-                <input v-model.trim="draft.content.maps_url" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/…" />
-                <span class="field-error" v-if="fieldErrors['content.maps_url']">{{ fieldErrors['content.maps_url'] }}</span>
-                <span v-else class="muted small">{{ t('invite.mapsHint') }}</span>
-              </label>
               <InviteImagePicker
                 :label="t('invite.heroPhoto')"
                 :url="imageUrl(draft.content.hero_photo)"
@@ -422,6 +474,76 @@ function replaySide() {
                 </div>
                 <input ref="galleryInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden @change="onGalleryPick" />
               </div>
+            </div>
+          </details>
+
+          <details class="section card" open>
+            <summary><AppIcon name="calendar" :size="16" />{{ t('invite.programme') }}</summary>
+            <div class="stack">
+              <div class="tabs lang-tabs" role="tablist" :aria-label="t('invite.writingIn')">
+                <button
+                  v-for="l in LANGUAGES"
+                  :key="l"
+                  type="button"
+                  role="tab"
+                  :aria-selected="editLang === l"
+                  :class="{ active: editLang === l }"
+                  @click="editLang = l"
+                >
+                  {{ t(`invite.languages.${l}`) }}
+                </button>
+              </div>
+              <p v-if="!draft.content.timeline.length" class="muted small">{{ t('invite.programmeEmpty') }}</p>
+              <!-- A part of the day (e.g. Morning): its place and map, then its moments. -->
+              <div v-for="(part, p) in draft.content.timeline" :key="p" class="part-edit">
+                <div class="row part-head">
+                  <strong>{{ part.text[editLang].title || part.text[otherLang].title || t('invite.partN', { n: p + 1 }) }}</strong>
+                  <span class="spacer" />
+                  <button type="button" class="btn-icon" :aria-label="t('invite.moveUp')" :disabled="p === 0" @click="movePart(p, -1)"><AppIcon name="chevron-up" :size="16" /></button>
+                  <button type="button" class="btn-icon" :aria-label="t('invite.moveDown')" :disabled="p === draft.content.timeline.length - 1" @click="movePart(p, 1)"><AppIcon name="chevron-down" :size="16" /></button>
+                  <button type="button" class="btn-icon danger" :aria-label="t('invite.removePart')" @click="removePart(p)"><AppIcon name="trash" :size="16" /></button>
+                </div>
+                <div class="row two">
+                  <label class="grow">
+                    {{ t('invite.partTitle') }}
+                    <input v-model="part.text[editLang].title" maxlength="120" :placeholder="part.text[otherLang].title || t('invite.partTitlePlaceholder')" />
+                  </label>
+                  <label class="grow">{{ t('invite.momentDate') }} <AppDatePicker v-model="part.date" /></label>
+                </div>
+                <label>{{ t('invite.momentPlace') }} <input v-model="part.text[editLang].place" maxlength="200" :placeholder="part.text[otherLang].place" /></label>
+                <label>{{ t('invite.address') }} <input v-model="part.text[editLang].address" maxlength="300" :placeholder="part.text[otherLang].address" /></label>
+                <label>
+                  {{ t('invite.mapsUrl') }}
+                  <input v-model.trim="part.maps_url" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/…" />
+                  <span class="field-error" v-if="fieldErrors[`content.timeline.${p}.maps_url`]">{{ fieldErrors[`content.timeline.${p}.maps_url`] }}</span>
+                </label>
+
+                <span class="picker-label">{{ t('invite.moments') }}</span>
+                <ol class="moments-edit">
+                  <li v-for="(moment, i) in part.items" :key="i" class="moment-edit">
+                    <span class="moment-n">{{ i + 1 }}</span>
+                    <input v-model="moment.time" type="time" class="moment-time" :aria-label="t('invite.time')" />
+                    <input
+                      v-model="moment.text[editLang].title"
+                      maxlength="160"
+                      class="moment-what"
+                      :aria-label="t('invite.momentTitle')"
+                      :placeholder="moment.text[otherLang].title || t('invite.momentTitlePlaceholder')"
+                    />
+                    <span class="moment-actions">
+                      <button type="button" class="btn-icon" :aria-label="t('invite.moveUp')" :disabled="i === 0" @click="moveMoment(part, i, -1)"><AppIcon name="chevron-up" :size="14" /></button>
+                      <button type="button" class="btn-icon" :aria-label="t('invite.moveDown')" :disabled="i === part.items.length - 1" @click="moveMoment(part, i, 1)"><AppIcon name="chevron-down" :size="14" /></button>
+                      <button type="button" class="btn-icon danger" :aria-label="t('common.remove')" @click="removeMoment(part, i)"><AppIcon name="x" :size="14" /></button>
+                    </span>
+                  </li>
+                </ol>
+                <button v-if="part.items.length < MAX_MOMENTS" type="button" class="btn-small add-moment" @click="addMoment(part)">
+                  <AppIcon name="plus" :size="14" />{{ t('invite.addMoment') }}
+                </button>
+              </div>
+              <button v-if="draft.content.timeline.length < MAX_PARTS" type="button" class="add-part" @click="addPart">
+                <AppIcon name="plus" :size="16" />{{ t('invite.addPart') }}
+              </button>
             </div>
           </details>
 
@@ -608,7 +730,23 @@ textarea { resize: vertical; }
   font-size: 0.8rem;
   border-style: dashed;
 }
-.write-in { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: var(--c-bg); }
+.lang-tabs { margin-top: -4px; }
+.bank-edit { display: flex; flex-direction: column; gap: 10px; }
+.bank-slot { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-bg); }
+.part-edit { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-bg); }
+.part-head { gap: 4px; }
+.part-head .btn-icon, .moment-actions .btn-icon { width: 32px; height: 32px; min-height: 32px; padding: 0; justify-content: center; }
+.part-head .danger, .moment-actions .danger { color: var(--c-danger); }
+.moments-edit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+/* Each moment on two lines (the panel is narrow): number, time and buttons; then what happens. */
+.moment-edit { display: grid; grid-template-columns: 22px minmax(0, 150px) 1fr auto; align-items: center; gap: 6px; padding-bottom: 6px; border-bottom: 1px dashed var(--c-border); }
+.moment-edit:last-child { border-bottom: 0; }
+.moment-what { grid-column: 2 / -1; }
+.moment-actions { grid-row: 1; grid-column: 4; }
+.moment-n { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: var(--c-primary); border: 1px solid var(--c-primary); }
+.moment-actions { display: inline-flex; }
+.add-moment { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; }
+.add-part { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-style: dashed; }
 .song { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .song .btn-small { display: inline-flex; align-items: center; gap: 4px; }
 .song-player { width: 100%; height: 40px; }

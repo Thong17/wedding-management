@@ -7,6 +7,7 @@ const paths = {
   'chevron-left': ['M15 18l-6-6 6-6'],
   'chevron-right': ['M9 18l6-6-6-6'],
   'chevron-down': ['M6 9l6 6 6-6'],
+  'chevron-up': ['M18 15l-6-6-6 6'],
   check: ['M20 6L9 17l-5-5'],
   plus: ['M12 5v14', 'M5 12h14'],
   info: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 16v-4', 'M12 8h.01'],

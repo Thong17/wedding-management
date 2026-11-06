@@ -13,6 +13,7 @@ missing ones get their default, and invalid values raise a ValidationError namin
 """
 
 import re
+from copy import deepcopy
 from datetime import date, time
 
 from rest_framework.exceptions import ValidationError
@@ -102,17 +103,67 @@ def _url(value, field):
     return value
 
 
-# The invitation's words, written once per language (content.text.km / content.text.en). Blank venue
-# means the event's venue.
+# The invitation's words, written once per language (content.text.km / content.text.en). Dates, times,
+# places and maps live in the programme (content.timeline); the card's own date is the event's.
 TEXT_FIELDS = {
     "greeting": _text(200),
     "title": _text(120),
     "partner1": _text(80),
     "partner2": _text(80),
-    "venue": _text(255),
-    "address": _text(300),
     "message": _text(2000),
 }
+
+# The programme (content.timeline): parts of the day, e.g. the morning ceremony at the bride's home and
+# the evening reception at a hotel. Each part has its own date, place and map, and its moments in order
+# (6:30 guests arrive, 7:00 the procession starts, …).
+MAX_PARTS = 10
+MAX_MOMENTS = 30
+PART_TEXT = {"title": _text(120), "place": _text(200), "address": _text(300)}
+PART_FIELDS = {"date": _date, "maps_url": _url}
+MOMENT_TEXT = {"title": _text(160)}
+MOMENT_FIELDS = {"time": _time}
+
+
+def _object(value, field):
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValidationError({field: "Must be an object."})
+    return value
+
+
+def _list(value, field, most):
+    if value in (None, ""):
+        return []
+    if not isinstance(value, list):
+        raise ValidationError({field: "Must be a list."})
+    if len(value) > most:
+        raise ValidationError({field: f"At most {most} items."})
+    return value
+
+
+def _with_words(given, where, fields, text_fields):
+    """One programme entry: its own fields, and its words in each language."""
+    given = _object(given, where)
+    entry = {key: check(given.get(key), f"{where}.{key}") for key, check in fields.items()}
+    text = _object(given.get("text"), f"{where}.text")
+    entry["text"] = {}
+    for lang in LANGUAGES:
+        words = _object(text.get(lang), f"{where}.text.{lang}")
+        entry["text"][lang] = {key: check(words.get(key), f"{where}.text.{lang}.{key}") for key, check in text_fields.items()}
+    return entry
+
+
+def _timeline(value, field):
+    parts = []
+    for i, given in enumerate(_list(value, field, MAX_PARTS)):
+        where = f"{field}.{i}"
+        part = _with_words(given, where, PART_FIELDS, PART_TEXT)
+        moments = _list(_object(given, where).get("items"), f"{where}.items", MAX_MOMENTS)
+        part["items"] = [_with_words(m, f"{where}.items.{j}", MOMENT_FIELDS, MOMENT_TEXT) for j, m in enumerate(moments)]
+        parts.append(part)
+    return parts
+
 
 # Section → key → (default, validator). File fields hold InviteImage ids and are checked separately.
 SCHEMA = {
@@ -129,9 +180,7 @@ SCHEMA = {
     },
     "content": {
         "language": ("km", _choice(LANGUAGES)),
-        "date": ("", _date),
-        "time": ("", _time),
-        "maps_url": ("", _url),
+        "timeline": ([], _timeline),
     },
     "animation": {
         "enabled": (True, _bool),
@@ -158,11 +207,12 @@ def default_config(event=None):
     """A complete design with every default; couple names suggested from the event name."""
     config = {"version": VERSION, "template": TEMPLATES[0]}
     for section, fields in SCHEMA.items():
-        config[section] = {key: default for key, (default, _) in fields.items()}
+        config[section] = {key: deepcopy(default) for key, (default, _) in fields.items()}
     config["content"]["text"] = {lang: {key: "" for key in TEXT_FIELDS} for lang in LANGUAGES}
     for section, fields in FILE_FIELDS.items():
         for key, (many, _) in fields.items():
             config[section][key] = [] if many else None
+    config["content"]["bank_qrs"] = []
     if event is not None:
         first, second = _split_names(event.name)
         for lang in LANGUAGES:
@@ -239,11 +289,32 @@ def clean_config(data, files, event=None):
                 if value is not None and (isinstance(value, bool) or not isinstance(value, int) or files.get(value) != kind):
                     raise ValidationError({field: unknown})
                 config[section][key] = value
+
+    config["content"]["bank_qrs"] = _bank_qrs((data.get("content") or {}).get("bank_qrs"), files)
     return config
 
 
+# Bank QR codes for gifts (content.bank_qrs): at most two, each a picture with an optional label (the
+# bank or the account name, e.g. "ABA · Sokha Chan"), shown below the message.
+MAX_BANK_QRS = 2
+_label = _text(80)
+
+
+def _bank_qrs(value, files):
+    field = "content.bank_qrs"
+    entries = []
+    for i, given in enumerate(_list(value, field, MAX_BANK_QRS)):
+        where = f"{field}.{i}"
+        given = _object(given, where)
+        image = given.get("image")
+        if isinstance(image, bool) or not isinstance(image, int) or files.get(image) != "image":
+            raise ValidationError({f"{where}.image": "Unknown picture."})
+        entries.append({"image": image, "label": _label(given.get("label"), f"{where}.label")})
+    return entries
+
+
 def file_ids_in(config):
-    """Every upload id a design uses (pictures and song)."""
+    """Every upload id a design uses (pictures, bank QR codes and song)."""
     ids = set()
     config = upgrade(config) or {}
     for section, fields in FILE_FIELDS.items():
@@ -253,4 +324,5 @@ def file_ids_in(config):
                 ids.update(value or [])
             elif value is not None:
                 ids.add(value)
+    ids.update(qr.get("image") for qr in config.get("content", {}).get("bank_qrs") or [] if isinstance(qr, dict) and qr.get("image"))
     return ids

@@ -217,7 +217,11 @@ export interface ApiInvite {
 }
 
 /** A published invitation, as guests get it (no login). Date and venue are already filled in. */
-export type ApiPublicInvite = InviteConfig & { images: InviteImages }
+export type ApiPublicInvite = InviteConfig & {
+  images: InviteImages
+  /** The event's date and venue, for the card. */
+  event?: { date: string; venue: string }
+}
 
 export interface ApiGift {
   id: number

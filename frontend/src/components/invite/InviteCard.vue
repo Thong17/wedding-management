@@ -1,47 +1,121 @@
 <script setup lang="ts">
 import QRCode from 'qrcode'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch, type Directive } from 'vue'
 import type { InviteConfig, InviteImages, InviteView } from '@/invite/config'
 import { formatInviteDate, formatInviteTime, type InviteLabels } from '@/invite/labels'
 import InviteDivider from './InviteDivider.vue'
 
 /**
- * The invitation itself: greeting, the couple, date and time, venue, message, directions (link and QR)
- * and photos. Lays out by the width of its container (see InvitationView), so previews in a phone or a
- * desktop frame show exactly what guests get.
+ * The invitation itself: greeting, the couple, the event's date (and venue without a programme), message,
+ * the programme (each item with its own place and map) and photos. Lays out by the width of its
+ * container (see InvitationView), so previews in a phone or a desktop frame show exactly what guests get.
+ * Each part rises into view as it is scrolled to, pictures one after another.
  */
-const props = defineProps<{
-  config: InviteConfig
-  /** The words in the language shown, with the event's date and venue already filled in. */
-  content: InviteView
-  images: InviteImages
-  labels: InviteLabels
-  namesFont: string
-  textFont: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    config: InviteConfig
+    /** The words in the language shown, with the event's date and venue already filled in. */
+    content: InviteView
+    images: InviteImages
+    labels: InviteLabels
+    namesFont: string
+    textFont: string
+    /** Reveal the parts as they come into view; off while the cover still hides the card. */
+    active?: boolean
+  }>(),
+  { active: true },
+)
 
 const design = computed(() => props.config.design)
 const lang = computed(() => props.content.language)
 const img = (id: number | null) => (id != null ? props.images[String(id)] ?? null : null)
 const hero = computed(() => img(props.content.hero_photo))
 const gallery = computed(() => props.content.gallery.map((id) => img(id)).filter((u): u is string => !!u))
+const bankQrs = computed(() =>
+  props.content.bank_qrs.flatMap((qr) => {
+    const url = img(qr.image)
+    return url ? [{ url, label: qr.label }] : []
+  }),
+)
+// The event's own date; its venue only when there is no programme (which lists its own places).
 const date = computed(() => formatInviteDate(props.content.date, lang.value))
-const time = computed(() => formatInviteTime(props.content.time, lang.value))
+const venue = computed(() => (props.content.timeline.length ? '' : props.content.venue))
+// The programme's parts, with dates and times written out in the language shown.
+const timeline = computed(() =>
+  props.content.timeline.map((part) => ({
+    ...part,
+    day: formatInviteDate(part.date, lang.value),
+    items: part.items.map((m) => ({ ...m, time: formatInviteTime(m.time, lang.value) })),
+  })),
+)
 
-const qr = ref<string | null>(null)
+// QR codes for each programme place's map, drawn in the ink color.
+const qr = reactive<Record<string, string>>({})
 watch(
-  () => [props.content.maps_url, design.value.text_color] as const,
-  async ([url, ink]) => {
-    qr.value = url ? await QRCode.toDataURL(url, { margin: 1, width: 240, color: { dark: ink, light: '#00000000' } }).catch(() => null) : null
+  () => [props.content.timeline.map((t) => t.maps_url).filter(Boolean), design.value.text_color] as const,
+  async ([urls, ink]) => {
+    for (const key of Object.keys(qr)) if (!urls.includes(key.split('|')[1])) delete qr[key]
+    for (const url of urls) {
+      const key = `${ink}|${url}`
+      if (qr[key]) continue
+      const data = await QRCode.toDataURL(url, { margin: 1, width: 240, color: { dark: ink, light: '#00000000' } }).catch(() => null)
+      if (data) qr[key] = data
+    }
   },
   { immediate: true },
 )
+const qrFor = (url: string) => qr[`${design.value.text_color}|${url}`] ?? null
+
+// Tapping a bank QR code: InvitationView shows it in InviteQrDialog (over the whole invitation, not inside
+// the card, so nothing in the card can move or blur it).
+const emit = defineEmits<{ openQr: [qr: { url: string; label: string }] }>()
 
 const viewing = ref<number | null>(null)
 function step(by: number) {
   if (viewing.value == null) return
   viewing.value = (viewing.value + by + gallery.value.length) % gallery.value.length
 }
+
+// Reveal on scroll: `v-reveal="n"` fades a part up into view when it is first seen, `n` steps of 110 ms
+// after the others that come into view with it, so pictures appear one after another. Without
+// IntersectionObserver (old browsers, tests) everything simply shows.
+const pending = new Set<HTMLElement>()
+let observer: IntersectionObserver | null = null
+const show = (el: Element) => el.classList.add('shown')
+function startRevealing() {
+  if (observer || !props.active) return
+  if (typeof IntersectionObserver === 'undefined') {
+    pending.forEach(show)
+    return
+  }
+  observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        show(entry.target)
+        observer?.unobserve(entry.target)
+        pending.delete(entry.target as HTMLElement)
+      }
+    },
+    { rootMargin: '0px 0px -8% 0px', threshold: 0.12 },
+  )
+  pending.forEach((el) => observer!.observe(el))
+}
+const vReveal: Directive<HTMLElement, number | undefined> = {
+  mounted(el, { value }) {
+    el.classList.add('reveal')
+    el.style.setProperty('--reveal-delay', `${Math.min(value ?? 0, 12) * 110}ms`)
+    pending.add(el)
+    if (observer) observer.observe(el)
+    else if (props.active && typeof IntersectionObserver === 'undefined') show(el)
+  },
+  unmounted(el) {
+    observer?.unobserve(el)
+    pending.delete(el)
+  },
+}
+watch(() => props.active, startRevealing, { immediate: true })
+onBeforeUnmount(() => observer?.disconnect())
 </script>
 
 <template>
@@ -61,58 +135,92 @@ function step(by: number) {
     <span v-if="design.sparkles" class="sparkles" aria-hidden="true"><i v-for="n in 7" :key="n" /></span>
 
     <div class="layout">
-      <figure v-if="hero" class="hero">
+      <figure v-if="hero" v-reveal="0" class="hero reveal-image">
         <img :src="hero" alt="" loading="eager" />
       </figure>
 
       <div class="body">
-        <p class="greeting">{{ content.greeting || labels.defaultGreeting }}</p>
-        <h1 class="title">{{ content.title || labels.defaultTitle }}</h1>
-        <InviteDivider v-if="design.gold_dividers" />
+        <p v-reveal="1" class="greeting">{{ content.greeting || labels.defaultGreeting }}</p>
+        <h1 v-reveal="2" class="title">{{ content.title || labels.defaultTitle }}</h1>
+        <InviteDivider v-if="design.gold_dividers" v-reveal="2" />
 
-        <div class="couple" :style="{ fontFamily: namesFont }">
+        <div v-reveal="3" class="couple" :style="{ fontFamily: namesFont }">
           <span class="name">{{ content.partner1 }}</span>
           <span v-if="content.partner1 && content.partner2" class="amp">{{ labels.and }}</span>
           <span class="name">{{ content.partner2 }}</span>
         </div>
 
-        <InviteDivider v-if="design.gold_dividers" />
+        <InviteDivider v-if="design.gold_dividers" v-reveal="4" />
 
-        <dl class="details">
-          <div v-if="date">
+        <dl v-if="date || venue" class="details">
+          <div v-if="date" v-reveal="4">
             <dt>{{ labels.date }}</dt>
             <dd>{{ date }}</dd>
           </div>
-          <div v-if="time">
-            <dt>{{ labels.time }}</dt>
-            <dd>{{ time }}</dd>
-          </div>
-          <div v-if="content.venue || content.address">
+          <div v-if="venue" v-reveal="5">
             <dt>{{ labels.venue }}</dt>
-            <dd>
-              <strong v-if="content.venue">{{ content.venue }}</strong>
-              <span v-if="content.address" class="address">{{ content.address }}</span>
-            </dd>
+            <dd><strong>{{ venue }}</strong></dd>
           </div>
         </dl>
 
-        <p v-if="content.message" class="message">{{ content.message }}</p>
+        <p v-if="content.message" v-reveal="1" class="message">{{ content.message }}</p>
 
-        <section v-if="content.maps_url" class="directions">
-          <img v-if="qr" class="qr" :src="qr" :alt="labels.scanForDirections" />
-          <div class="directions-text">
-            <span class="small-caps">{{ labels.scanForDirections }}</span>
-            <a class="maps" :href="content.maps_url" target="_blank" rel="noopener">{{ labels.openMaps }}</a>
+        <!-- Bank QR codes for gifts. Tapping one opens it full size, to save and scan in a banking app. -->
+        <section v-if="bankQrs.length" class="gift">
+          <h2 v-reveal="1" class="small-caps">{{ labels.gift }}</h2>
+          <div class="bank-qrs">
+            <button
+              v-for="(qr, i) in bankQrs"
+              :key="qr.url"
+              v-reveal="i + 2"
+              type="button"
+              class="bank-qr"
+              :aria-label="qr.label || labels.gift"
+              @click="emit('openQr', qr)"
+            >
+              <img :src="qr.url" alt="" loading="lazy" />
+              <span v-if="qr.label" class="bank-label">{{ qr.label }}</span>
+            </button>
           </div>
+          <p v-reveal="3" class="gift-hint">{{ labels.giftHint }}</p>
         </section>
       </div>
     </div>
 
+    <!-- The programme: parts of the day (each at its own place, with its map), then their moments. -->
+    <section v-if="timeline.length" class="programme">
+      <InviteDivider v-if="design.gold_dividers" v-reveal="0" />
+      <h2 v-reveal="0" class="small-caps">{{ labels.programme }}</h2>
+      <div v-for="(part, p) in timeline" :key="p" class="part">
+        <header v-reveal="0" class="part-head">
+          <h3 v-if="part.title" class="part-title" :style="{ fontFamily: namesFont }">{{ part.title }}</h3>
+          <p v-if="part.day" class="day">{{ part.day }}</p>
+          <p v-if="part.place || part.address" class="part-place">
+            <strong v-if="part.place">{{ part.place }}</strong>
+            <span v-if="part.address" class="address">{{ part.address }}</span>
+          </p>
+          <div v-if="part.maps_url" class="moment-map">
+            <img v-if="qrFor(part.maps_url)" class="qr small" :src="qrFor(part.maps_url)!" :alt="labels.scanForDirections" />
+            <a class="maps" :href="part.maps_url" target="_blank" rel="noopener">{{ labels.openMaps }}</a>
+          </div>
+        </header>
+        <ol v-if="part.items.length" class="timeline">
+          <li v-for="(item, i) in part.items" :key="i" v-reveal="i + 1" class="moment">
+            <div class="moment-row">
+              <span class="dot" aria-hidden="true">{{ i + 1 }}</span>
+              <div class="when">{{ item.time }}</div>
+              <div class="what"><span class="moment-title">{{ item.title }}</span></div>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
     <section v-if="gallery.length" class="gallery">
-      <InviteDivider v-if="design.gold_dividers" />
-      <h2 class="small-caps">{{ labels.gallery }}</h2>
+      <InviteDivider v-if="design.gold_dividers" v-reveal="0" />
+      <h2 v-reveal="0" class="small-caps">{{ labels.gallery }}</h2>
       <div class="grid">
-        <button v-for="(src, i) in gallery" :key="src" type="button" class="thumb" @click="viewing = i">
+        <button v-for="(src, i) in gallery" :key="src" v-reveal="i" type="button" class="thumb reveal-image" @click="viewing = i">
           <img :src="src" alt="" loading="lazy" />
         </button>
       </div>
@@ -205,17 +313,118 @@ function step(by: number) {
 .address { opacity: 0.8; font-size: 0.92em; }
 .message { margin: 0; white-space: pre-line; max-width: 32em; font-style: italic; }
 
-.directions {
+/* Bank QR codes: white cards (so they scan whatever the background), side by side. */
+.gift { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.bank-qrs { display: flex; justify-content: center; gap: clamp(10px, 3cqi, 18px); width: 100%; }
+.bank-qr {
+  font: inherit;
+  cursor: pointer;
+  min-height: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 200px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
+  gap: 8px;
+  padding: clamp(8px, 2.5cqi, 12px);
+  border-radius: 14px;
+  background: #fff;
   border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
-  border-radius: 12px;
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.1);
+  color: #2b1418;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.bank-qr:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgb(0 0 0 / 0.14); }
+.bank-qr img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; }
+.bank-label { font-size: 0.9em; font-weight: 600; text-align: center; line-height: 1.3; }
+.gift-hint { margin: 0; font-size: 0.85em; opacity: 0.75; max-width: 28em; }
+
+.qr { width: 96px; height: 96px; }
+.qr.small { width: 72px; height: 72px; }
+
+/* Programme: parts of the day, each in a soft gold-edged panel: its title, date, place and map, then its
+   numbered moments on a gold line, the time on the left. */
+.programme { margin-top: clamp(28px, 6cqi, 56px); display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.part {
+  width: min(100%, 600px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: clamp(18px, 4cqi, 28px) clamp(14px, 4cqi, 28px);
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
+}
+.part-head { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.part-title { margin: 0; font-size: clamp(1.5rem, 5.5cqi, 2rem); font-weight: 500; line-height: 1.3; }
+.day {
+  margin: 0;
+  font-size: 0.8em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+}
+.day:lang(km) { letter-spacing: 0.02em; text-transform: none; }
+.part-place { margin: 4px 0 0; display: flex; flex-direction: column; }
+.moment-map { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; margin-top: 8px; }
+.moment-map .maps { white-space: nowrap; }
+.timeline { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; }
+.moment-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  column-gap: 48px;
+  padding: 8px 0 14px;
   text-align: left;
 }
-.qr { width: 96px; height: 96px; }
-.directions-text { display: flex; flex-direction: column; gap: 6px; }
+/* The line runs down between time and words, through the numbered dots. */
+.moment-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 116px;
+  width: 1px;
+  background: color-mix(in srgb, var(--gold) 60%, transparent);
+}
+.moment:first-child .moment-row::before { top: 20px; }
+.moment:last-child .moment-row::before { bottom: calc(100% - 20px); }
+.dot {
+  position: absolute;
+  top: 8px;
+  left: 104px;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 14%, transparent);
+}
+.when { text-align: right; font-weight: 600; color: var(--gold); padding-top: 9px; line-height: 1.35; }
+.what { padding-top: 9px; }
+.moment-title { font-size: 1.05em; }
+
+/* Reveal on scroll (see vReveal): parts rise into view; pictures uncover from the bottom. */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.8s ease var(--reveal-delay, 0ms), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms);
+}
+.reveal.shown { opacity: 1; transform: none; }
+.reveal-image.reveal { transform: translateY(24px) scale(0.97); clip-path: inset(18% 0 0 0 round 8px); transition-property: opacity, transform, clip-path; transition-duration: 0.9s, 1.1s, 1.1s; }
+.reveal-image.reveal.shown { transform: none; clip-path: inset(0 0 0 0 round 0); }
+.hero.reveal-image.reveal.shown { clip-path: none; }
 .small-caps { font-size: 0.75em; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); font-weight: 600; margin: 0; }
 .maps {
   color: var(--ink);
@@ -305,6 +514,7 @@ function step(by: number) {
 .message:lang(km), .amp:lang(km) { font-style: normal; }
 @media (prefers-reduced-motion: reduce) {
   .sparkles i { animation: none; opacity: 0.5; }
+  .reveal, .reveal-image.reveal { opacity: 1; transform: none; clip-path: none; transition: none; }
 }
 </style>
 

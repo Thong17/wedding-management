@@ -7,6 +7,7 @@ import { inviteLabels } from '@/invite/labels'
 import InviteCard from './InviteCard.vue'
 import InviteCover from './InviteCover.vue'
 import InviteParticles from './InviteParticles.vue'
+import InviteQrDialog from './InviteQrDialog.vue'
 
 /**
  * The whole guest experience for one design: the cover, the opening animation, then the invitation.
@@ -135,6 +136,8 @@ function replay() {
 const coverMode = computed(() => (phase.value === 'opening' ? 'opening' : phase.value === 'closing' ? 'closing' : 'idle'))
 // Once opened, the golden particles keep drifting behind the card (the cover has its own).
 const backgroundParticles = computed(() => props.config.animation.enabled && props.config.animation.particles && phase.value !== 'cover')
+// A bank QR code tapped in the card, shown over the whole invitation.
+const bankQr = ref<{ url: string; label: string } | null>(null)
 defineExpose({ replay, close, phase, language })
 </script>
 
@@ -151,7 +154,7 @@ defineExpose({ replay, close, phase, language })
       </div>
     </Transition>
     <div ref="scroll" class="scroll" :inert="phase === 'cover' || undefined">
-      <div class="stage" :class="{ revealing, hidden: phase === 'cover' }">
+      <div class="stage" :class="{ revealing, hidden: phase === 'cover' }" @animationend.self="revealing = false">
         <InviteCard
           :config="config"
           :content="content"
@@ -159,6 +162,8 @@ defineExpose({ replay, close, phase, language })
           :labels="labels"
           :names-font="pairing.names"
           :text-font="pairing.text"
+          :active="phase !== 'cover'"
+          @open-qr="bankQr = $event"
         />
       </div>
     </div>
@@ -205,6 +210,7 @@ defineExpose({ replay, close, phase, language })
         </button>
       </Transition>
     </div>
+    <InviteQrDialog :qr="bankQr" :labels="labels" :text-font="pairing.text" @close="bankQr = null" />
   </div>
 </template>
 
