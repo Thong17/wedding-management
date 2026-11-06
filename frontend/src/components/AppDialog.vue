@@ -8,7 +8,7 @@ import AppIcon from '@/components/AppIcon.vue'
  * dismiss it, and it becomes a full-width sheet on phones. Put the form (with its own buttons) in the slot.
  */
 const open = defineModel<boolean>('open', { required: true })
-withDefaults(defineProps<{ title: string; description?: string; size?: 'sm' | 'md' | 'lg' }>(), { size: 'md' })
+withDefaults(defineProps<{ title: string; description?: string; size?: 'sm' | 'md' | 'lg' | 'full' }>(), { size: 'md' })
 const { t } = useI18n()
 </script>
 

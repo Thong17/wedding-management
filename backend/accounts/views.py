@@ -10,18 +10,11 @@ from rest_framework.response import Response
 from events import access
 
 from .models import Profile
+from .uploads import image_extension
 
 User = get_user_model()
 
 AVATAR_MAX_BYTES = 2 * 1024 * 1024
-# Leading bytes of the image formats we accept, mapped to the extension we store them with.
-# Checked against the content, not the file name, so a renamed non-image is rejected.
-AVATAR_SIGNATURES = {
-    b"\xff\xd8\xff": "jpg",
-    b"\x89PNG\r\n\x1a\n": "png",
-    b"GIF87a": "gif",
-    b"GIF89a": "gif",
-}
 
 
 @api_view(["GET"])
@@ -29,17 +22,6 @@ AVATAR_SIGNATURES = {
 def health(request):
     """Cheap reachability probe; `navigator.onLine` alone does not prove the API is up."""
     return Response({"status": "ok", "time": timezone.now().isoformat()})
-
-
-def _avatar_extension(upload):
-    head = upload.read(12)
-    upload.seek(0)
-    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
-        return "webp"
-    for signature, ext in AVATAR_SIGNATURES.items():
-        if head.startswith(signature):
-            return ext
-    return None
 
 
 def username_errors(username, user=None):
@@ -107,7 +89,7 @@ def me(request):
         if upload.size > AVATAR_MAX_BYTES:
             errors["avatar"] = ["The picture must be 2 MB or smaller."]
         else:
-            ext = _avatar_extension(upload)
+            ext = image_extension(upload)
             if ext is None:
                 errors["avatar"] = ["Upload a JPEG, PNG, WebP or GIF picture."]
 

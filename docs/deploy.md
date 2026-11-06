@@ -264,13 +264,16 @@ update scripts need the repository).
 
 ## Storing uploads in MinIO
 
-By default uploads (profile pictures, client documents) live in Docker volumes on the droplet. To keep them in
-a MinIO (or any S3-compatible) bucket instead, for example the MinIO already running on the SereyHub droplet:
+By default uploads (profile pictures, e-invite pictures, client documents) live in Docker volumes on the
+droplet. To keep them in a MinIO (or any S3-compatible) bucket instead, for example the MinIO already running on
+the SereyHub droplet:
 
-- One bucket (e.g. `wedding`). Profile pictures go under `avatars/`, which is the only publicly readable part;
-  they're served on your own domain at `/media/avatars/…` (Caddy forwards to MinIO, browsers never talk to it).
+- One bucket (e.g. `wedding`). Profile pictures go under `avatars/` and e-invite photos under `invites/`, the
+  only publicly readable parts; they're served on your own domain at `/media/avatars/…` and `/media/invites/…`
+  (Caddy forwards to MinIO, browsers never talk to it).
 - Client documents go under `private/`, which is never public; only Django reads them, for signed-in admins.
-- When the backend starts it creates the bucket if needed and sets the public-read rule for `avatars/` only.
+- When the backend starts it creates the bucket if needed and sets the public-read rule for `avatars/` and
+  `invites/` only.
 
 **1. An access key just for this app.** In the MinIO console (port 9001): *Identity → Users → Create User*
 (e.g. `wedding-app`) with this policy, which allows everything on the `wedding` bucket and nothing else
@@ -310,7 +313,7 @@ S3_NETWORK=wedding-proxy
 ```
 
 **4. Restart:** `docker compose up -d`. The backend log should say `Storage ready: bucket wedding, public read on
-avatars/ only.` (`docker compose logs backend | grep -i storage`). If MinIO is unreachable the app still starts and
+avatars/ and invites/ only.` (`docker compose logs backend | grep -i storage`). If MinIO is unreachable the app still starts and
 logs the problem; uploads work again once it's reachable.
 
 Backups (`deploy/backup.sh`) copy the bucket into `backups/files-….tar.gz` along with the database.

@@ -9,6 +9,7 @@ export const PERMISSIONS: PermissionCode[] = [
   'gift_edit_own',
   'gift_void',
   'gift_void_own',
+  'invite_edit',
   'guest_add',
   'guest_edit',
   'guest_delete',

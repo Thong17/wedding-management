@@ -1,9 +1,9 @@
-# MEDIA_BACKEND=s3: profile pictures from the MinIO bucket, on our own domain (/media/avatars/x.jpg →
-# <bucket>/avatars/x.jpg). Only avatars/ is anonymously readable in the bucket, so anything else, such as
+# MEDIA_BACKEND=s3: profile pictures and invitation pictures from the MinIO bucket, on our own domain (/media/avatars/x.jpg →
+# <bucket>/avatars/x.jpg). Only avatars/ and invites/ are anonymously readable in the bucket, so anything else, such as
 # private/ (client documents), is refused by MinIO itself.
 handle_path /media/* {
-	@avatars path /avatars/*
-	handle @avatars {
+	@public path /avatars/* /invites/*
+	handle @public {
 		rewrite * /{$S3_BUCKET}{path}
 		reverse_proxy {$S3_UPSTREAM:minio:9000} {
 			header_up Host {upstream_hostport}
