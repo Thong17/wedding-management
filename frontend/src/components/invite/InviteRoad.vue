@@ -5,13 +5,36 @@ import { INVITE_SCROLLER, roadPath, type Point } from '@/invite/road'
 /**
  * One part's moments as a winding road down the middle: the stops alternate a little left and right of
  * the centre, a road with a dashed centre line curves through them, and each stop's time and title sit
- * out at that side's edge, clear of the road. As the guest scrolls, a gold line is drawn along the road behind a
- * glowing marker, and each stop lights up as the marker reaches it (GSAP ScrollTrigger + MotionPath,
- * loaded only here). With "reduce motion" the road is simply drawn complete.
+ * out at that side's edge, clear of the road. As the guest scrolls, a gold line is drawn along the road
+ * behind a glowing marker; each stop lights up, and its time and title appear, as the marker reaches it
+ * (GSAP ScrollTrigger + MotionPath, loaded only here). With "reduce motion", or if the animation can't
+ * run, the road is simply drawn complete with every stop shown.
  *
  * The road is measured from where the stops actually land, so it follows any text length, language
  * and screen width, and is redrawn when they change.
+ *
+ * ─── Where to tune it ──────────────────────────────────────────────────────────────────────────────
+ *   Stop positions, spacing, sizes, road and marker look ...... "Tuning" at the top of <style> below
+ *   When the scroll animation runs ............................ SCROLL, just below
+ *   How the road curves between stops ......................... ROAD_CURVE in src/invite/road.ts
  */
+
+/* ─── Tuning: when the scroll animation runs ───────────────────────────────────────────────────────
+ * Positions are "<point of the road> <point of the screen>", e.g. 'top 22%' = when the road's top
+ * reaches 22% down the screen. Percentages are of the screen height (0% = top, 100% = bottom).
+ */
+const SCROLL = {
+  /** The marker sets off when the road's top reaches here. Lower % = starts earlier (road still low). */
+  start: 'top 22%',
+  /**
+   * The marker arrives when the road's bottom reaches here. Keep it the same % as `start` and the marker
+   * stays at that height on screen while the road scrolls under it; a larger % makes it finish sooner.
+   */
+  end: 'bottom 22%',
+  /** Seconds the marker takes to catch up with the scroll: 0 = glued to it, 1–2 = floaty. */
+  scrub: 0.8,
+}
+
 const props = withDefaults(defineProps<{ items: { time: string; title: string }[]; active?: boolean }>(), { active: true })
 
 const scroller = inject(INVITE_SCROLLER, ref(null))
@@ -21,6 +44,8 @@ const marker = ref<HTMLElement | null>(null)
 const size = ref({ w: 0, h: 0 })
 const d = ref('')
 const reached = ref<boolean[]>([])
+// Without the scroll animation (reduce motion, no GSAP, nothing measured yet) every stop is shown.
+const showAll = ref(true)
 const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /** Where each stop's pin sits, from the layout, and the road through them. */
@@ -58,13 +83,15 @@ async function animate() {
   context?.revert()
   context = null
   const path = progressPath.value
-  if (!props.active || !path || !d.value || !size.value.w) return
-  if (reduced) {
-    reached.value = props.items.map(() => true)
+  if (!props.active || !path || !d.value || !size.value.w || reduced) {
+    showAll.value = true
     return
   }
   const lib = await loadGsap()
-  if (!lib || !progressPath.value || !root.value) return
+  if (!lib || !progressPath.value || !root.value) {
+    showAll.value = true
+    return
+  }
   const { gsap } = lib
   await nextTick()
   // How far along the road each stop sits, sampled from the path, so stops light up as the marker passes.
@@ -83,6 +110,7 @@ async function animate() {
     return best / 240
   })
   reached.value = stopAt.map(() => false)
+  showAll.value = false
   context = gsap.context(() => {
     gsap.set(path, { strokeDasharray: length, strokeDashoffset: length })
     const timeline = gsap.timeline({
@@ -90,11 +118,9 @@ async function animate() {
       scrollTrigger: {
         trigger: root.value,
         scroller: scroller.value ?? undefined,
-        // From when the road's start nears the top of the screen until its end gets there: the marker
-        // stays at about the same height on screen while the road passes under it, like driving.
-        start: 'top 22%',
-        end: 'bottom 22%',
-        scrub: 0.8,
+        start: SCROLL.start,
+        end: SCROLL.end,
+        scrub: SCROLL.scrub,
         onUpdate: (self) => {
           reached.value = stopAt.map((at) => self.progress >= at - 0.01)
           // The marker appears once the guest starts along this road (not parked at its corner before).
@@ -152,7 +178,12 @@ onBeforeUnmount(() => {
     </svg>
     <span v-if="d && !reduced" ref="marker" class="road-marker" aria-hidden="true" />
     <ol class="stops">
-      <li v-for="(item, i) in items" :key="i" class="moment" :class="[i % 2 ? 'right' : 'left', { reached: reached[i] }]">
+      <li
+        v-for="(item, i) in items"
+        :key="i"
+        class="moment"
+        :class="[i % 2 ? 'right' : 'left', { reached: showAll || reached[i], waiting: !showAll && !reached[i] }]"
+      >
         <span class="dot">{{ i + 1 }}</span>
         <div class="stop-text">
           <span v-if="item.time" class="when">{{ item.time }}</span>
@@ -164,22 +195,55 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.road { position: relative; width: 100%; padding: 26px 0; }
+/* ─── Tuning: stops, road and marker ────────────────────────────────────────────────────────────────
+ * Change these and look at the live preview: the road is redrawn through wherever the stops end up.
+ */
+.road {
+  /* Stops alternate sides. Where each side's stops sit, measured from the box's left / right edge
+     (percent of the width). 50% / 50% = all in the centre (a straight road); 40% / 40% (default) = a
+     gentle weave in the middle; 25% / 25% = wide swings. They don't have to match. */
+  --stop-left: 10%;
+  --stop-right: 10%;
+  /* Space between one stop and the next (the road's length between them). */
+  --stop-gap: 22px;
+  /* Each stop's row is at least this tall (taller rows = longer, gentler bends). */
+  --stop-height: 64px;
+  /* The road before the first stop and after the last one. */
+  --lead: 26px;
+  /* Gap between a stop's dot and its time and title. */
+  --label-gap: 26px;
+  /* The numbered dot on the road. */
+  --dot-size: 34px;
+  /* The road: paved width, the gold verge on each side, the centre line's dashes (dash, gap). */
+  --road-width: 6px;
+  --road-verge: 2px;
+  --road-dash: 7px 9px;
+  /* The gold line drawn along the road as the guest scrolls, and the marker leading it. */
+  --progress-width: 4px;
+  --marker-size: 22px;
+  /* How the time and title appear when the marker reaches their stop: from how far below, how long. */
+  --reveal-rise: 10px;
+  --reveal-time: 0.5s;
+
+  position: relative;
+  width: 100%;
+  padding: var(--lead) 0;
+}
 .road-svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .road-svg path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 /* The road: a soft gold verge, the paved surface, and the dashed centre line. */
-.road-shoulder { stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: 20; }
-.road-surface { stroke: color-mix(in srgb, var(--paper) 72%, var(--ink) 10%); stroke-width: 16; }
-.road-dash { stroke: color-mix(in srgb, var(--gold) 75%, transparent); stroke-width: 2; stroke-dasharray: 7 9; }
+.road-shoulder { stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: calc(var(--road-width) + 2 * var(--road-verge)); }
+.road-surface { stroke: color-mix(in srgb, var(--paper) 72%, var(--ink) 10%); stroke-width: var(--road-width); }
+.road-dash { stroke: color-mix(in srgb, var(--gold) 75%, transparent); stroke-width: 2; stroke-dasharray: var(--road-dash); }
 /* Drawn as the guest scrolls (GSAP): the stretch already travelled, in gold. */
-.road-progress { stroke: var(--gold); stroke-width: 4; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--gold) 70%, transparent)); }
+.road-progress { stroke: var(--gold); stroke-width: var(--progress-width); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--gold) 70%, transparent)); }
 
 .road-marker {
   position: absolute;
   top: 0;
   left: 0;
-  width: 22px;
-  height: 22px;
+  width: var(--marker-size);
+  height: var(--marker-size);
   border-radius: 50%;
   corner-shape: round;
   background: radial-gradient(circle, #fff 0 22%, var(--gold) 26% 58%, color-mix(in srgb, var(--gold) 0%, transparent) 70%);
@@ -190,18 +254,18 @@ onBeforeUnmount(() => {
   transition: opacity 0.3s ease;
 }
 
-.stops { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; display: flex; flex-direction: column; gap: 22px; }
-/* Stops sit just left or right of the centre (on the road); their words go out to that side's edge,
+.stops { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; display: flex; flex-direction: column; gap: var(--stop-gap); }
+/* Stops sit left or right of the centre (on the road); their words go out to that side's edge,
    aligned to it, so nothing covers the road. */
-.moment { position: relative; min-height: 64px; display: flex; align-items: center; }
-.moment.left { padding-right: calc(60% + 26px); text-align: left; }
-.moment.right { padding-left: calc(60% + 26px); justify-content: flex-end; text-align: right; }
+.moment { position: relative; min-height: var(--stop-height); display: flex; align-items: center; }
+.moment.left { padding-right: calc(100% - var(--stop-left) + var(--label-gap)); text-align: left; }
+.moment.right { padding-left: calc(100% - var(--stop-right) + var(--label-gap)); justify-content: flex-end; text-align: right; }
 .dot {
   position: absolute;
   top: 50%;
-  width: 34px;
-  height: 34px;
-  margin-top: -17px;
+  width: var(--dot-size);
+  height: var(--dot-size);
+  margin-top: calc(var(--dot-size) / -2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,8 +279,8 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, transform 0.4s ease, box-shadow 0.4s ease;
 }
-.moment.left .dot { left: calc(40% - 17px); }
-.moment.right .dot { right: calc(40% - 17px); }
+.moment.left .dot { left: calc(var(--stop-left) - var(--dot-size) / 2); }
+.moment.right .dot { right: calc(var(--stop-right) - var(--dot-size) / 2); }
 .moment.reached .dot {
   background: var(--gold);
   border-color: var(--gold);
@@ -229,14 +293,14 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 2px;
   width: 100%;
-  transition: transform 0.4s ease;
+  transition: opacity var(--reveal-time) ease, transform var(--reveal-time) cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .moment.left .stop-text { align-items: flex-start; }
 .moment.right .stop-text { align-items: flex-end; }
+/* A stop's time and title wait, hidden, until the marker reaches it. */
+.moment.waiting .stop-text { opacity: 0; transform: translateY(var(--reveal-rise)); }
 .when { font-weight: 700; color: var(--gold); font-size: 0.9em; letter-spacing: 0.04em; }
 .moment-title { font-size: 1.05em; line-height: 1.35; }
-.moment.left.reached .stop-text { transform: translateX(-3px); }
-.moment.right.reached .stop-text { transform: translateX(3px); }
 @media (prefers-reduced-motion: reduce) {
   .dot, .stop-text { transition: none; }
 }
