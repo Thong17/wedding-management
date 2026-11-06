@@ -742,6 +742,7 @@ export default {
     bankLabel: "Label",
     bankLabelPlaceholder: "e.g. ABA · Sokha Chan",
     mapsUrl: "Google Maps link",
+    partMapHint: "Shown as a map below the moments. Paste the link from the place's page in Google Maps for the exact spot; without one, the map looks up the place and address.",
     heroPhoto: "Couple photo",
     gallery: "Gallery ({n} of {max})",
     addPhotos: "Add photos",

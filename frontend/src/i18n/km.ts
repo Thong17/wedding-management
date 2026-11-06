@@ -740,6 +740,7 @@ const km: typeof en = {
     bankLabel: "ស្លាក",
     bankLabelPlaceholder: "ឧ. ABA · សុខា ចាន់",
     mapsUrl: "តំណ Google Maps",
+    partMapHint: "បង្ហាញជាផែនទីនៅក្រោមកម្មវិធី។ បិទភ្ជាប់តំណពីទំព័រទីកន្លែងក្នុង Google Maps ដើម្បីបានទីតាំងច្បាស់។ បើគ្មានតំណ ផែនទីនឹងស្វែងរកតាមឈ្មោះទីកន្លែង និងអាសយដ្ឋាន។",
     heroPhoto: "រូបថតគូស្វាមីភរិយា",
     gallery: "កម្រងរូបភាព ({n} នៃ {max})",
     addPhotos: "បន្ថែមរូបថត",

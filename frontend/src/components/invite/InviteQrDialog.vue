@@ -98,7 +98,7 @@ async function save() {
   align-items: center;
   gap: 12px;
   padding: 22px 20px 18px;
-  border-radius: 18px;
+  border-radius: var(--r-lg);
   background: var(--paper);
   color: var(--ink);
   border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
@@ -107,7 +107,7 @@ async function save() {
   outline: none;
 }
 .qr-name { margin: 0; font-size: 1.35rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.qr-image { width: min(100%, 280px); padding: 12px; border-radius: 14px; background: #fff; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); }
+.qr-image { width: min(100%, 280px); padding: 12px; border-radius: var(--r-md); background: #fff; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); }
 .qr-image img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
 .qr-note {
   margin: 0;
@@ -118,7 +118,7 @@ async function save() {
   font-size: 0.9em;
   line-height: 1.5;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--gold) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
 }
@@ -133,6 +133,7 @@ async function save() {
   justify-content: center;
   gap: 8px;
   border-radius: 999px;
+  corner-shape: round;
   border: 1px solid color-mix(in srgb, var(--gold) 70%, transparent);
   background: transparent;
   color: var(--ink);
@@ -147,7 +148,7 @@ async function save() {
 .qr-dialog-enter-from .qr-dialog { transform: translateY(16px) scale(0.97); }
 @container invite (max-width: 520px) {
   .qr-backdrop { align-items: flex-end; padding: 0; }
-  .qr-dialog { width: 100%; border-radius: 18px 18px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .qr-dialog { width: 100%; border-radius: var(--r-lg) var(--r-lg) 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
   .qr-dialog-enter-from .qr-dialog { transform: translateY(100%); }
 }
 .small-caps { font-size: 0.75em; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); font-weight: 600; margin: 0; }

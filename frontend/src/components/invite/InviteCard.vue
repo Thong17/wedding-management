@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import QRCode from 'qrcode'
-import { computed, onBeforeUnmount, reactive, ref, watch, type Directive } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, type Directive } from 'vue'
 import type { InviteConfig, InviteImages, InviteView } from '@/invite/config'
 import { formatInviteDate, formatInviteTime, type InviteLabels } from '@/invite/labels'
 import InviteDivider from './InviteDivider.vue'
+import InviteMap from './InviteMap.vue'
+import InviteRoad from './InviteRoad.vue'
 
 /**
  * The invitation itself: greeting, the couple, the event's date (and venue without a programme), message,
@@ -49,22 +50,6 @@ const timeline = computed(() =>
   })),
 )
 
-// QR codes for each programme place's map, drawn in the ink color.
-const qr = reactive<Record<string, string>>({})
-watch(
-  () => [props.content.timeline.map((t) => t.maps_url).filter(Boolean), design.value.text_color] as const,
-  async ([urls, ink]) => {
-    for (const key of Object.keys(qr)) if (!urls.includes(key.split('|')[1])) delete qr[key]
-    for (const url of urls) {
-      const key = `${ink}|${url}`
-      if (qr[key]) continue
-      const data = await QRCode.toDataURL(url, { margin: 1, width: 240, color: { dark: ink, light: '#00000000' } }).catch(() => null)
-      if (data) qr[key] = data
-    }
-  },
-  { immediate: true },
-)
-const qrFor = (url: string) => qr[`${design.value.text_color}|${url}`] ?? null
 
 // Tapping a bank QR code: InvitationView shows it in InviteQrDialog (over the whole invitation, not inside
 // the card, so nothing in the card can move or blur it).
@@ -199,20 +184,16 @@ onBeforeUnmount(() => observer?.disconnect())
             <strong v-if="part.place">{{ part.place }}</strong>
             <span v-if="part.address" class="address">{{ part.address }}</span>
           </p>
-          <div v-if="part.maps_url" class="moment-map">
-            <img v-if="qrFor(part.maps_url)" class="qr small" :src="qrFor(part.maps_url)!" :alt="labels.scanForDirections" />
-            <a class="maps" :href="part.maps_url" target="_blank" rel="noopener">{{ labels.openMaps }}</a>
-          </div>
         </header>
-        <ol v-if="part.items.length" class="timeline">
-          <li v-for="(item, i) in part.items" :key="i" v-reveal="i + 1" class="moment">
-            <div class="moment-row">
-              <span class="dot" aria-hidden="true">{{ i + 1 }}</span>
-              <div class="when">{{ item.time }}</div>
-              <div class="what"><span class="moment-title">{{ item.title }}</span></div>
-            </div>
-          </li>
-        </ol>
+        <InviteRoad v-if="part.items.length" :items="part.items" :active="active" />
+        <InviteMap
+          v-if="part.maps_url || part.place || part.address"
+          v-reveal="0"
+          :maps-url="part.maps_url"
+          :place="part.place"
+          :address="part.address"
+          :label="labels.openMaps"
+        />
       </div>
     </section>
 
@@ -253,7 +234,7 @@ onBeforeUnmount(() => observer?.disconnect())
   /* Slightly translucent, so the golden particles drifting behind the card glow softly through it. */
   background: color-mix(in srgb, var(--paper) 80%, transparent);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.08);
-  border-radius: 4px;
+  border-radius: var(--r-sm);
 }
 .style-framed.with-border { outline: 1px solid color-mix(in srgb, var(--gold) 70%, transparent); outline-offset: -14px; }
 .style-ornate.with-border {
@@ -285,6 +266,7 @@ onBeforeUnmount(() => observer?.disconnect())
   aspect-ratio: 4 / 5;
   object-fit: cover;
   border-radius: 999px 999px 8px 8px;
+  corner-shape: round; /* the arch stays a true arch */
   border: 1px solid color-mix(in srgb, var(--gold) 80%, transparent);
   padding: 6px;
   background: var(--paper);
@@ -328,7 +310,7 @@ onBeforeUnmount(() => observer?.disconnect())
   align-items: center;
   gap: 8px;
   padding: clamp(8px, 2.5cqi, 12px);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: #fff;
   border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
   box-shadow: 0 10px 26px rgb(0 0 0 / 0.1);
@@ -341,22 +323,17 @@ onBeforeUnmount(() => observer?.disconnect())
 .bank-label { font-size: 0.9em; font-weight: 600; text-align: center; line-height: 1.3; }
 .gift-hint { margin: 0; font-size: 0.85em; opacity: 0.75; max-width: 28em; }
 
-.qr { width: 96px; height: 96px; }
-.qr.small { width: 72px; height: 72px; }
 
-/* Programme: parts of the day, each in a soft gold-edged panel: its title, date, place and map, then its
-   numbered moments on a gold line, the time on the left. */
+/* Programme: parts of the day: the title, date and place, the route of its moments, then its map. */
 .programme { margin-top: clamp(28px, 6cqi, 56px); display: flex; flex-direction: column; align-items: center; gap: 18px; }
+/* No box around a part: the route needs the full width. Parts are set apart by space. */
 .part {
-  width: min(100%, 600px);
+  width: min(100%, 620px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: clamp(18px, 4cqi, 28px) clamp(14px, 4cqi, 28px);
-  border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--paper) 55%, transparent);
+  gap: 16px;
+  padding: 10px 0 clamp(24px, 6cqi, 40px);
 }
 .part-head { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .part-title { margin: 0; font-size: clamp(1.5rem, 5.5cqi, 2rem); font-weight: 500; line-height: 1.3; }
@@ -370,50 +347,6 @@ onBeforeUnmount(() => observer?.disconnect())
 }
 .day:lang(km) { letter-spacing: 0.02em; text-transform: none; }
 .part-place { margin: 4px 0 0; display: flex; flex-direction: column; }
-.moment-map { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 12px; margin-top: 8px; }
-.moment-map .maps { white-space: nowrap; }
-.timeline { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; }
-.moment-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  column-gap: 48px;
-  padding: 8px 0 14px;
-  text-align: left;
-}
-/* The line runs down between time and words, through the numbered dots. */
-.moment-row::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 116px;
-  width: 1px;
-  background: color-mix(in srgb, var(--gold) 60%, transparent);
-}
-.moment:first-child .moment-row::before { top: 20px; }
-.moment:last-child .moment-row::before { bottom: calc(100% - 20px); }
-.dot {
-  position: absolute;
-  top: 8px;
-  left: 104px;
-  width: 25px;
-  height: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--paper);
-  border: 1.5px solid var(--gold);
-  color: var(--gold);
-  font-size: 0.72rem;
-  font-weight: 700;
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 14%, transparent);
-}
-.when { text-align: right; font-weight: 600; color: var(--gold); padding-top: 9px; line-height: 1.35; }
-.what { padding-top: 9px; }
-.moment-title { font-size: 1.05em; }
 
 /* Reveal on scroll (see vReveal): parts rise into view; pictures uncover from the bottom. */
 .reveal {
@@ -436,7 +369,7 @@ onBeforeUnmount(() => observer?.disconnect())
 
 .gallery { margin-top: clamp(28px, 6cqi, 56px); display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .grid { display: grid; width: 100%; gap: 10px; grid-template-columns: repeat(2, 1fr); }
-.thumb { padding: 0; border: 0; background: none; border-radius: 6px; overflow: hidden; cursor: zoom-in; aspect-ratio: 1; }
+.thumb { padding: 0; border: 0; background: none; border-radius: var(--r-sm); overflow: hidden; cursor: zoom-in; aspect-ratio: 1; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; display: block; }
 .thumb:hover img { transform: scale(1.05); }
 
@@ -450,7 +383,7 @@ onBeforeUnmount(() => observer?.disconnect())
   justify-content: center;
   animation: lb-in 0.25s ease-out;
 }
-.lightbox img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: 4px; }
+.lightbox img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: var(--r-sm); }
 .lightbox button {
   position: absolute;
   border: 0;
@@ -460,6 +393,7 @@ onBeforeUnmount(() => observer?.disconnect())
   height: 44px;
   min-height: 44px;
   border-radius: 50%;
+  corner-shape: round;
   font-size: 1.6rem;
   line-height: 1;
   padding: 0;

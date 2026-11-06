@@ -516,6 +516,7 @@ function replaySide() {
                   {{ t('invite.mapsUrl') }}
                   <input v-model.trim="part.maps_url" type="url" inputmode="url" placeholder="https://maps.app.goo.gl/…" />
                   <span class="field-error" v-if="fieldErrors[`content.timeline.${p}.maps_url`]">{{ fieldErrors[`content.timeline.${p}.maps_url`] }}</span>
+                  <span v-else class="muted small">{{ t('invite.partMapHint') }}</span>
                 </label>
 
                 <span class="picker-label">{{ t('invite.moments') }}</span>

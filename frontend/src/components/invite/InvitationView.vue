@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, provide, ref, watch } from 'vue'
 import { InviteAudio, saveSoundPreference, soundPreference, type SoundSettings } from '@/invite/audio'
 import { viewIn, type InviteConfig, type InviteImages, type InviteLanguage } from '@/invite/config'
 import { FONT_PAIRINGS, loadFonts } from '@/invite/fonts'
 import { inviteLabels } from '@/invite/labels'
+import { INVITE_SCROLLER } from '@/invite/road'
 import InviteCard from './InviteCard.vue'
 import InviteCover from './InviteCover.vue'
 import InviteParticles from './InviteParticles.vue'
@@ -121,6 +122,8 @@ function close() {
   sound?.playTransition(true)
 }
 const scroll = ref<HTMLElement | null>(null)
+// The programme road animates with this scrolling (InviteRoad).
+provide(INVITE_SCROLLER, scroll)
 function closed() {
   revealing.value = false
   phase.value = 'cover'
@@ -215,7 +218,12 @@ defineExpose({ replay, close, phase, language })
 </template>
 
 <style scoped>
+/* Corner radii for everything in the invitation. Where the browser draws squircle corners (see
+   style.css), they are larger, as a squircle curve reads tighter than a circular one. */
 .invitation {
+  --r-lg: 18px;
+  --r-md: 14px;
+  --r-sm: 8px;
   container: invite / inline-size;
   position: relative;
   width: 100%;
@@ -245,6 +253,10 @@ defineExpose({ replay, close, phase, language })
 @keyframes card-rise {
   from { opacity: 0; transform: translateY(24px) scale(0.95); filter: blur(4px) brightness(1.25); }
 }
+@supports (corner-shape: squircle) {
+  .invitation { --r-lg: 32px; --r-md: 24px; --r-sm: 14px; }
+}
+
 /* Golden particles behind the card once it is open. */
 .ambient { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
 .scroll { z-index: 1; }
@@ -271,6 +283,7 @@ defineExpose({ replay, close, phase, language })
   justify-content: center;
   gap: 6px;
   border-radius: 999px;
+  corner-shape: round;
   border: 1px solid color-mix(in srgb, var(--gold) 80%, transparent);
   background: color-mix(in srgb, var(--paper) 82%, transparent);
   backdrop-filter: blur(6px);

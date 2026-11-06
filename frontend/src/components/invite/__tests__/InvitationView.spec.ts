@@ -99,8 +99,12 @@ describe('InvitationView', () => {
     expect(parts.map((p) => p.get('.part-title').text())).toEqual(['Morning', 'Evening'])
     expect(parts[0].get('.day').text()).toBe('Saturday, 12 December 2026')
     expect(parts[0].get('.part-place').text()).toContain("Bride's home")
-    expect(parts[0].get('.moment-map a').attributes('href')).toBe('https://maps.app.goo.gl/home')
-    expect(parts[1].find('.moment-map').exists()).toBe(false)
+    // A real map below each part's route: from the link when there is one, else the place's name.
+    expect(parts[0].get('a.map').attributes('href')).toBe('https://maps.app.goo.gl/home')
+    expect(parts[1].get('a.map').attributes('href')).toBe('https://www.google.com/maps/search/?api=1&query=Sokha%20Hotel')
+    expect(parts[1].get('a.map iframe').attributes('src')).toBe('https://maps.google.com/maps?q=Sokha%20Hotel&z=15&output=embed')
+    const html = parts[0].html()
+    expect(html.indexOf('class="road')).toBeLessThan(html.indexOf('class="map'))
     const first = parts[0].findAll('.moment')
     expect(first.map((m) => [m.get('.dot').text(), m.get('.when').text(), m.get('.moment-title').text()])).toEqual([
       ['1', '6:30 AM', 'Guests arrive'],
