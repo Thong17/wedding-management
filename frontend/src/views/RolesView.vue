@@ -7,6 +7,7 @@ import { clientsApi, rolesApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiRole } from '@/api/types'
 import AppDialog from '@/components/AppDialog.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
@@ -108,7 +109,6 @@ async function remove(role: ApiRole) {
     </div>
     <p class="muted small">{{ auth.isPlatformAdmin ? t('roles.helpAdmin') : t('roles.helpClient') }}</p>
     <div v-if="error" class="banner banner-danger">{{ error }}</div>
-    <p v-if="loading && !roles.length" class="muted">{{ t('common.loading') }}</p>
 
     <AppDialog :open="editing !== null" :title="editingRole ? t('roles.editTitle', { name: editingRole.name }) : t('roles.new')" @update:open="!$event && (editing = null)">
       <!-- Keyed so the form starts fresh for each role. -->
@@ -124,8 +124,11 @@ async function remove(role: ApiRole) {
       />
     </AppDialog>
 
-    <div class="roles">
-      <div v-for="role in shown" :key="role.id" class="card stack">
+    <div class="roles" :aria-busy="loading && !roles.length">
+      <template v-if="loading && !roles.length">
+        <div v-for="i in 4" :key="i" class="card skeleton-appear"><AppSkeleton /></div>
+      </template>
+      <div v-for="role in shown" :key="role.id" class="card stack fade-in">
         <div class="row">
           <h2 class="role-name">{{ role.name }}</h2>
           <span class="badge" :class="role.client ? 'badge-neutral' : 'badge-syncing'">{{ role.client_name ?? t('roles.global') }}</span>

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import AppDialog from '@/components/AppDialog.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import EventForm from '@/components/EventForm.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
@@ -30,10 +31,12 @@ onMounted(() => store.load())
     </AppDialog>
     <div v-if="store.fromCache" class="banner banner-info">{{ t('events.offline') }}</div>
     <div v-if="store.error" class="banner banner-danger">{{ store.error }}</div>
-    <p v-if="store.loading && !store.events.length" class="muted">{{ t('common.loading') }}</p>
-    <p v-else-if="!store.events.length && !store.error" class="muted">{{ t('events.empty') }}</p>
-    <div class="events">
-      <div v-for="e in store.events" :key="e.id" class="card stack event">
+    <p v-if="!store.loading && !store.events.length && !store.error" class="muted">{{ t('events.empty') }}</p>
+    <div class="events" :aria-busy="store.loading && !store.events.length">
+      <template v-if="store.loading && !store.events.length">
+        <div v-for="i in 3" :key="i" class="card event skeleton-appear"><AppSkeleton /></div>
+      </template>
+      <div v-for="e in store.events" :key="e.id" class="card stack event fade-in">
         <AppTooltip v-if="can(e, 'report_view')" :text="t('events.report')">
           <RouterLink class="btn btn-icon report" :to="`/events/${e.id}/report`" :aria-label="t('events.report')">
             <AppIcon name="chart" />

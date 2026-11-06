@@ -6,6 +6,7 @@ import { clientsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiClient } from '@/api/types'
 import AppDialog from '@/components/AppDialog.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import ClientForm from '@/components/ClientForm.vue'
 import AppSelect from '@/components/AppSelect.vue'
@@ -80,7 +81,7 @@ const price = (c: ApiClient) =>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in clients" :key="c.id">
+          <tr v-for="c in clients" :key="c.id" class="fade-in">
             <td><RouterLink :to="`/clients/${c.id}`"><strong>{{ c.business_name }}</strong></RouterLink></td>
             <td><span class="badge" :class="clientStatusBadge(c).cls">{{ clientStatusBadge(c).label }}</span></td>
             <td class="small nowrap">{{ price(c) }}</td>
@@ -88,6 +89,7 @@ const price = (c: ApiClient) =>
             <td class="right small">{{ t('clients.loginCounts', { admins: c.admin_count, customers: c.customer_count }) }}</td>
             <td class="right">{{ c.event_count }}</td>
           </tr>
+          <template v-if="loading && !clients.length"><AppSkeleton v-for="i in 5" :key="i" variant="row" :columns="6" /></template>
           <tr v-if="!clients.length && !loading"><td colspan="6" class="muted">{{ t('clients.empty') }}</td></tr>
         </tbody>
       </table>

@@ -136,6 +136,8 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
   const wantAllGifts = ref(false)
   const serverAll = shallowRef<ApiGift[] | null>(null)
   const allGiftsLoaded = computed(() => serverAll.value !== null)
+  const allGiftsFailed = ref(false) // the last fetch failed: say so instead of waiting
+
   const allGifts = computed(() => withLocal(serverAll.value ?? serverRecent.value))
   const voidedGifts = computed(() => allGifts.value.filter((t) => t.voided))
   // Recorded on this device (voided ones too), with the server's corrections where it has them.
@@ -149,8 +151,10 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     try {
       const gifts = await giftsApi.deskGifts(id)
       if (eventId.value === id) serverAll.value = gifts
+      allGiftsFailed.value = false
     } catch {
       // keep the last list
+      allGiftsFailed.value = true
     }
   }
   function showAllGifts(on: boolean) {
@@ -217,6 +221,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     serverRecent.value = []
     serverTotals.value = null
     serverAll.value = null
+    allGiftsFailed.value = false
     readSavedFeed(id)
     clearInterval(feedTimer)
     feedTimer = setInterval(() => void refreshFeed(), FEED_REFRESH_MS)
@@ -351,6 +356,7 @@ export const useGiftDeskStore = defineStore('giftDesk', () => {
     recentGifts,
     allGifts,
     allGiftsLoaded,
+    allGiftsFailed,
     voidedGifts,
     deviceGifts,
     showAllGifts,

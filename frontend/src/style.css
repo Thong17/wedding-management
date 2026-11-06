@@ -302,3 +302,43 @@ th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color
   .dialog-overlay[data-state],
   .dialog[data-state] { animation: none; }
 }
+
+/* Loading placeholders (AppSkeleton): soft blocks with a light sweeping across. */
+.skeleton {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--c-surface) 60%, transparent) 50%,
+      transparent 100%
+    )
+    0 0 / 200% 100% no-repeat,
+    color-mix(in srgb, var(--c-border) 70%, transparent);
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+.skeleton-text { height: 0.9em; }
+.skeleton-text.small { height: 0.75em; }
+.skeleton-title { height: 1.4em; }
+.skeleton-button { width: 110px; height: 36px; border-radius: 8px; }
+@keyframes skeleton-sweep {
+  from { background-position: 150% 0, 0 0; }
+  to { background-position: -50% 0, 0 0; }
+}
+/* Placeholders fade in only if loading takes a moment, so a quick load shows no flash of grey. */
+.skeleton-appear { animation: fade-in 0.3s ease-out 0.15s both; }
+/* Loaded content eases in where the placeholders were. */
+.fade-in { animation: fade-in-up 0.3s ease-out both; }
+/* Rows only fade: moving them would overflow the table's scroll box and flash a scrollbar. */
+tr.fade-in { animation-name: fade-in; }
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .skeleton-appear,
+  .fade-in { animation: none; }
+}

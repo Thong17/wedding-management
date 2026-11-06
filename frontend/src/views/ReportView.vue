@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { eventsApi } from '@/api/endpoints'
 import AppSelect from '@/components/AppSelect.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import { errorMessage } from '@/api/http'
 import type { EventReport } from '@/api/types'
 import { countByStatus, type StatusCounts } from '@/offline/transactionRepo'
@@ -67,7 +68,7 @@ function exportCsv() {
       <RouterLink to="/sync">{{ t('report.openSync') }}</RouterLink>
     </div>
     <div v-if="error" class="banner banner-danger">{{ error }} {{ t('report.needsConnection') }}</div>
-    <template v-if="report">
+    <div v-if="report" class="stack fade-in">
       <div class="card stats">
         <div class="stat"><span class="muted small">{{ t('report.total') }}</span><strong>{{ formatMoney(report.total, report.currency) }}</strong></div>
         <div class="stat"><span class="muted small">{{ t('report.gifts') }}</span><strong>{{ report.count }}</strong></div>
@@ -119,6 +120,7 @@ function exportCsv() {
           </table>
         </div>
       </div>
-    </template>
+    </div>
+    <AppSkeleton v-else-if="!error" variant="page" />
   </div>
 </template>

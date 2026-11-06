@@ -6,6 +6,7 @@ import { clientsApi, usersApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiManagedUser, ManagedUserInput } from '@/api/types'
 import AppDatePicker from '@/components/AppDatePicker.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppNote from '@/components/AppNote.vue'
@@ -258,7 +259,7 @@ const typeLabel = (u: ApiManagedUser) => (u.is_platform_admin ? t('users.types.p
           </tr>
         </thead>
         <tbody>
-          <tr v-for="u in users" :key="u.id" :class="{ inactive: !u.is_active }">
+          <tr v-for="u in users" :key="u.id" class="fade-in" :class="{ inactive: !u.is_active }">
             <td>
               <strong>{{ u.username }}</strong>
               <div v-if="u.first_name || u.last_name" class="muted small">{{ [u.first_name, u.last_name].filter(Boolean).join(' ') }}</div>
@@ -282,6 +283,9 @@ const typeLabel = (u: ApiManagedUser) => (u.is_platform_admin ? t('users.types.p
               </div>
             </td>
           </tr>
+          <template v-if="loading && !users.length">
+            <AppSkeleton v-for="i in 5" :key="i" variant="row" :columns="admin && clientId == null ? 7 : 6" />
+          </template>
           <tr v-if="!users.length && !loading"><td :colspan="admin && clientId == null ? 7 : 6" class="muted">{{ t('users.empty') }}</td></tr>
         </tbody>
       </table>

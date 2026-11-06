@@ -5,6 +5,7 @@ import { clientsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiClient } from '@/api/types'
 import ClientDocuments from '@/components/ClientDocuments.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { clientStatusBadge } from '@/utils/clientStatus'
 import { formatMoney } from '@/utils/format'
@@ -31,7 +32,7 @@ onMounted(async () => {
     <h1>{{ t('business.title') }}</h1>
     <p class="muted small">{{ t('business.help') }}</p>
     <div v-if="error" class="banner banner-danger">{{ error }}</div>
-    <template v-if="client">
+    <div v-if="client" class="stack fade-in">
       <div class="grid-2">
         <section class="card stack">
           <h2>{{ t('clients.tabs.business') }}</h2>
@@ -59,7 +60,8 @@ onMounted(async () => {
         <h2>{{ t('clients.tabs.documents', { n: client.document_count }) }}</h2>
         <ClientDocuments :client-id="client.id" :editable="false" />
       </section>
-    </template>
+    </div>
+    <AppSkeleton v-else-if="!error" variant="page" />
   </div>
 </template>
 

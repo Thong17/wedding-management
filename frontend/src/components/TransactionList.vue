@@ -19,7 +19,7 @@ const recorder = (item: GiftTransaction) =>
 
 <template>
   <ul class="list">
-    <li v-for="item in items" :key="item.txnId" class="item" :class="{ voided: item.voided }">
+    <li v-for="item in items" :key="item.txnId" class="item fade-in" :class="{ voided: item.voided }">
       <div class="row">
         <strong>{{ item.guestNameSnapshot }}</strong>
         <span v-if="item.guestId == null" class="badge badge-neutral">{{ t('common.walkIn') }}</span>

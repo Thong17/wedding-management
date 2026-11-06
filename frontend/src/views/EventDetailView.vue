@@ -7,6 +7,7 @@ import { eventsApi, giftsApi, guestsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiEvent, ApiGift, ApiGuest, GuestInput, PermissionCode } from '@/api/types'
 import AppDialog from '@/components/AppDialog.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import EventForm from '@/components/EventForm.vue'
@@ -63,7 +64,13 @@ async function load() {
     error.value = errorMessage(err)
   }
 }
-const loadGuests = async () => (guests.value = (await guestsApi.list(eventId.value)).results)
+// Until the first load, the tables show placeholder rows instead of "none yet".
+const guestsLoaded = ref(false)
+const giftsLoaded = ref(false)
+const loadGuests = async () => {
+  guests.value = (await guestsApi.list(eventId.value)).results
+  guestsLoaded.value = true
+}
 
 const exporting = ref(false)
 async function exportGuests() {
@@ -77,7 +84,10 @@ async function exportGuests() {
     exporting.value = false
   }
 }
-const loadGifts = async () => (gifts.value = await giftsApi.list(eventId.value))
+const loadGifts = async () => {
+  gifts.value = await giftsApi.list(eventId.value)
+  giftsLoaded.value = true
+}
 
 onMounted(load)
 
@@ -190,7 +200,7 @@ async function deleteEvent() {
 <template>
   <div class="container stack">
     <div v-if="error" class="banner banner-danger">{{ error }} <span class="muted">{{ t('detail.needsConnection') }}</span></div>
-    <template v-if="event">
+    <div v-if="event" class="stack fade-in">
       <div class="row">
         <div>
           <h1>{{ event.name }}</h1>
@@ -226,7 +236,7 @@ async function deleteEvent() {
           <table>
             <thead><tr><th>{{ t('guests.name') }}</th><th>{{ t('guests.side') }}</th><th>{{ t('guests.groupTable') }}</th><th>{{ t('guests.phone') }}</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="g in filteredGuests" :key="g.id">
+              <tr v-for="g in filteredGuests" :key="g.id" class="fade-in">
                 <td>{{ g.full_name }}<div v-if="g.nickname" class="muted small">“{{ g.nickname }}”</div></td>
                 <td>{{ sideLabel(g.side) }}</td>
                 <td>{{ g.group }}<span v-if="g.table_no"> · {{ t('guests.tableShort', { n: g.table_no }) }}</span></td>
@@ -238,7 +248,8 @@ async function deleteEvent() {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!filteredGuests.length"><td colspan="5" class="muted">{{ t('guests.none') }}</td></tr>
+              <template v-if="!guestsLoaded && !error"><AppSkeleton v-for="i in 6" :key="i" variant="row" :columns="5" /></template>
+              <tr v-else-if="!filteredGuests.length"><td colspan="5" class="muted">{{ t('guests.none') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -288,7 +299,7 @@ async function deleteEvent() {
           <table>
             <thead><tr><th>{{ t('gifts.when') }}</th><th>{{ t('gifts.guest') }}</th><th class="right">{{ t('gifts.amount') }}</th><th>{{ t('gifts.method') }}</th><th>{{ t('gifts.note') }}</th><th>{{ t('gifts.by') }}</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="g in gifts" :key="g.id">
+              <tr v-for="g in gifts" :key="g.id" class="fade-in">
                 <td class="small nowrap">{{ formatDateTime(g.client_created_at) }}</td>
                 <td>{{ g.guest_name }}<span v-if="!g.guest" class="badge badge-neutral">{{ t('common.walkIn') }}</span></td>
                 <td class="right" :class="{ nowrap: g.method !== 'item' }">{{ formatGiftValue(g) }}</td>
@@ -302,7 +313,8 @@ async function deleteEvent() {
                   </div>
                 </td>
               </tr>
-              <tr v-if="!gifts.length"><td colspan="7" class="muted">{{ t('gifts.none') }}</td></tr>
+              <template v-if="!giftsLoaded && !error"><AppSkeleton v-for="i in 6" :key="i" variant="row" :columns="7" /></template>
+              <tr v-else-if="!gifts.length"><td colspan="7" class="muted">{{ t('gifts.none') }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -333,7 +345,8 @@ async function deleteEvent() {
         <EventTeam :event="event" @count="teamCount = $event" />
         <div class="danger-zone"><button class="btn-danger btn-small" @click="deleteEvent">{{ t('members.deleteEvent') }}</button></div>
       </div>
-    </template>
+    </div>
+    <AppSkeleton v-else-if="!error" variant="page" />
   </div>
 </template>
 

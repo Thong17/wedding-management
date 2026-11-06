@@ -9,6 +9,7 @@ import OcrScanner from '@/components/OcrScanner.vue'
 import QrScanner from '@/components/QrScanner.vue'
 import TransactionList from '@/components/TransactionList.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import type { CachedEvent, CachedGuest, GiftMethod, GiftTransaction } from '@/offline/db'
 import { findGuestByQrRef } from '@/offline/guestCache'
@@ -87,6 +88,9 @@ const listed = computed(() => {
   }
 })
 const LIST_TAB_LABEL = { recent: 'desk.listRecent', device: 'desk.listDevice', all: 'desk.listAll', voided: 'desk.listVoided' } as const
+// On All gifts / Voided before the full list has arrived. While it can still come: placeholders.
+const waitingForAll = computed(() => canSeeAll.value && (listTab.value === 'all' || listTab.value === 'voided') && !desk.allGiftsLoaded)
+const allGiftsComing = computed(() => waitingForAll.value && sync.browserOnline && !desk.allGiftsFailed)
 
 // Correcting or removing a recorded gift. Not uploaded yet: anyone at the desk, even offline.
 // Already on the server: a connection, and the edit / void permission for any gift, or the "own" one
@@ -339,8 +343,12 @@ async function submit(input: Omit<GiftInput, 'eventId'>) {
           </RouterLink>
         </AppTooltip>
       </div>
-      <p v-if="canSeeAll && (listTab === 'all' || listTab === 'voided') && !desk.allGiftsLoaded" class="muted small">{{ t('desk.listPartial') }}</p>
-      <TransactionList :items="listed">
+      <!-- Every gift is on its way from the server: placeholders online, what this device has offline. -->
+      <div v-if="allGiftsComing" aria-busy="true">
+        <AppSkeleton v-for="i in 5" :key="i" variant="list" />
+      </div>
+      <p v-else-if="waitingForAll" class="muted small">{{ t('desk.listPartial') }}</p>
+      <TransactionList v-if="!allGiftsComing" :items="listed">
         <template #actions="{ item }">
           <div v-if="access(item, 'edit') !== 'none' || access(item, 'void') !== 'none'" class="row-actions">
             <AppTooltip v-if="access(item, 'edit') !== 'none'" :text="access(item, 'edit') === 'offline' ? t('desk.needsConnection') : null">

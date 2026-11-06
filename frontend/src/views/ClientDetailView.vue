@@ -6,6 +6,7 @@ import { clientsApi, eventsApi } from '@/api/endpoints'
 import { errorMessage } from '@/api/http'
 import type { ApiClient, ApiEvent, ClientInput } from '@/api/types'
 import AppDialog from '@/components/AppDialog.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import ClientDocuments from '@/components/ClientDocuments.vue'
 import ClientForm from '@/components/ClientForm.vue'
 import UserManager from '@/components/UserManager.vue'
@@ -84,7 +85,7 @@ const dash = (v: string | null | undefined) => v || '--'
 <template>
   <div class="container stack">
     <div v-if="error" class="banner banner-danger">{{ error }}</div>
-    <template v-if="client">
+    <div v-if="client" class="stack fade-in">
       <div class="row">
         <h1>{{ client.business_name }}</h1>
         <span class="badge" :class="clientStatusBadge(client).cls">{{ clientStatusBadge(client).label }}</span>
@@ -154,7 +155,8 @@ const dash = (v: string | null | undefined) => v || '--'
           <span class="muted small">{{ t('clients.deleteHint') }}</span>
         </div>
       </div>
-    </template>
+    </div>
+    <AppSkeleton v-else-if="!error" variant="page" />
   </div>
 </template>
 
