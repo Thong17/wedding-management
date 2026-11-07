@@ -703,6 +703,8 @@ export default {
     goldDividers: "Dividers",
     sparkles: "Sparkles",
     ornateFrames: "Ornate frames",
+    ornateStyle: "Style",
+    ornateStyles: { royal: "Royal", khmer: "Khmer traditional", chinese: "Chinese", minimal: "Minimal", modern: "Modern" },
     ornateAreas: { hero: "Main photo", names: "Couple's names", programme: "Programme moments", maps: "Maps", gifts: "Gift QR codes", gallery: "Gallery photos" },
     content: "Content",
     language: "Opens in",

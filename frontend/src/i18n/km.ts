@@ -701,6 +701,8 @@ const km: typeof en = {
     goldDividers: "បន្ទាត់ខណ្ឌ",
     sparkles: "ពន្លឺភ្លឺរលោង",
     ornateFrames: "ស៊ុមក្បាច់",
+    ornateStyle: "ម៉ូដ",
+    ornateStyles: { royal: "រាជវាំង", khmer: "ក្បាច់ខ្មែរ", chinese: "ចិន", minimal: "សាមញ្ញ", modern: "ទំនើប" },
     ornateAreas: { hero: "រូបថតធំ", names: "ឈ្មោះគូស្វាមីភរិយា", programme: "កម្មវិធី", maps: "ផែនទី", gifts: "QR ចំណងដៃ", gallery: "រូបថត" },
     content: "ខ្លឹមសារ",
     language: "បើកជាភាសា",

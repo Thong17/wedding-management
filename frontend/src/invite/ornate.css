@@ -1,19 +1,29 @@
 /*
- * The invitation's frames, shared by its boxes (programme stops, maps, bank QR cards, the QR dialog, the
- * couple's names, gallery photos). Everything takes the invitation's gold (--gold) and paper (--paper).
+ * The invitation's frames, shared by its boxes (main photo, couple's names, programme stops, maps, bank QR
+ * cards and their dialog, gallery photos). Everything takes the invitation's gold (--gold) and paper
+ * (--paper). Each style has one corner drawing (16×16, for the top-left corner), written out four times
+ * below, mirrored for the other corners; change all four together.
  *
  *   .invite-frame                a plain frame: a gold border and a soft shadow
- *   .invite-frame.invite-ornate  the ornate frame: also a thin inner frame line, a gold sheen, a flourish
- *                                in each corner and a small diamond on the middle of the top edge
+ *   .invite-frame.invite-ornate  the ornate frame: corner ornaments, an ornament on the top edge, and
+ *                                (by style) a thin inner frame line and a gold sheen
+ *   .ornate-arch                 for an arch (round top): ornaments in the bottom corners only
+ *   .ornate-corners, .ornate-top the style's corner ornaments and top ornament on their own, for a
+ *                                frame drawn some other way (the invitation card's "Ornate" style):
+ *                                .ornate-corners fills its (positioned) parent, inset by
+ *                                --ornate-corner-at; .ornate-top is centred on its parent's top edge
  *
- * Which areas are ornate is the design's ornate_frames setting. The ornate frame uses the box's ::before
- * (corners) and ::after (diamond). Give the box its own background with background-color (the sheen is a
- * background-image), and its own outer shadow with --ornate-shadow. The diamond sticks out above the top
- * edge, so an ornate box must not clip (overflow: hidden): wrap clipped content in an inner element.
+ * The style (design.ornate_style) is a class on the invitation: frames-royal (default), frames-khmer,
+ * frames-chinese, frames-minimal, frames-modern. Which areas are ornate is design.ornate_frames.
+ *
+ * The ornate frame uses the box's ::before (corners) and ::after (top ornament). Give the box its own
+ * background with background-color (the sheen is a background-image), and its own outer shadow with
+ * --ornate-shadow. The top ornament sits across the top edge, so an ornate box must not clip
+ * (overflow: hidden): wrap clipped content in an inner element.
  *
  * Tune per box:
- *   --ornate-corner   size of the corner flourishes (13px)
- *   --ornate-inset    how far inside the border the inner frame line and the flourishes sit (3px)
+ *   --ornate-corner   size of the corner ornaments (13px)
+ *   --ornate-inset    how far inside the border the inner frame line and the corners sit (3px)
  *   --ornate-shadow   the box's outer shadow
  */
 .invite-frame {
@@ -23,55 +33,67 @@
   border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
   box-shadow: var(--ornate-shadow, 0 4px 14px color-mix(in srgb, var(--ink) 8%, transparent));
 }
-.invite-ornate {
-  position: relative;
-  border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
-  background-image: linear-gradient(
+
+/* ─── The ornate frame (Royal unless the invitation picks another style) ─────────────────────────── */
+.invite-ornate,
+.ornate-corners {
+  /* Per style: the inner frame line's width (0 = none), the sheen, where the corners sit. */
+  --ornate-line: 0.6px;
+  --ornate-sheen: linear-gradient(
     135deg,
     color-mix(in srgb, var(--gold) 14%, transparent),
     transparent 45%,
     transparent 60%,
     color-mix(in srgb, var(--gold) 10%, transparent)
   );
+  --ornate-corner-at: var(--ornate-inset);
+  /* Per style: how much larger than --ornate-corner its corner ornaments are drawn. */
+  --ornate-corner-scale: 1;
+  --ornate-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 1 0 0)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E");
+}
+.invite-ornate {
+  position: relative;
+  border: 1px solid var(--ornate-border, color-mix(in srgb, var(--gold) 60%, transparent));
+  background-image: var(--ornate-sheen);
   box-shadow:
     inset 0 0 0 var(--ornate-inset) color-mix(in srgb, var(--paper) 92%, transparent),
-    inset 0 0 0 calc(var(--ornate-inset) + 0.6px) color-mix(in srgb, var(--gold) 35%, transparent),
+    inset 0 0 0 calc(var(--ornate-inset) + var(--ornate-line)) color-mix(in srgb, var(--gold) 35%, transparent),
     var(--ornate-shadow, 0 4px 14px color-mix(in srgb, var(--ink) 8%, transparent));
 }
+/* An arch: no ornaments in the (round) top corners. */
+.invite-ornate.ornate-arch {
+  --ornate-tl: linear-gradient(transparent, transparent);
+  --ornate-tr: linear-gradient(transparent, transparent);
+}
 
-/* The corner flourish (top-left): a rounded bracket with an inner curl and a bead at each end; the other
-   corners are the same drawing mirrored. A mask, so it takes the gold. */
-.invite-ornate::before {
+/* The corners: one drawing per corner, as a mask, so they take the gold. */
+.invite-ornate::before,
+.ornate-corners {
   content: '';
   position: absolute;
-  inset: var(--ornate-inset);
+  inset: var(--ornate-corner-at);
   z-index: 2;
   pointer-events: none;
   background: var(--gold);
   -webkit-mask:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/svg%3E") top left / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") top right / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom left / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom right / var(--ornate-corner) no-repeat;
+    var(--ornate-tl) top left / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat,
+    var(--ornate-tr) top right / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat,
+    var(--ornate-bl) bottom left / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat,
+    var(--ornate-br) bottom right / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat;
   mask:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/svg%3E") top left / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") top right / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom left / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom right / var(--ornate-corner) no-repeat;
+    var(--ornate-tl) top left / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat,
+    var(--ornate-tr) top right / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat,
+    var(--ornate-bl) bottom left / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat,
+    var(--ornate-br) bottom right / calc(var(--ornate-corner) * var(--ornate-corner-scale)) no-repeat;
 }
 
-/* For an arch (round top): flourishes in the bottom corners only. */
-.invite-ornate.ornate-arch::before {
-  -webkit-mask:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom left / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom right / var(--ornate-corner) no-repeat;
-  mask:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom left / var(--ornate-corner) no-repeat,
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 14V7c0-3 2-5 5-5h7'/%3E%3Cpath d='M5 11V8.5C5 6.5 6.5 5 8.5 5H11'/%3E%3Ccircle cx='2' cy='14' r='1' fill='black'/%3E%3Ccircle cx='14' cy='2' r='1' fill='black'/%3E%3C/g%3E%3C/svg%3E") bottom right / var(--ornate-corner) no-repeat;
-}
-
-/* The diamond on the top edge: double-outlined, sitting across the border. */
-.invite-ornate::after {
+/* The top ornament. Royal: a double-outlined diamond sitting across the border. --ornate-top-scale
+   enlarges it (e.g. on the invitation card). */
+.invite-ornate::after,
+.ornate-top {
   content: '';
   position: absolute;
   top: -4px;
@@ -80,9 +102,102 @@
   width: 7px;
   height: 7px;
   margin-left: -3.5px;
-  transform: rotate(45deg);
+  transform: rotate(45deg) scale(var(--ornate-top-scale, 1));
   background: var(--paper);
   border: 1px solid var(--gold);
   box-shadow: inset 0 0 0 1.5px var(--paper), inset 0 0 0 4px var(--gold);
   pointer-events: none;
 }
+
+/* ─── Khmer traditional ────────────────────────────────────────────────────────────────────────────── */
+.frames-khmer .invite-ornate,
+.frames-khmer .ornate-corners {
+  --ornate-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='0.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 1 0 0)'%3E%3Cpath d='M1.4 15C1.4 6.6 6.6 1.4 15 1.4' stroke-width='0.8'/%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3Cg transform='matrix(0 1 1 0 0 0)'%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3C/g%3E%3Cpath d='M5.05 5.05C2.76 5.05 1.21 3.39 1.12 1.35C1.21 0.64 1.94 0.52 2.42 1.27C3.19 2.32 4.58 3.61 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C5.13 3.51 4.07 2.55 2.71 2.58C2.23 2.68 2.12 3.18 2.61 3.46C3.29 3.93 4.1 4.8 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C3.8 5.96 2.42 5.59 1.71 4.43C1.53 3.97 1.89 3.61 2.39 3.87C3.15 4.18 4.33 4.39 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M1.4 15C1.4 13.6 2.8 13.04 3.08 13.88C3.22 14.58 2.38 14.72 2.31 14.16' stroke-width='0.7'/%3E%3Cpath d='M15 1.4C13.6 1.4 13.04 2.8 13.88 3.08C14.58 3.22 14.72 2.38 14.16 2.31' stroke-width='0.7'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='0.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M1.4 15C1.4 6.6 6.6 1.4 15 1.4' stroke-width='0.8'/%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3Cg transform='matrix(0 1 1 0 0 0)'%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3C/g%3E%3Cpath d='M5.05 5.05C2.76 5.05 1.21 3.39 1.12 1.35C1.21 0.64 1.94 0.52 2.42 1.27C3.19 2.32 4.58 3.61 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C5.13 3.51 4.07 2.55 2.71 2.58C2.23 2.68 2.12 3.18 2.61 3.46C3.29 3.93 4.1 4.8 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C3.8 5.96 2.42 5.59 1.71 4.43C1.53 3.97 1.89 3.61 2.39 3.87C3.15 4.18 4.33 4.39 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M1.4 15C1.4 13.6 2.8 13.04 3.08 13.88C3.22 14.58 2.38 14.72 2.31 14.16' stroke-width='0.7'/%3E%3Cpath d='M15 1.4C13.6 1.4 13.04 2.8 13.88 3.08C14.58 3.22 14.72 2.38 14.16 2.31' stroke-width='0.7'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='0.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M1.4 15C1.4 6.6 6.6 1.4 15 1.4' stroke-width='0.8'/%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3Cg transform='matrix(0 1 1 0 0 0)'%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3C/g%3E%3Cpath d='M5.05 5.05C2.76 5.05 1.21 3.39 1.12 1.35C1.21 0.64 1.94 0.52 2.42 1.27C3.19 2.32 4.58 3.61 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C5.13 3.51 4.07 2.55 2.71 2.58C2.23 2.68 2.12 3.18 2.61 3.46C3.29 3.93 4.1 4.8 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C3.8 5.96 2.42 5.59 1.71 4.43C1.53 3.97 1.89 3.61 2.39 3.87C3.15 4.18 4.33 4.39 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M1.4 15C1.4 13.6 2.8 13.04 3.08 13.88C3.22 14.58 2.38 14.72 2.31 14.16' stroke-width='0.7'/%3E%3Cpath d='M15 1.4C13.6 1.4 13.04 2.8 13.88 3.08C14.58 3.22 14.72 2.38 14.16 2.31' stroke-width='0.7'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='0.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M1.4 15C1.4 6.6 6.6 1.4 15 1.4' stroke-width='0.8'/%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3Cg transform='matrix(0 1 1 0 0 0)'%3E%3Cpath d='M1.46 13.52C-0.13 13.63 -1.07 12.55 -0.98 11.15C-0.85 10.65 -0.34 10.54 -0.07 11.03C0.39 11.72 1.24 12.55 1.46 13.52Z' fill='black' stroke='none'/%3E%3Cpath d='M1.66 11.89C2.91 12.3 3.88 11.63 4.09 10.49C4.09 10.07 3.7 9.87 3.38 10.21C2.88 10.67 2.03 11.16 1.66 11.89Z' fill='black' stroke='none'/%3E%3Cpath d='M2.07 10.15C0.12 9.86 -0.73 8.31 -0.24 6.64C0.04 6.08 0.69 6.07 0.88 6.74C1.25 7.7 2.07 8.92 2.07 10.15Z' fill='black' stroke='none'/%3E%3Cpath d='M2.66 8.55C3.89 9.32 5.11 8.87 5.65 7.7C5.76 7.25 5.4 6.94 4.97 7.22C4.3 7.57 3.26 7.86 2.66 8.55Z' fill='black' stroke='none'/%3E%3Cpath d='M3.43 7.09C1.55 6.26 1.11 4.47 2.06 2.91C2.49 2.42 3.15 2.59 3.17 3.32C3.28 4.39 3.77 5.85 3.43 7.09Z' fill='black' stroke='none'/%3E%3Cpath d='M4.25 5.94C5.08 6.83 6.17 6.73 6.85 5.89C7.04 5.55 6.81 5.22 6.4 5.35C5.79 5.5 4.88 5.51 4.25 5.94Z' fill='black' stroke='none'/%3E%3C/g%3E%3Cpath d='M5.05 5.05C2.76 5.05 1.21 3.39 1.12 1.35C1.21 0.64 1.94 0.52 2.42 1.27C3.19 2.32 4.58 3.61 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C5.13 3.51 4.07 2.55 2.71 2.58C2.23 2.68 2.12 3.18 2.61 3.46C3.29 3.93 4.1 4.8 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M5.05 5.05C3.8 5.96 2.42 5.59 1.71 4.43C1.53 3.97 1.89 3.61 2.39 3.87C3.15 4.18 4.33 4.39 5.05 5.05Z' fill='black' stroke='none'/%3E%3Cpath d='M1.4 15C1.4 13.6 2.8 13.04 3.08 13.88C3.22 14.58 2.38 14.72 2.31 14.16' stroke-width='0.7'/%3E%3Cpath d='M15 1.4C13.6 1.4 13.04 2.8 13.88 3.08C14.58 3.22 14.72 2.38 14.16 2.31' stroke-width='0.7'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-corner-scale: 1.6;
+}
+.frames-khmer .invite-ornate.ornate-arch {
+  --ornate-tl: linear-gradient(transparent, transparent);
+  --ornate-tr: linear-gradient(transparent, transparent);
+}
+.frames-khmer .invite-ornate::after,
+.frames-khmer .ornate-top {
+  top: -12px;
+  width: 34px;
+  height: 20px;
+  margin-left: -17px;
+  transform: scale(var(--ornate-top-scale, 1));
+  border: 0;
+  box-shadow: none;
+  background: var(--gold);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 24'%3E%3Cpath d='M20 0.4C22.4 4.6 24.4 8.8 23.2 13.6C22.6 15.8 17.4 15.8 16.8 13.6C15.6 8.8 17.6 4.6 20 0.4Z'/%3E%3Cpath d='M18.8 14.2C19.64 11.02 17.87 8.41 15.03 7.71C14 7.65 13.56 8.63 14.44 9.49C15.64 10.87 16.95 13.14 18.8 14.2Z' fill='black' stroke='none'/%3E%3Cpath d='M21.2 14.2C20.36 11.02 22.13 8.41 24.97 7.71C26 7.65 26.44 8.63 25.56 9.49C24.36 10.87 23.05 13.14 21.2 14.2Z' fill='black' stroke='none'/%3E%3Cpath d='M18.6 16.2C16.87 11.28 12.31 9.65 8.08 11.53C6.72 12.45 7.03 14.14 8.91 14.39C11.65 14.99 15.32 16.65 18.6 16.2Z' fill='black' stroke='none'/%3E%3Cpath d='M21.4 16.2C23.13 11.28 27.69 9.65 31.92 11.53C33.28 12.45 32.97 14.14 31.09 14.39C28.35 14.99 24.68 16.65 21.4 16.2Z' fill='black' stroke='none'/%3E%3Cpath d='M18.6 18.2C16.37 22.15 12.23 22.86 8.89 20.61C7.86 19.61 8.38 18.22 10.03 18.28C12.46 18.18 15.86 17.32 18.6 18.2Z' fill='black' stroke='none'/%3E%3Cpath d='M21.4 18.2C23.63 22.15 27.77 22.86 31.11 20.61C32.14 19.61 31.62 18.22 29.97 18.28C27.54 18.18 24.14 17.32 21.4 18.2Z' fill='black' stroke='none'/%3E%3Cpath d='M19.2 20C19.6 22.78 17.83 24.58 15.35 24.6C14.46 24.45 14.19 23.56 15.02 23.02C16.18 22.13 17.52 20.51 19.2 20Z' fill='black' stroke='none'/%3E%3Cpath d='M20.8 20C20.4 22.78 22.17 24.58 24.65 24.6C25.54 24.45 25.81 23.56 24.98 23.02C23.82 22.13 22.48 20.51 20.8 20Z' fill='black' stroke='none'/%3E%3Cellipse cx='20' cy='18.4' rx='3.2' ry='2.8'/%3E%3Cpath d='M17.6 21.2Q20 24.4 22.4 21.2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 24'%3E%3Cpath d='M20 0.4C22.4 4.6 24.4 8.8 23.2 13.6C22.6 15.8 17.4 15.8 16.8 13.6C15.6 8.8 17.6 4.6 20 0.4Z'/%3E%3Cpath d='M18.8 14.2C19.64 11.02 17.87 8.41 15.03 7.71C14 7.65 13.56 8.63 14.44 9.49C15.64 10.87 16.95 13.14 18.8 14.2Z' fill='black' stroke='none'/%3E%3Cpath d='M21.2 14.2C20.36 11.02 22.13 8.41 24.97 7.71C26 7.65 26.44 8.63 25.56 9.49C24.36 10.87 23.05 13.14 21.2 14.2Z' fill='black' stroke='none'/%3E%3Cpath d='M18.6 16.2C16.87 11.28 12.31 9.65 8.08 11.53C6.72 12.45 7.03 14.14 8.91 14.39C11.65 14.99 15.32 16.65 18.6 16.2Z' fill='black' stroke='none'/%3E%3Cpath d='M21.4 16.2C23.13 11.28 27.69 9.65 31.92 11.53C33.28 12.45 32.97 14.14 31.09 14.39C28.35 14.99 24.68 16.65 21.4 16.2Z' fill='black' stroke='none'/%3E%3Cpath d='M18.6 18.2C16.37 22.15 12.23 22.86 8.89 20.61C7.86 19.61 8.38 18.22 10.03 18.28C12.46 18.18 15.86 17.32 18.6 18.2Z' fill='black' stroke='none'/%3E%3Cpath d='M21.4 18.2C23.63 22.15 27.77 22.86 31.11 20.61C32.14 19.61 31.62 18.22 29.97 18.28C27.54 18.18 24.14 17.32 21.4 18.2Z' fill='black' stroke='none'/%3E%3Cpath d='M19.2 20C19.6 22.78 17.83 24.58 15.35 24.6C14.46 24.45 14.19 23.56 15.02 23.02C16.18 22.13 17.52 20.51 19.2 20Z' fill='black' stroke='none'/%3E%3Cpath d='M20.8 20C20.4 22.78 22.17 24.58 24.65 24.6C25.54 24.45 25.81 23.56 24.98 23.02C23.82 22.13 22.48 20.51 20.8 20Z' fill='black' stroke='none'/%3E%3Cellipse cx='20' cy='18.4' rx='3.2' ry='2.8'/%3E%3Cpath d='M17.6 21.2Q20 24.4 22.4 21.2Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* ─── Chinese ──────────────────────────────────────────────────────────────────────────────────────── */
+.frames-chinese .invite-ornate,
+.frames-chinese .ornate-corners {
+  --ornate-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 1 0 0)'%3E%3Cpath d='M2 15V2H15' stroke-linecap='square' stroke-linejoin='miter'/%3E%3Cpath d='M5 15V5H12V11H8V8' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M2 15V2H15' stroke-linecap='square' stroke-linejoin='miter'/%3E%3Cpath d='M5 15V5H12V11H8V8' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 15V2H15' stroke-linecap='square' stroke-linejoin='miter'/%3E%3Cpath d='M5 15V5H12V11H8V8' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 15V2H15' stroke-linecap='square' stroke-linejoin='miter'/%3E%3Cpath d='M5 15V5H12V11H8V8' stroke-linecap='square' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  /* A bolder inner frame line: a double border. */
+  --ornate-line: 1.5px;
+}
+.frames-chinese .invite-ornate.ornate-arch {
+  --ornate-tl: linear-gradient(transparent, transparent);
+  --ornate-tr: linear-gradient(transparent, transparent);
+}
+.frames-chinese .invite-ornate::after,
+.frames-chinese .ornate-top {
+  top: -7px;
+  width: 13px;
+  height: 13px;
+  margin-left: -6.5px;
+  transform: scale(var(--ornate-top-scale, 1));
+  border: 0;
+  box-shadow: none;
+  background: var(--gold);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath fill-rule='evenodd' d='M7 0.5A6.5 6.5 0 1 1 6.99 0.5Z M5 5H9V9H5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath fill-rule='evenodd' d='M7 0.5A6.5 6.5 0 1 1 6.99 0.5Z M5 5H9V9H5Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* ─── Minimal ──────────────────────────────────────────────────────────────────────────────────────── */
+.frames-minimal .invite-ornate,
+.frames-minimal .ornate-corners {
+  --ornate-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 1 0 0)'%3E%3Cpath d='M2 8V2H8'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M2 8V2H8'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M2 8V2H8'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M2 8V2H8'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-line: 0px;
+  --ornate-sheen: none;
+  --ornate-border: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+.frames-minimal .invite-ornate.ornate-arch {
+  --ornate-tl: linear-gradient(transparent, transparent);
+  --ornate-tr: linear-gradient(transparent, transparent);
+}
+.frames-minimal .invite-ornate::after { content: none; }
+.frames-minimal .ornate-top { display: none; }
+
+/* ─── Modern ───────────────────────────────────────────────────────────────────────────────────────── */
+.frames-modern .invite-ornate,
+.frames-modern .ornate-corners {
+  --ornate-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 1 0 0)'%3E%3Cpath d='M1.2 10V1.2H10' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 1 16 0)'%3E%3Cpath d='M1.2 10V1.2H10' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(1 0 0 -1 0 16)'%3E%3Cpath d='M1.2 10V1.2H10' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg transform='matrix(-1 0 0 -1 16 16)'%3E%3Cpath d='M1.2 10V1.2H10' stroke-linecap='butt' stroke-linejoin='miter'/%3E%3C/g%3E%3C/svg%3E");
+  --ornate-line: 0px;
+  --ornate-sheen: none;
+  /* The brackets sit just outside the corners. */
+  --ornate-corner-at: -6px;
+  --ornate-border: color-mix(in srgb, var(--gold) 70%, transparent);
+}
+.frames-modern .invite-ornate.ornate-arch {
+  --ornate-tl: linear-gradient(transparent, transparent);
+  --ornate-tr: linear-gradient(transparent, transparent);
+}
+.frames-modern .invite-ornate::after { content: none; }
+.frames-modern .ornate-top { display: none; }

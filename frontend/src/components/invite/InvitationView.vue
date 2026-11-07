@@ -10,6 +10,7 @@ import InviteCard from './InviteCard.vue'
 import InviteCover from './InviteCover.vue'
 import InviteParticles from './InviteParticles.vue'
 import InviteQrDialog from './InviteQrDialog.vue'
+import InviteLightbox from './InviteLightbox.vue'
 
 /**
  * The whole guest experience for one design: the cover, the opening animation, then the invitation.
@@ -151,13 +152,20 @@ const coverMode = computed(() => (phase.value === 'opening' ? 'opening' : phase.
 const backgroundParticles = computed(() => props.config.animation.enabled && props.config.animation.particles && (phase.value === 'open' || phase.value === 'closing'))
 // A bank QR code tapped in the card, shown over the whole invitation.
 const bankQr = ref<{ url: string; label: string } | null>(null)
+// A gallery photo tapped in the card, shown full size over everything.
+const photos = ref<string[]>([])
+const photoIndex = ref<number | null>(null)
+function openPhoto(list: string[], index: number) {
+  photos.value = list
+  photoIndex.value = index
+}
 defineExpose({ replay, close, phase, language })
 </script>
 
 <template>
   <div
     class="invitation"
-    :class="[`card-${config.design.card_style}`, { 'fonts-ready': fontsReady }]"
+    :class="[`card-${config.design.card_style}`, `frames-${config.design.ornate_style}`, { 'fonts-ready': fontsReady }]"
     :style="{ '--paper': config.design.background, '--ink': config.design.text_color, '--gold': config.design.accent }"
     :lang="language"
   >
@@ -181,6 +189,7 @@ defineExpose({ replay, close, phase, language })
           :active="phase !== 'cover'"
           :settled="phase === 'open'"
           @open-qr="bankQr = $event"
+          @open-photo="openPhoto"
         />
       </div>
     </div>
@@ -227,6 +236,7 @@ defineExpose({ replay, close, phase, language })
         </button>
       </Transition>
     </div>
+    <InviteLightbox :photos="photos" :index="photoIndex" :labels="labels" @close="photoIndex = null" @step="photoIndex = $event" />
     <InviteQrDialog :qr="bankQr" :ornate="config.design.ornate_frames.includes('gifts')" :labels="labels" :text-font="pairing.text" @close="bankQr = null" />
   </div>
 </template>

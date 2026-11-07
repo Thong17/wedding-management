@@ -28,6 +28,8 @@ ROUTE_STYLES = ("road", "line")
 # Where the ornate gold frame (corner flourishes, a diamond) is used. Areas left out get a plain frame
 # (programme, maps, gifts) or none (hero photo, names, gallery).
 ORNATE_AREAS = ("hero", "names", "programme", "maps", "gifts", "gallery")
+# The ornate frame's look.
+ORNATE_STYLES = ("royal", "khmer", "chinese", "minimal", "modern")
 OPENING_STYLES = ("gatefold", "envelope", "fade")
 EMBLEMS = ("seal", "monogram", "image")
 LANGUAGES = ("km", "en")
@@ -191,6 +193,7 @@ SCHEMA = {
         "card_style": ("framed", _choice(CARD_STYLES)),
         "route_style": ("road", _choice(ROUTE_STYLES)),
         "ornate_frames": (list(ORNATE_AREAS), _choices(ORNATE_AREAS)),
+        "ornate_style": ("royal", _choice(ORNATE_STYLES)),
         "gold_corners": (True, _bool),
         "gold_border": (True, _bool),
         "gold_dividers": (True, _bool),

@@ -278,12 +278,12 @@ onBeforeUnmount(() => {
   /* The numbered dot on the road. */
   --dot-size: 34px;
   /* The road: paved width, the gold verge on each side, the centre line's dashes (dash, gap). */
-  --road-width: 6px;
-  --road-verge: 2px;
-  --road-dash: 7px 9px;
+  --road-width: 4px;
+  --road-verge: 1.5px;
+  --road-dash: 5px 7px;
   /* The gold line drawn along the road as the guest scrolls, and the marker leading it. */
-  --progress-width: 4px;
-  --marker-size: 22px;
+  --progress-width: 3px;
+  --marker-size: 18px;
   /* How the time and title appear when the marker reaches their stop: from how far below, how long. */
   --reveal-rise: 10px;
   --reveal-time: 0.5s;
@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
 /* The road: a soft gold verge, the paved surface, and the dashed centre line. */
 .road-shoulder { stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: calc(var(--road-width) + 2 * var(--road-verge)); }
 .road-surface { stroke: color-mix(in srgb, var(--paper) 72%, var(--ink) 10%); stroke-width: var(--road-width); }
-.road-dash { stroke: color-mix(in srgb, var(--gold) 75%, transparent); stroke-width: 2; stroke-dasharray: var(--road-dash); }
+.road-dash { stroke: color-mix(in srgb, var(--gold) 75%, transparent); stroke-width: calc(var(--road-width) / 3); stroke-dasharray: var(--road-dash); }
 /* Drawn as the guest scrolls (GSAP): the stretch already travelled, in gold. */
 .road-progress { stroke: var(--gold); stroke-width: var(--progress-width); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--gold) 70%, transparent)); }
 

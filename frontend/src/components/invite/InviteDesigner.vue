@@ -16,6 +16,7 @@ import {
   CARD_STYLES,
   ROUTE_STYLES,
   ORNATE_AREAS,
+  ORNATE_STYLES,
   EMBLEMS,
   FONTS,
   LANGUAGES,
@@ -253,6 +254,7 @@ function removeGallery(index: number) {
 // Options for the selects.
 const fontOptions = computed(() => FONTS.map((f) => ({ value: f, label: t(`invite.fonts.${f}`) })))
 const cardOptions = computed(() => CARD_STYLES.map((s) => ({ value: s, label: t(`invite.cards.${s}`) })))
+const ornateStyleOptions = computed(() => ORNATE_STYLES.map((s) => ({ value: s, label: t(`invite.ornateStyles.${s}`) })))
 const routeOptions = computed(() => ROUTE_STYLES.map((s) => ({ value: s, label: t(`invite.routes.${s}`) })))
 const openingOptions = computed(() => OPENING_STYLES.map((s) => ({ value: s, label: t(`invite.openings.${s}`) })))
 const emblemOptions = computed(() => EMBLEMS.map((s) => ({ value: s, label: t(`invite.emblems.${s}`) })))
@@ -398,6 +400,7 @@ function replaySide() {
               </fieldset>
               <fieldset class="checks">
                 <legend>{{ t('invite.ornateFrames') }}</legend>
+                <label class="full-row">{{ t('invite.ornateStyle') }} <AppSelect v-model="draft.design.ornate_style" :options="ornateStyleOptions" /></label>
                 <label v-for="area in ORNATE_AREAS" :key="area" class="check">
                   <input v-model="draft.design.ornate_frames" type="checkbox" :value="area" />{{ t(`invite.ornateAreas.${area}`) }}
                 </label>
@@ -719,6 +722,8 @@ function replaySide() {
 .two .grow { flex: 1 1 140px; }
 .time { flex: 0 1 140px; }
 .checks { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+/* A field in a grid of checkboxes that takes a whole row (e.g. the ornate frames' style above its areas). */
+.checks .full-row { grid-column: 1 / -1; margin-bottom: 4px; }
 .checks legend { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; padding: 0; }
 .check { display: flex; flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }
 .check input { width: auto; min-height: 0; }

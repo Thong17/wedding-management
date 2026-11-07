@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch, type Directive } from 'vue'
+import { computed, onBeforeUnmount, watch, type Directive } from 'vue'
 import type { InviteConfig, InviteImages, InviteView, OrnateArea } from '@/invite/config'
 import { formatInviteDate, formatInviteTime, type InviteLabels } from '@/invite/labels'
 import InviteDivider from './InviteDivider.vue'
@@ -55,15 +55,12 @@ const timeline = computed(() =>
 )
 
 
-// Tapping a bank QR code: InvitationView shows it in InviteQrDialog (over the whole invitation, not inside
-// the card, so nothing in the card can move or blur it).
-const emit = defineEmits<{ openQr: [qr: { url: string; label: string }] }>()
-
-const viewing = ref<number | null>(null)
-function step(by: number) {
-  if (viewing.value == null) return
-  viewing.value = (viewing.value + by + gallery.value.length) % gallery.value.length
-}
+// Tapping a bank QR code or a gallery photo: InvitationView shows it (InviteQrDialog, InviteLightbox) over
+// the whole invitation, not inside the card, so it covers everything, the corner buttons included.
+const emit = defineEmits<{
+  openQr: [qr: { url: string; label: string }]
+  openPhoto: [photos: string[], index: number]
+}>()
 
 // Reveal on scroll: `v-reveal="n"` fades a part up into view when it is first seen, `n` steps of 110 ms
 // after the others that come into view with it, so pictures appear one after another. Without
@@ -113,7 +110,13 @@ onBeforeUnmount(() => observer?.disconnect())
     :class="[`style-${design.card_style}`, { 'with-border': design.gold_border, 'with-hero': !!hero }]"
     :style="{ '--ink': design.text_color, '--gold': design.accent, '--paper': design.background, fontFamily: textFont }"
   >
-    <template v-if="design.gold_corners">
+    <!-- Ornate card: its corners and a top ornament in the invitation's frame style (ornate.css), on the
+         double gold border. -->
+    <span v-if="design.gold_corners && design.card_style === 'ornate'" class="card-ornaments" aria-hidden="true">
+      <span class="ornate-corners" />
+      <span v-if="design.gold_border" class="ornate-top" />
+    </span>
+    <template v-else-if="design.gold_corners">
       <svg v-for="c in ['tl', 'tr', 'bl', 'br']" :key="c" class="corner" :class="c" viewBox="0 0 80 80" aria-hidden="true">
         <path d="M4 76V20Q4 4 20 4h56" fill="none" stroke="currentColor" stroke-width="1.6" />
         <path d="M12 76V28Q12 12 28 12h48" fill="none" stroke="currentColor" stroke-width="0.8" />
@@ -131,7 +134,7 @@ onBeforeUnmount(() => observer?.disconnect())
       <div class="body">
         <p v-reveal="1" class="greeting">{{ content.greeting || labels.defaultGreeting }}</p>
         <h1 v-reveal="2" class="title">{{ content.title || labels.defaultTitle }}</h1>
-        <InviteDivider v-if="design.gold_dividers" v-reveal="2" />
+        <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="2" />
 
         <div v-reveal="3" class="couple" :class="{ 'invite-frame invite-ornate': ornate('names') }" :style="{ fontFamily: namesFont }">
           <span class="name">{{ content.partner1 }}</span>
@@ -139,7 +142,7 @@ onBeforeUnmount(() => observer?.disconnect())
           <span class="name">{{ content.partner2 }}</span>
         </div>
 
-        <InviteDivider v-if="design.gold_dividers" v-reveal="4" />
+        <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="4" />
 
         <dl v-if="date || venue" class="details">
           <div v-if="date" v-reveal="4">
@@ -179,7 +182,7 @@ onBeforeUnmount(() => observer?.disconnect())
 
     <!-- The programme: parts of the day (each at its own place, with its map), then their moments. -->
     <section v-if="timeline.length" class="programme">
-      <InviteDivider v-if="design.gold_dividers" v-reveal="0" />
+      <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="0" />
       <h2 v-reveal="0" class="small-caps">{{ labels.programme }}</h2>
       <div v-for="(part, p) in timeline" :key="p" class="part">
         <header v-reveal="0" class="part-head">
@@ -204,7 +207,7 @@ onBeforeUnmount(() => observer?.disconnect())
     </section>
 
     <section v-if="gallery.length" class="gallery">
-      <InviteDivider v-if="design.gold_dividers" v-reveal="0" />
+      <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="0" />
       <h2 v-reveal="0" class="small-caps">{{ labels.gallery }}</h2>
       <div class="grid">
         <button
@@ -214,7 +217,7 @@ onBeforeUnmount(() => observer?.disconnect())
           type="button"
           class="thumb reveal-image"
           :class="{ 'invite-frame invite-ornate': ornate('gallery') }"
-          @click="viewing = i"
+          @click="emit('openPhoto', gallery, i)"
         >
           <!-- The photo in a window (clipped), inside the frame when it has one (which must not clip). -->
           <span class="thumb-view"><img :src="src" alt="" loading="lazy" /></span>
@@ -222,14 +225,6 @@ onBeforeUnmount(() => observer?.disconnect())
       </div>
     </section>
 
-    <div v-if="viewing != null" class="lightbox" role="dialog" aria-modal="true" @click.self="viewing = null" @keydown.esc="viewing = null">
-      <img :src="gallery[viewing]" alt="" />
-      <button type="button" class="lb-close" :aria-label="labels.close" @click="viewing = null">×</button>
-      <template v-if="gallery.length > 1">
-        <button type="button" class="lb-prev" aria-label="‹" @click="step(-1)">‹</button>
-        <button type="button" class="lb-next" aria-label="›" @click="step(1)">›</button>
-      </template>
-    </div>
   </article>
 </template>
 
@@ -265,9 +260,19 @@ onBeforeUnmount(() => observer?.disconnect())
   pointer-events: none;
 }
 .style-minimal { background: transparent; }
+/* The ornate card's ornaments (frame style): on the double border, 16px in from the edge. */
+.card-ornaments {
+  position: absolute;
+  inset: 16px;
+  pointer-events: none;
+  /* The corners sit just inside the border. */
+  --ornate-inset: 4px;
+  --ornate-corner: clamp(30px, 7.5cqi, 56px);
+  --ornate-top-scale: 2.4;
+}
 
-.corner { position: absolute; width: clamp(48px, 12cqi, 92px); height: auto; color: var(--gold); pointer-events: none; }
-.style-ornate .corner { width: clamp(64px, 15cqi, 120px); }
+.corner { position: absolute; width: clamp(34px, 8.5cqi, 64px); height: auto; color: var(--gold); pointer-events: none; }
+.style-ornate .corner { width: clamp(44px, 10cqi, 84px); }
 .corner.tl { top: 6px; left: 6px; }
 .corner.tr { top: 6px; right: 6px; transform: scaleX(-1); }
 .corner.bl { bottom: 6px; left: 6px; transform: scaleY(-1); }
@@ -423,36 +428,6 @@ onBeforeUnmount(() => observer?.disconnect())
 .thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; display: block; }
 .thumb:hover img { transform: scale(1.05); }
 
-.lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgb(10 4 6 / 0.92);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: lb-in 0.25s ease-out;
-}
-.lightbox img { max-width: 92vw; max-height: 86vh; object-fit: contain; border-radius: var(--r-sm); }
-.lightbox button {
-  position: absolute;
-  border: 0;
-  background: rgb(255 255 255 / 0.12);
-  color: #fff;
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  border-radius: 50%;
-  corner-shape: round;
-  font-size: 1.6rem;
-  line-height: 1;
-  padding: 0;
-  justify-content: center;
-}
-.lb-close { top: 16px; right: 16px; }
-.lb-prev { left: 12px; top: 50%; }
-.lb-next { right: 12px; top: 50%; }
-@keyframes lb-in { from { opacity: 0; } }
 
 /* Sparkles: tiny gold glints that come and go. */
 .sparkles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
