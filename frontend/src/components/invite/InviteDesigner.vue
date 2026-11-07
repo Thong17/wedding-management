@@ -14,6 +14,8 @@ import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import {
   CARD_STYLES,
+  ROUTE_STYLES,
+  ORNATE_AREAS,
   EMBLEMS,
   FONTS,
   LANGUAGES,
@@ -251,6 +253,7 @@ function removeGallery(index: number) {
 // Options for the selects.
 const fontOptions = computed(() => FONTS.map((f) => ({ value: f, label: t(`invite.fonts.${f}`) })))
 const cardOptions = computed(() => CARD_STYLES.map((s) => ({ value: s, label: t(`invite.cards.${s}`) })))
+const routeOptions = computed(() => ROUTE_STYLES.map((s) => ({ value: s, label: t(`invite.routes.${s}`) })))
 const openingOptions = computed(() => OPENING_STYLES.map((s) => ({ value: s, label: t(`invite.openings.${s}`) })))
 const emblemOptions = computed(() => EMBLEMS.map((s) => ({ value: s, label: t(`invite.emblems.${s}`) })))
 const languageOptions = computed(() => LANGUAGES.map((l) => ({ value: l, label: t(`invite.languages.${l}`) })))
@@ -393,6 +396,12 @@ function replaySide() {
                 <label class="check"><input v-model="draft.design.gold_dividers" type="checkbox" />{{ t('invite.goldDividers') }}</label>
                 <label class="check"><input v-model="draft.design.sparkles" type="checkbox" />{{ t('invite.sparkles') }}</label>
               </fieldset>
+              <fieldset class="checks">
+                <legend>{{ t('invite.ornateFrames') }}</legend>
+                <label v-for="area in ORNATE_AREAS" :key="area" class="check">
+                  <input v-model="draft.design.ornate_frames" type="checkbox" :value="area" />{{ t(`invite.ornateAreas.${area}`) }}
+                </label>
+              </fieldset>
             </div>
           </details>
 
@@ -493,6 +502,7 @@ function replaySide() {
                   {{ t(`invite.languages.${l}`) }}
                 </button>
               </div>
+              <label>{{ t('invite.routeStyle') }} <AppSelect v-model="draft.design.route_style" :options="routeOptions" /></label>
               <p v-if="!draft.content.timeline.length" class="muted small">{{ t('invite.programmeEmpty') }}</p>
               <!-- A part of the day (e.g. Morning): its place and map, then its moments. -->
               <div v-for="(part, p) in draft.content.timeline" :key="p" class="part-edit">

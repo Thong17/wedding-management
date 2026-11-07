@@ -10,6 +10,9 @@ import { INVITE_SCROLLER, roadPath, type Point } from '@/invite/road'
  * (GSAP ScrollTrigger + MotionPath, loaded only here). With "reduce motion", or if the animation can't
  * run, the road is simply drawn complete with every stop shown.
  *
+ * Or, with variant "line", a straight line down the middle: the stops sit on it, their time and title
+ * alternating either side, close to the line. Same drawing, marker and reveal.
+ *
  * The road is measured from where the stops actually land, so it follows any text length, language
  * and screen width, and is redrawn when they change.
  *
@@ -35,7 +38,16 @@ const SCROLL = {
   scrub: 0.8,
 }
 
-const props = withDefaults(defineProps<{ items: { time: string; title: string }[]; active?: boolean }>(), { active: true })
+const props = withDefaults(
+  defineProps<{
+    items: { time: string; title: string }[]
+    variant?: 'road' | 'line'
+    /** The boxes in the ornate gold frame, or a plain one. */
+    ornate?: boolean
+    active?: boolean
+  }>(),
+  { variant: 'road', ornate: true, active: true },
+)
 
 const scroller = inject(INVITE_SCROLLER, ref(null))
 const root = ref<HTMLElement | null>(null)
@@ -75,7 +87,8 @@ function measure(): boolean {
   const stops = stopCentres(box)
   const labelMin = Number.parseFloat(getComputedStyle(box).getPropertyValue('--label-min')) || 0
   const dot = box.querySelector<HTMLElement>('.dot')?.offsetWidth ?? 0
-  inward.value = stops.map((stop, i) => (i % 2 ? width - stop.x : stop.x) - dot / 2 < labelMin)
+  // On the straight line the words always sit beside it, each side of the middle.
+  inward.value = stops.map((stop, i) => props.variant === 'road' && (i % 2 ? width - stop.x : stop.x) - dot / 2 < labelMin)
   const next = roadPath(stops, width, height)
   const changed = next !== d.value
   size.value = { w: width, h: height }
@@ -178,6 +191,7 @@ onMounted(async () => {
 // Opened (the cover was in the way until now): set the animation up even if the road kept its shape.
 watch(() => props.active, () => relayout(true))
 watch(() => props.items, () => nextTick(relayout), { deep: true })
+watch(() => props.variant, () => nextTick(() => relayout(true)))
 onBeforeUnmount(() => {
   observer?.disconnect()
   cancelAnimationFrame(pending)
@@ -186,7 +200,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="road" :class="{ drawn: !!d }">
+  <div ref="root" class="road" :class="[`variant-${variant}`, { drawn: !!d }]">
     <svg v-if="d" class="road-svg" :viewBox="`0 0 ${size.w} ${size.h}`" :width="size.w" :height="size.h" aria-hidden="true">
       <path :d="d" class="road-shoulder" />
       <path :d="d" class="road-surface" />
@@ -199,10 +213,29 @@ onBeforeUnmount(() => {
         v-for="(item, i) in items"
         :key="i"
         class="moment"
-        :class="[i % 2 ? 'right' : 'left', { reached: showAll || reached[i], waiting: !showAll && !reached[i], inward: inward[i] }]"
+        :class="[
+          i % 2 ? 'right' : 'left',
+          // The box is before (left of) the dot for left stops, unless turned inward; the reverse for right ones.
+          (i % 2 === 1) === !!inward[i] ? 'box-before' : 'box-after',
+          { reached: showAll || reached[i], waiting: !showAll && !reached[i], inward: inward[i] },
+        ]"
       >
         <span class="dot">{{ i + 1 }}</span>
-        <div class="stop-text">
+        <div class="stop-text invite-frame" :class="{ 'invite-ornate': ornate }">
+          <!-- The link from the dot: an ornamental arrow (fletching, a scrolled shaft, a leaf head), drawn
+               pointing right on one centre line (y = 12), flipped when the box is left of the dot. -->
+          <svg class="link" viewBox="0 0 120 24" aria-hidden="true">
+            <g class="link-fill">
+              <path d="M1 2.5 L8 2.5 L15.5 10.6 L8.5 10.6 Z M9 2.5 L16 2.5 L23.5 10.6 L16.5 10.6 Z" />
+              <path d="M1 21.5 L8 21.5 L15.5 13.4 L8.5 13.4 Z M9 21.5 L16 21.5 L23.5 13.4 L16.5 13.4 Z" />
+              <path d="M97 12 C 100 5.5, 108 5, 120 12 C 108 19, 100 18.5, 97 12 Z" />
+            </g>
+            <g class="link-stroke">
+              <path d="M6 12 H 99" />
+              <path d="M42 12 C 47 4.5, 56 4, 58.5 8.5 C 60 11.5, 56 12.5, 54.5 9.5" />
+              <path d="M78 12 C 73 19.5, 64 20, 61.5 15.5 C 60 12.5, 64 11.5, 65.5 14.5" />
+            </g>
+          </svg>
           <span v-if="item.time" class="when">{{ item.time }}</span>
           <span class="moment-title">{{ item.title }}</span>
         </div>
@@ -222,16 +255,26 @@ onBeforeUnmount(() => {
   --stop-left: 10%;
   --stop-right: 10%;
   /* Space between one stop and the next (the road's length between them). */
-  --stop-gap: 22px;
+  --stop-gap: 44px;
   /* Each stop's row is at least this tall (taller rows = longer, gentler bends). */
-  --stop-height: 64px;
+  --stop-height: 84px;
   /* The road before the first stop and after the last one. */
   --lead: 26px;
-  /* Gap between a stop's dot and its time and title. */
-  --label-gap: 26px;
+  /* Gap between a stop's dot and the box with its time and title (the arrow spans it), and how far
+     short of the dot the arrow's line stops. */
+  --label-gap: 90px;
+  --link-inset: 6px;
+  /* How thick the arrow's shaft and curls are (in its drawing, which is 24 units tall). */
+  --link-width: 2.6;
+  /* Space inside the box, around the time and title (room for the corner flourishes), and how large
+     those flourishes are. */
+  --box-padding: 10px 16px;
+  --box-corner: 13px;
   /* A stop's time and title go out to its side's edge, unless there is less room than this between
      the dot and the edge: then they go on the inner side of the dot (e.g. with stops near the edges). */
   --label-min: 130px;
+  /* Words on the inner side of their dot keep at least this far from the other edge. */
+  --label-edge: 12px;
   /* The numbered dot on the road. */
   --dot-size: 34px;
   /* The road: paved width, the gold verge on each side, the centre line's dashes (dash, gap). */
@@ -275,22 +318,27 @@ onBeforeUnmount(() => {
 }
 
 .stops { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; display: flex; flex-direction: column; gap: var(--stop-gap); }
-/* Stops sit left or right of the centre (on the road); their words go out to that side's edge,
-   aligned to it, so nothing covers the road. */
+/* Stops sit left or right of the centre (on the road). Each one's time and title are in a small bordered
+   box beside its dot, --label-gap away, joined to the dot by a gold line with an arrow. The box goes on
+   the outer side of the dot (towards that side's edge), or on the inner side when there is too little
+   room outside (.inward); either way it sits right next to the dot, kept clear of the road. */
 .moment { position: relative; min-height: var(--stop-height); display: flex; align-items: center; }
-.moment.left { padding-right: calc(100% - var(--stop-left) + var(--label-gap)); text-align: left; }
-.moment.right { padding-left: calc(100% - var(--stop-right) + var(--label-gap)); justify-content: flex-end; text-align: right; }
-/* Too little room outside the dot: the words go on its inner side, up to the other side's stops. */
+/* Box on the dot's outer side: it sits against the dot, and may use the width out to the edge. */
+.moment.left { padding-right: calc(100% - var(--stop-left) + var(--dot-size) / 2 + var(--label-gap)); }
+.moment.right { padding-left: calc(100% - var(--stop-right) + var(--dot-size) / 2 + var(--label-gap)); }
+/* Box on the inner side: it may use the width up to --label-edge from the other edge. The other side's
+   stops are in other rows, and the road only crosses over well above or below, so no room is kept. */
 .moment.left.inward {
   padding-left: calc(var(--stop-left) + var(--dot-size) / 2 + var(--label-gap));
-  padding-right: calc(var(--stop-right) + var(--dot-size) / 2 + var(--label-gap));
+  padding-right: var(--label-edge);
 }
 .moment.right.inward {
   padding-right: calc(var(--stop-right) + var(--dot-size) / 2 + var(--label-gap));
-  padding-left: calc(var(--stop-left) + var(--dot-size) / 2 + var(--label-gap));
+  padding-left: var(--label-edge);
 }
-.moment.left.inward .stop-text { align-items: flex-start; text-align: left; }
-.moment.right.inward .stop-text { align-items: flex-end; text-align: right; }
+/* Which side of the dot the box is on: against the dot, with its text aligned towards it. */
+.moment.box-before { justify-content: flex-end; }
+.moment.box-after { justify-content: flex-start; }
 .dot {
   position: absolute;
   top: 50%;
@@ -320,19 +368,58 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 22%, transparent);
 }
 .stop-text {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  width: 100%;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--box-padding);
+  /* The frame (border; with ornate, also the inner line, corners and diamond) is the shared .invite-frame. */
+  --ornate-corner: var(--box-corner);
+  border-radius: var(--r-sm, 10px);
+  background-color: color-mix(in srgb, var(--paper) 92%, transparent);
   transition: opacity var(--reveal-time) ease, transform var(--reveal-time) cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.moment.left .stop-text { align-items: flex-start; }
-.moment.right .stop-text { align-items: flex-end; }
-/* A stop's time and title wait, hidden, until the marker reaches it. */
+.box-before .stop-text { align-items: flex-end; text-align: right; }
+.box-after .stop-text { align-items: flex-start; text-align: left; }
+/* The link from the dot to the box: the arrow across the gap, its head at the box. Its height follows
+   its length (the drawing is 5:1), so it is never squashed. */
+.link {
+  position: absolute;
+  top: 50%;
+  width: calc(var(--label-gap) - var(--link-inset));
+  aspect-ratio: 5;
+  height: auto;
+  color: var(--gold);
+  overflow: visible;
+  pointer-events: none;
+}
+.link-fill { fill: currentColor; }
+.link-stroke { fill: none; stroke: currentColor; stroke-width: var(--link-width); stroke-linecap: round; }
+.box-after .link { right: 100%; margin-right: 2px; transform: translateY(-50%); }
+.box-before .link { left: 100%; margin-left: 2px; transform: translateY(-50%) scaleX(-1); }
+/* A stop's box waits, hidden, until the marker reaches it. */
 .moment.waiting .stop-text { opacity: 0; transform: translateY(var(--reveal-rise)); }
 .when { font-weight: 700; color: var(--gold); font-size: 0.9em; letter-spacing: 0.04em; white-space: nowrap; line-height: 1; }
 .moment-title { font-size: 1.05em; line-height: 1; }
 @media (prefers-reduced-motion: reduce) {
   .dot, .stop-text { transition: none; }
 }
+
+/* ─── The straight line (variant "line") ─────────────────────────────────────────────────────────────
+ * Every stop in the middle, so the path through them is a straight line; the words alternate sides,
+ * aligned towards the line. Tune: the line's width (--line-width) and its colour below.
+ */
+.variant-line {
+  --stop-left: 50%;
+  --stop-right: 50%;
+  --line-width: 2px;
+  /* Less than the road's: here each side only has half the width. */
+  --label-gap: 48px;
+}
+.variant-line .road-shoulder { stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: var(--line-width); }
+.variant-line .road-surface,
+.variant-line .road-dash { display: none; }
+.variant-line .road-progress { stroke-width: calc(var(--line-width) + 1px); }
 </style>

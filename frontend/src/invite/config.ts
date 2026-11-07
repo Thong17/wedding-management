@@ -10,6 +10,13 @@
 
 export const FONTS = ['classic', 'romantic', 'modern', 'khmer-royal', 'khmer-elegant'] as const
 export const CARD_STYLES = ['framed', 'ornate', 'minimal'] as const
+/** How the programme's moments are drawn: a winding road, or a straight line down the middle. */
+export const ROUTE_STYLES = ['road', 'line'] as const
+/**
+ * Where the ornate gold frame (corner flourishes, a diamond on top) is used. Areas left out get a plain
+ * frame (programme, maps, gifts) or none (hero photo, names, gallery).
+ */
+export const ORNATE_AREAS = ['hero', 'names', 'programme', 'maps', 'gifts', 'gallery'] as const
 export const OPENING_STYLES = ['gatefold', 'envelope', 'fade'] as const
 export const EMBLEMS = ['monogram', 'seal', 'image'] as const
 export const LANGUAGES = ['km', 'en'] as const
@@ -21,6 +28,8 @@ export const TEXT_KEYS = ['greeting', 'title', 'partner1', 'partner2', 'message'
 
 export type InviteFont = (typeof FONTS)[number]
 export type CardStyle = (typeof CARD_STYLES)[number]
+export type RouteStyle = (typeof ROUTE_STYLES)[number]
+export type OrnateArea = (typeof ORNATE_AREAS)[number]
 export type OpeningStyle = (typeof OPENING_STYLES)[number]
 export type Emblem = (typeof EMBLEMS)[number]
 export type InviteLanguage = (typeof LANGUAGES)[number]
@@ -87,6 +96,8 @@ export interface InviteConfig {
     accent: string
     font: InviteFont
     card_style: CardStyle
+    route_style: RouteStyle
+    ornate_frames: OrnateArea[]
     gold_corners: boolean
     gold_border: boolean
     gold_dividers: boolean
@@ -157,6 +168,8 @@ export function defaultConfig(): InviteConfig {
       accent: '#c9a14a',
       font: 'classic',
       card_style: 'framed',
+      route_style: 'road',
+      ornate_frames: [...ORNATE_AREAS],
       gold_corners: true,
       gold_border: true,
       gold_dividers: true,

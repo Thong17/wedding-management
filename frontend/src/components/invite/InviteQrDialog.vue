@@ -13,7 +13,13 @@ import type { InviteLabels } from '@/invite/labels'
  * Saving: on phones the share sheet (its "Save Image" puts the code in Photos); elsewhere a download;
  * if the picture can't be fetched, it opens in a new tab to save from there.
  */
-const props = defineProps<{ qr: { url: string; label: string } | null; labels: InviteLabels; textFont: string }>()
+const props = defineProps<{
+  qr: { url: string; label: string } | null
+  labels: InviteLabels
+  textFont: string
+  /** In the ornate gold frame (with the gift QR codes), or a plain one. */
+  ornate?: boolean
+}>()
 const emit = defineEmits<{ close: [] }>()
 
 const dialog = ref<HTMLElement | null>(null)
@@ -57,7 +63,7 @@ async function save() {
 <template>
   <Transition name="qr-dialog">
     <div v-if="qr" class="qr-backdrop" @click.self="emit('close')" @keydown.esc="emit('close')">
-      <div ref="dialog" class="qr-dialog" :style="{ fontFamily: textFont }" role="dialog" aria-modal="true" aria-labelledby="qr-dialog-name" tabindex="-1">
+      <div ref="dialog" class="qr-dialog invite-frame" :class="{ 'invite-ornate': ornate }" :style="{ fontFamily: textFont }" role="dialog" aria-modal="true" aria-labelledby="qr-dialog-name" tabindex="-1">
         <p class="small-caps">{{ labels.gift }}</p>
         <h2 id="qr-dialog-name" class="qr-name">{{ qr.label || labels.gift }}</h2>
         <div class="qr-image"><img :src="qr.url" :alt="qr.label || labels.gift" /></div>
@@ -99,13 +105,17 @@ async function save() {
   gap: 12px;
   padding: 22px 20px 18px;
   border-radius: var(--r-lg);
-  background: var(--paper);
+  background-color: var(--paper);
   color: var(--ink);
-  border: 1px solid color-mix(in srgb, var(--gold) 60%, transparent);
-  box-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
+  /* The frame is the shared .invite-frame (ornate or plain). */
+  --ornate-corner: 22px;
+  --ornate-inset: 5px;
+  --ornate-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
   text-align: center;
   outline: none;
 }
+/* It scrolls when tall (so it clips): its diamond sits just inside the top edge instead of across it. */
+.qr-dialog.invite-ornate::after { top: 6px; }
 .qr-name { margin: 0; font-size: 1.35rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .qr-image { width: min(100%, 280px); padding: 12px; border-radius: var(--r-md); background: #fff; border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); }
 .qr-image img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }

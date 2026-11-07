@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch, type Directive } from 'vue'
-import type { InviteConfig, InviteImages, InviteView } from '@/invite/config'
+import type { InviteConfig, InviteImages, InviteView, OrnateArea } from '@/invite/config'
 import { formatInviteDate, formatInviteTime, type InviteLabels } from '@/invite/labels'
 import InviteDivider from './InviteDivider.vue'
 import InviteMap from './InviteMap.vue'
@@ -30,6 +30,8 @@ const props = withDefaults(
 )
 
 const design = computed(() => props.config.design)
+/** Whether an area uses the ornate gold frame (design.ornate_frames). */
+const ornate = (area: OrnateArea) => design.value.ornate_frames.includes(area)
 const lang = computed(() => props.content.language)
 const img = (id: number | null) => (id != null ? props.images[String(id)] ?? null : null)
 const hero = computed(() => img(props.content.hero_photo))
@@ -122,7 +124,7 @@ onBeforeUnmount(() => observer?.disconnect())
     <span v-if="design.sparkles" class="sparkles" aria-hidden="true"><i v-for="n in 7" :key="n" /></span>
 
     <div class="layout">
-      <figure v-if="hero" v-reveal="0" class="hero reveal-image">
+      <figure v-if="hero" v-reveal="0" class="hero reveal-image" :class="{ 'invite-frame invite-ornate ornate-arch': ornate('hero') }">
         <img :src="hero" alt="" loading="eager" />
       </figure>
 
@@ -131,7 +133,7 @@ onBeforeUnmount(() => observer?.disconnect())
         <h1 v-reveal="2" class="title">{{ content.title || labels.defaultTitle }}</h1>
         <InviteDivider v-if="design.gold_dividers" v-reveal="2" />
 
-        <div v-reveal="3" class="couple" :style="{ fontFamily: namesFont }">
+        <div v-reveal="3" class="couple" :class="{ 'invite-frame invite-ornate': ornate('names') }" :style="{ fontFamily: namesFont }">
           <span class="name">{{ content.partner1 }}</span>
           <span v-if="content.partner1 && content.partner2" class="amp">{{ labels.and }}</span>
           <span class="name">{{ content.partner2 }}</span>
@@ -161,7 +163,8 @@ onBeforeUnmount(() => observer?.disconnect())
               :key="qr.url"
               v-reveal="i + 2"
               type="button"
-              class="bank-qr"
+              class="bank-qr invite-frame"
+              :class="{ 'invite-ornate': ornate('gifts') }"
               :aria-label="qr.label || labels.gift"
               @click="emit('openQr', qr)"
             >
@@ -187,8 +190,9 @@ onBeforeUnmount(() => observer?.disconnect())
             <span v-if="part.address" class="address">{{ part.address }}</span>
           </p>
         </header>
-        <InviteRoad v-if="part.items.length" :items="part.items" :active="active && settled" />
+        <InviteRoad v-if="part.items.length" :items="part.items" :variant="design.route_style" :ornate="ornate('programme')" :active="active && settled" />
         <InviteMap
+          :ornate="ornate('maps')"
           v-if="part.maps_url || part.place || part.address"
           v-reveal="0"
           :maps-url="part.maps_url"
@@ -203,8 +207,17 @@ onBeforeUnmount(() => observer?.disconnect())
       <InviteDivider v-if="design.gold_dividers" v-reveal="0" />
       <h2 v-reveal="0" class="small-caps">{{ labels.gallery }}</h2>
       <div class="grid">
-        <button v-for="(src, i) in gallery" :key="src" v-reveal="i" type="button" class="thumb reveal-image" @click="viewing = i">
-          <img :src="src" alt="" loading="lazy" />
+        <button
+          v-for="(src, i) in gallery"
+          :key="src"
+          v-reveal="i"
+          type="button"
+          class="thumb reveal-image"
+          :class="{ 'invite-frame invite-ornate': ornate('gallery') }"
+          @click="viewing = i"
+        >
+          <!-- The photo in a window (clipped), inside the frame when it has one (which must not clip). -->
+          <span class="thumb-view"><img :src="src" alt="" loading="lazy" /></span>
         </button>
       </div>
     </section>
@@ -274,6 +287,23 @@ onBeforeUnmount(() => observer?.disconnect())
   background: var(--paper);
   box-shadow: 0 16px 40px rgb(0 0 0 / 0.18);
 }
+/* Ornate: the arch is the frame (gold border, inner line, flourishes in the bottom corners, the diamond
+   at its peak), and the photo sits inside it with a thin gold line of its own. */
+.hero.invite-ornate {
+  --ornate-corner: 22px;
+  --ornate-inset: 5px;
+  --ornate-shadow: 0 16px 40px rgb(0 0 0 / 0.18);
+  padding: 10px;
+  border-radius: 999px 999px 12px 12px;
+  corner-shape: round;
+  background-color: var(--paper);
+}
+.hero.invite-ornate img {
+  padding: 0;
+  border-radius: 999px 999px 6px 6px;
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  box-shadow: none;
+}
 .body { display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 3cqi, 22px); max-width: 620px; }
 
 .greeting { margin: 0; font-size: 0.95em; max-width: 34em; opacity: 0.85; }
@@ -287,6 +317,17 @@ onBeforeUnmount(() => observer?.disconnect())
   color: var(--gold);
 }
 .couple { display: flex; flex-direction: column; align-items: center; gap: 0.1em; line-height: 1.2; }
+/* Ornate: the names on a framed plaque. */
+.couple.invite-ornate {
+  --ornate-corner: 20px;
+  --ornate-inset: 5px;
+  --ornate-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 10%, transparent);
+  width: fit-content;
+  max-width: 100%;
+  padding: clamp(16px, 4cqi, 26px) clamp(26px, 8cqi, 52px);
+  border-radius: var(--r-md);
+  background-color: color-mix(in srgb, var(--paper) 94%, transparent);
+}
 .name { font-size: clamp(2.2rem, 9cqi, 4rem); font-weight: 500; }
 .amp { font-size: clamp(1.4rem, 5cqi, 2.2rem); color: var(--gold); font-style: italic; }
 
@@ -311,16 +352,18 @@ onBeforeUnmount(() => observer?.disconnect())
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: clamp(8px, 2.5cqi, 12px);
+  /* White (so the code scans whatever the background), in the shared frame. Padding leaves room for the
+     ornate frame's corner flourishes around the code. */
+  --ornate-corner: 14px;
+  --ornate-shadow: 0 10px 26px rgb(0 0 0 / 0.1);
+  padding: clamp(14px, 4cqi, 18px);
   border-radius: var(--r-md);
-  background: #fff;
-  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
-  box-shadow: 0 10px 26px rgb(0 0 0 / 0.1);
+  background-color: #fff;
   color: #2b1418;
   text-decoration: none;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.bank-qr:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgb(0 0 0 / 0.14); }
+.bank-qr:hover { transform: translateY(-2px); --ornate-shadow: 0 14px 32px rgb(0 0 0 / 0.14); }
 .bank-qr img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; }
 .bank-label { font-size: 0.9em; font-weight: 600; text-align: center; line-height: 1.3; }
 .gift-hint { margin: 0; font-size: 0.85em; opacity: 0.75; max-width: 28em; }
@@ -372,6 +415,11 @@ onBeforeUnmount(() => observer?.disconnect())
 .gallery { margin-top: clamp(28px, 6cqi, 56px); display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .grid { display: grid; width: 100%; gap: 10px; grid-template-columns: repeat(2, 1fr); }
 .thumb { padding: 0; border: 0; background: none; border-radius: var(--r-sm); overflow: hidden; cursor: zoom-in; aspect-ratio: 1; }
+.thumb-view { display: block; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; }
+/* Ornate: the photo is mounted in the frame, which must not clip (its diamond sits across the top). */
+.thumb.invite-ornate { --ornate-corner: 14px; --ornate-inset: 4px; padding: 7px; overflow: visible; background-color: var(--paper); }
+.thumb.invite-ornate .thumb-view { border-radius: calc(var(--r-sm) - 4px); }
+.thumb.invite-ornate.reveal-image.reveal.shown { clip-path: none; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; display: block; }
 .thumb:hover img { transform: scale(1.05); }
 

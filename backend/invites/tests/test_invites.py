@@ -79,12 +79,23 @@ class InviteTests(APITestCase):
         self.assertNotIn("nonsense", draft["design"])
         self.assertEqual(draft["content"]["text"]["en"]["greeting"], "Welcome")
         self.assertEqual(draft["design"]["font"], "classic")  # default filled in
+        self.assertEqual(draft["design"]["ornate_frames"], ["hero", "names", "programme", "maps", "gifts", "gallery"])
         self.assertEqual(res.data["revision"], 1)
+
+    def test_ornate_frames_keep_the_chosen_areas_once_in_order(self):
+        res = self.save({"design": {"ornate_frames": ["gallery", "names", "gallery"]}})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["draft"]["design"]["ornate_frames"], ["names", "gallery"])
+        res = self.save({"design": {"ornate_frames": []}}, revision=1)
+        self.assertEqual(res.data["draft"]["design"]["ornate_frames"], [])
 
     def test_invalid_values_are_refused_by_field(self):
         cases = [
             ({"design": {"background": "red"}}, "design.background"),
             ({"design": {"font": "comic-sans"}}, "design.font"),
+            ({"design": {"ornate_frames": ["names", "everywhere"]}}, "design.ornate_frames"),
+            ({"design": {"ornate_frames": "names"}}, "design.ornate_frames"),
+            ({"design": {"route_style": "zigzag"}}, "design.route_style"),
             ({"content": {"timeline": [{"maps_url": "javascript:alert(1)"}]}}, "content.timeline.0.maps_url"),
             ({"content": {"gallery": [999]}}, "content.gallery"),
             ({"content": {"text": {"en": {"title": "x" * 121}}}}, "content.text.en.title"),

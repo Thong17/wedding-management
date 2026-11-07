@@ -23,6 +23,11 @@ TEMPLATES = ("classic",)
 # Font pairings (names / text). Each also covers Khmer script.
 FONTS = ("classic", "romantic", "modern", "khmer-royal", "khmer-elegant")
 CARD_STYLES = ("framed", "ornate", "minimal")
+# How the programme's moments are drawn: a winding road, or a straight line down the middle.
+ROUTE_STYLES = ("road", "line")
+# Where the ornate gold frame (corner flourishes, a diamond) is used. Areas left out get a plain frame
+# (programme, maps, gifts) or none (hero photo, names, gallery).
+ORNATE_AREAS = ("hero", "names", "programme", "maps", "gifts", "gallery")
 OPENING_STYLES = ("gatefold", "envelope", "fade")
 EMBLEMS = ("seal", "monogram", "image")
 LANGUAGES = ("km", "en")
@@ -44,6 +49,17 @@ def _choice(options):
         if value not in options:
             raise ValidationError({field: f"Choose one of: {', '.join(options)}."})
         return value
+
+    return check
+
+
+def _choices(options):
+    """A list of some of `options`, each at most once, kept in the options' order."""
+
+    def check(value, field):
+        if not isinstance(value, list) or any(v not in options for v in value):
+            raise ValidationError({field: f"Choose from: {', '.join(options)}."})
+        return [o for o in options if o in value]
 
     return check
 
@@ -173,6 +189,8 @@ SCHEMA = {
         "accent": ("#c9a14a", _color),
         "font": ("classic", _choice(FONTS)),
         "card_style": ("framed", _choice(CARD_STYLES)),
+        "route_style": ("road", _choice(ROUTE_STYLES)),
+        "ornate_frames": (list(ORNATE_AREAS), _choices(ORNATE_AREAS)),
         "gold_corners": (True, _bool),
         "gold_border": (True, _bool),
         "gold_dividers": (True, _bool),

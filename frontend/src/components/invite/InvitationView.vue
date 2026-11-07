@@ -5,6 +5,7 @@ import { viewIn, type InviteConfig, type InviteImages, type InviteLanguage } fro
 import { FONT_PAIRINGS, loadFonts } from '@/invite/fonts'
 import { inviteLabels } from '@/invite/labels'
 import { INVITE_SCROLLER } from '@/invite/road'
+import '@/invite/ornate.css'
 import InviteCard from './InviteCard.vue'
 import InviteCover from './InviteCover.vue'
 import InviteParticles from './InviteParticles.vue'
@@ -226,7 +227,7 @@ defineExpose({ replay, close, phase, language })
         </button>
       </Transition>
     </div>
-    <InviteQrDialog :qr="bankQr" :labels="labels" :text-font="pairing.text" @close="bankQr = null" />
+    <InviteQrDialog :qr="bankQr" :ornate="config.design.ornate_frames.includes('gifts')" :labels="labels" :text-font="pairing.text" @close="bankQr = null" />
   </div>
 </template>
 
