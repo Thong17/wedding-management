@@ -53,7 +53,7 @@ describe('invite config', () => {
   it('reads a design from before bilingual words in the new shape', () => {
     const old = { content: { language: 'en', title: 'Old title', partner1: 'Sokha', venue: 'Old hall', date: '2026-12-12' } }
     const config = withDefaults(old as never)
-    expect(config.content.text.en).toEqual({ title: 'Old title', partner1: 'Sokha', partner2: '', greeting: '', message: '' })
+    expect(config.content.text.en).toEqual({ title: 'Old title', partner1: 'Sokha', partner2: '', greeting: '', message: '', thanks: '', apology: '' })
     expect(config.content.text.km.title).toBe('')
     // Fields the editor no longer has (date, venue: now in the programme) are left out.
     expect(Object.keys(config.content).sort()).toEqual(['bank_qrs', 'gallery', 'hero_photo', 'language', 'text', 'timeline'])

@@ -8,9 +8,10 @@ import type { InviteLanguage } from './config'
 const LABELS = {
   km: {
     tapToOpen: 'ចុចដើម្បីបើកលិខិតអញ្ជើញ',
-    invitation: 'លិខិតអញ្ជើញ',
+    invitation: 'លិខិតអញ្ចើញអាពាហ៍ពិពាហ៍',
     defaultTitle: 'សិរីមង្គលអាពាហ៍ពិពាហ៍',
-    defaultGreeting: 'យើងខ្ញុំមានកិត្តិយសសូមគោរពអញ្ជើញ ឯកឧត្តម លោកជំទាវ លោក លោកស្រី អ្នកនាងកញ្ញា អញ្ជើញចូលរួមជាអធិបតី និងជាភ្ញៀវកិត្តិយស',
+    greetingTitle: 'សូមគោរពអញ្ចើញ',
+    defaultGreeting: 'ឯកឧត្តម លោកជំទាវ លោក លោកស្រី អ្នកនាងកញ្ញា អញ្ជើញចូលរួមជាអធិបតី និងជាភ្ញៀវកិត្តិយស',
     and: 'និង',
     date: 'កាលបរិច្ឆេទ',
     time: 'វេលាម៉ោង',
@@ -28,6 +29,14 @@ const LABELS = {
     preparing: 'កំពុងរៀបចំលិខិតអញ្ជើញ…',
     programme: 'កម្មវិធី',
     gift: 'ចំណងដៃ',
+    defaultMessage:
+      'វត្តមានរបស់លោកអ្នក គឺជាកិត្តិយស និងសុភមង្គលដ៏ធំធេងសម្រាប់ក្រុមគ្រួសារយើងខ្ញុំ។',
+    thanksTitle: 'លិខិតសូមថ្លែងអំណរគុណ',
+    defaultThanks:
+      'យើងខ្ញុំសូមថ្លែងអំណរគុណយ៉ាងជ្រាលជ្រៅចំពោះការអញ្ជើញចូលរួមជាអធិបតី និងជាភ្ញៀវកិត្តិយសក្នុងកម្មវិធីរបស់យើងខ្ញុំ។ យើងខ្ញុំសូមគោរពជូនពរដល់ភ្ញៀវកិត្តិយសទាំងអស់ សូមប្រកបតែសុខភាពល្អ មានជ័យជំនះគ្រប់ភារកិច្ច និងមានសុភមង្គលក្នុងក្រុមគ្រួសារជានិច្ចនិរន្តរ៍។',
+    apologyTitle: 'លិខិតសូមអភ័យទោស',
+    defaultApology:
+      'យើងខ្ញុំសូមមេត្តាអធ្យាស្រ័យ និងអភ័យទោសពីសំណាក់ ឯកឧត្តម លោកជំទាវ អ្នកឧកញ៉ា ឧកញ៉ា លោក លោកស្រី អ្នកនាង កញ្ញា និងភ្ញៀវកិត្តិយសទាំងអស់ ដោយយើងខ្ញុំពុំបានគោរពជូនលិខិតអញ្ជើញដោយផ្ទាល់ៗ យើងខ្ញុំសង្ឃឹមថាភ្ញៀវកិត្តិយសទាំងអស់នឹងអញ្ជើញចូលរួមក្នុងកម្មវិធីរបស់យើងខ្ញុំជាក់ជាមិនខាន។',
     giftHint: 'ចុចលើកូដ QR ដើម្បីរក្សាទុក ហើយស្កេនក្នុងកម្មវិធីធនាគាររបស់អ្នក។',
     saveToDevice: 'រក្សាទុកក្នុងឧបករណ៍',
     saving: 'កំពុងរក្សាទុក…',
@@ -38,7 +47,7 @@ const LABELS = {
     soundOff: 'បិទសំឡេង',
     switchLanguage: 'Switch to English',
     otherLanguage: 'EN',
-    serviceMadeWith: 'លិខិតអញ្ជើញនេះបង្កើតដោយ Wedding Desk',
+    serviceMadeWith: 'លិខិតអញ្ជើញនេះបង្កើតដោយ 💝 Wedding Desk',
     serviceTitle: 'បង្កើតលិខិតអញ្ជើញឌីជីថលរបស់អ្នក',
     serviceText: 'លិខិតអញ្ជើញអាពាហ៍ពិពាហ៍ឌីជីថលដ៏ស្រស់ស្អាត មានកម្មវិធី ផែនទី QR ចំណងដៃ រូបថត និងតន្ត្រី ព្រមទាំងប្រព័ន្ធកត់ត្រាចំណងដៃនៅថ្ងៃមង្គលការ។',
     serviceFeatures: 'លិខិតអញ្ជើញឌីជីថល · ភាសាខ្មែរ និងអង់គ្លេស · កត់ត្រាចំណងដៃ',
@@ -48,6 +57,7 @@ const LABELS = {
     tapToOpen: 'Tap to open the invitation',
     invitation: 'Wedding invitation',
     defaultTitle: 'The Wedding Celebration',
+    greetingTitle: 'You are cordially invited',
     defaultGreeting: 'Together with their families, request the pleasure of your company at their wedding',
     and: '&',
     date: 'Date',
@@ -66,6 +76,14 @@ const LABELS = {
     preparing: 'Preparing your invitation…',
     programme: 'Programme',
     gift: 'Wedding gift',
+    defaultMessage:
+      'Your presence would be the greatest gift as we begin our life together. We would be honoured to celebrate this special day with you.',
+    thanksTitle: 'With our heartfelt thanks',
+    defaultThanks:
+      'We are deeply grateful to you for honouring our celebration as our guests of honour. We wish you all good health, success in all your endeavours, and lasting happiness for your families.',
+    apologyTitle: 'With our apologies',
+    defaultApology:
+      'We kindly ask the forgiveness of all our distinguished guests for not delivering this invitation to you in person. We sincerely hope you will all be able to join us and share in our celebration.',
     giftHint: 'Tap a QR code to save it, then scan it in your banking app.',
     saveToDevice: 'Save to device',
     saving: 'Saving…',
@@ -76,7 +94,7 @@ const LABELS = {
     soundOff: 'Turn sound off',
     switchLanguage: 'ប្ដូរទៅភាសាខ្មែរ',
     otherLanguage: 'ខ្មែរ',
-    serviceMadeWith: 'This invitation was made with Wedding Desk',
+    serviceMadeWith: 'This invitation was made with 💝 Wedding Desk',
     serviceTitle: 'Create your own digital invitation',
     serviceText: 'Beautiful wedding e-invitations with your programme, maps, gift QR codes, photos and music, plus a gift desk to record every gift on the day.',
     serviceFeatures: 'Digital invitations · Khmer & English · Gift recording',

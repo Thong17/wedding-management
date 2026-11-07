@@ -439,8 +439,10 @@ function replaySide() {
                 {{ t('invite.greeting') }}
                 <textarea v-model="words.greeting" rows="3" maxlength="200" :placeholder="defaults.defaultGreeting" />
               </label>
-              <label>{{ t('invite.message') }} <textarea v-model="words.message" rows="6" maxlength="2000" :placeholder="otherWords.message" /></label>
-              <!-- Bank QR codes for gifts, shown below the message. -->
+              <label>{{ t('invite.message') }} <textarea v-model="words.message" rows="6" maxlength="2000" :placeholder="otherWords.message || defaults.defaultMessage" /></label>
+              <label>{{ t('invite.thanks') }} <textarea v-model="words.thanks" rows="5" maxlength="2000" :placeholder="otherWords.thanks || defaults.defaultThanks" /></label>
+              <label>{{ t('invite.apology') }} <textarea v-model="words.apology" rows="5" maxlength="2000" :placeholder="otherWords.apology || defaults.defaultApology" /></label>
+              <!-- Bank QR codes for gifts, at the very bottom below the apology note. -->
               <div class="bank-edit">
                 <span class="picker-label">{{ t('invite.bankQrs') }}</span>
                 <div v-for="slot in bankSlots" :key="slot" class="bank-slot">

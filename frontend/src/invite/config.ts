@@ -26,7 +26,7 @@ export const LANGUAGES = ['km', 'en'] as const
 export const MUSIC = ['musicbox', 'harp', 'upload', 'none'] as const
 export const MAX_GALLERY = 12
 export const MAX_BANK_QRS = 2
-export const TEXT_KEYS = ['greeting', 'title', 'partner1', 'partner2', 'message'] as const
+export const TEXT_KEYS = ['greeting', 'title', 'partner1', 'partner2', 'message', 'thanks', 'apology'] as const
 
 export type InviteFont = (typeof FONTS)[number]
 export type CardStyle = (typeof CARD_STYLES)[number]
@@ -121,7 +121,7 @@ export interface InviteConfig {
     /** Picture ids (see images maps). */
     hero_photo: number | null
     gallery: number[]
-    /** Bank QR codes for gifts (at most two), shown below the message. */
+    /** Bank QR codes for gifts (at most two), at the very bottom, below the apology note. */
     bank_qrs: BankQr[]
   }
   animation: {
@@ -165,7 +165,7 @@ export type PreviewDevice = 'phone' | 'tablet' | 'desktop'
 /** Upload id (as a string key) → URL: pictures and the song. */
 export type InviteImages = Record<string, string>
 
-export const emptyText = (): InviteText => ({ greeting: '', title: '', partner1: '', partner2: '', message: '' })
+export const emptyText = (): InviteText => ({ greeting: '', title: '', partner1: '', partner2: '', message: '', thanks: '', apology: '' })
 
 export function defaultConfig(): InviteConfig {
   return {
@@ -248,7 +248,7 @@ const other = (language: InviteLanguage): InviteLanguage => (language === 'km' ?
 // Left blank in one language, these show the other language's words (the names, the message), so a
 // one-language invitation still reads fully. A blank title or greeting shows the language's own default
 // wording instead (invite/labels.ts).
-const BORROWED: readonly string[] = ['partner1', 'partner2', 'message']
+const BORROWED: readonly string[] = ['partner1', 'partner2', 'message', 'thanks', 'apology']
 
 /**
  * What the invitation shows in `language`: its words there (some borrowed from the other language when

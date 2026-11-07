@@ -745,6 +745,8 @@ export default {
     time: "Time",
     address: "Address",
     message: "Message to guests",
+    thanks: "Thank-you note (at the bottom)",
+    apology: "Apology note (at the very bottom)",
     bankQrs: "Bank QR codes for gifts (up to 2)",
     bankQrN: "Bank QR {n}",
     bankLabel: "Label",

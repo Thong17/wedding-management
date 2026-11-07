@@ -129,6 +129,9 @@ TEXT_FIELDS = {
     "partner1": _text(80),
     "partner2": _text(80),
     "message": _text(2000),
+    # A thank-you note, then a note of apology, at the very bottom (for not inviting in person), above the gift QR codes.
+    "thanks": _text(2000),
+    "apology": _text(2000),
 }
 
 # The programme (content.timeline): parts of the day, e.g. the morning ceremony at the bride's home and

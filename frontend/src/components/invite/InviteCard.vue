@@ -36,6 +36,9 @@ const lang = computed(() => props.content.language)
 const img = (id: number | null) => (id != null ? props.images[String(id)] ?? null : null)
 const hero = computed(() => img(props.content.hero_photo))
 const gallery = computed(() => props.content.gallery.map((id) => img(id)).filter((u): u is string => !!u))
+// The thank-you and apology notes: the couple's own words, or the language's default wording.
+const thanks = computed(() => props.content.thanks || props.labels.defaultThanks)
+const apology = computed(() => props.content.apology || props.labels.defaultApology)
 const bankQrs = computed(() =>
   props.content.bank_qrs.flatMap((qr) => {
     const url = img(qr.image)
@@ -132,6 +135,7 @@ onBeforeUnmount(() => observer?.disconnect())
       </figure>
 
       <div class="body">
+        <p v-reveal="0" class="small-caps">{{ labels.greetingTitle }}</p>
         <p v-reveal="1" class="greeting">{{ content.greeting || labels.defaultGreeting }}</p>
         <h1 v-reveal="2" class="title">{{ content.title || labels.defaultTitle }}</h1>
         <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="2" />
@@ -155,28 +159,7 @@ onBeforeUnmount(() => observer?.disconnect())
           </div>
         </dl>
 
-        <p v-if="content.message" v-reveal="1" class="message">{{ content.message }}</p>
-
-        <!-- Bank QR codes for gifts. Tapping one opens it full size, to save and scan in a banking app. -->
-        <section v-if="bankQrs.length" class="gift">
-          <h2 v-reveal="1" class="small-caps">{{ labels.gift }}</h2>
-          <div class="bank-qrs">
-            <button
-              v-for="(qr, i) in bankQrs"
-              :key="qr.url"
-              v-reveal="i + 2"
-              type="button"
-              class="bank-qr invite-frame"
-              :class="{ 'invite-ornate': ornate('gifts') }"
-              :aria-label="qr.label || labels.gift"
-              @click="emit('openQr', qr)"
-            >
-              <img :src="qr.url" alt="" loading="lazy" />
-              <span v-if="qr.label" class="bank-label">{{ qr.label }}</span>
-            </button>
-          </div>
-          <p v-reveal="3" class="gift-hint">{{ labels.giftHint }}</p>
-        </section>
+        <p v-reveal="1" class="message">{{ content.message || labels.defaultMessage }}</p>
       </div>
     </div>
 
@@ -225,6 +208,34 @@ onBeforeUnmount(() => observer?.disconnect())
       </div>
     </section>
 
+    <!-- The very bottom: the thank-you note, the apology note (for not inviting in person), then the bank QR codes for gifts.
+         Tapping a code opens it full size, to save and scan in a banking app. -->
+    <section class="closing">
+      <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="0" />
+      <h2 v-reveal="0" class="small-caps">{{ labels.thanksTitle }}</h2>
+      <p v-reveal="1" class="apology">{{ thanks }}</p>
+      <h2 v-reveal="0" class="small-caps note-title">{{ labels.apologyTitle }}</h2>
+      <p v-reveal="1" class="apology">{{ apology }}</p>
+      <div v-if="bankQrs.length" class="gift">
+        <h2 v-reveal="1" class="small-caps">{{ labels.gift }}</h2>
+        <div class="bank-qrs">
+          <button
+            v-for="(qr, i) in bankQrs"
+            :key="qr.url"
+            v-reveal="i + 2"
+            type="button"
+            class="bank-qr invite-frame"
+            :class="{ 'invite-ornate': ornate('gifts') }"
+            :aria-label="qr.label || labels.gift"
+            @click="emit('openQr', qr)"
+          >
+            <img :src="qr.url" alt="" loading="lazy" />
+            <span v-if="qr.label" class="bank-label">{{ qr.label }}</span>
+          </button>
+        </div>
+        <p v-reveal="3" class="gift-hint">{{ labels.giftHint }}</p>
+      </div>
+    </section>
   </article>
 </template>
 
@@ -246,6 +257,9 @@ onBeforeUnmount(() => observer?.disconnect())
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.18), 0 2px 6px rgb(0 0 0 / 0.08);
   border-radius: var(--r-sm);
 }
+/* Clear of the gold lines (14px in on framed, 26px on ornate), with room to spare, even on a phone. */
+.style-framed.with-border { padding-inline: clamp(34px, 7cqi, 64px); }
+.style-ornate.with-border { padding-inline: clamp(42px, 7cqi, 64px); }
 .style-framed.with-border { outline: 1px solid color-mix(in srgb, var(--gold) 70%, transparent); outline-offset: -14px; }
 .style-ornate.with-border {
   outline: 3px double var(--gold);
@@ -345,6 +359,19 @@ onBeforeUnmount(() => observer?.disconnect())
 .details dd { margin: 0; display: flex; flex-direction: column; }
 .address { opacity: 0.8; font-size: 0.92em; }
 .message { margin: 0; white-space: pre-line; max-width: 32em; font-style: italic; }
+
+/* The very bottom: the apology note, then the gift QR codes. */
+.closing {
+  margin: clamp(28px, 6cqi, 56px) auto 0;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.apology { margin: 0; white-space: pre-line; max-width: 34em; line-height: 1.75; }
+.closing .note-title { margin-top: clamp(6px, 1.5cqi, 12px); }
+.closing .gift { margin-top: clamp(8px, 2cqi, 16px); }
 
 /* Bank QR codes: white cards (so they scan whatever the background), side by side. */
 .gift { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
