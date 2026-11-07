@@ -6,6 +6,7 @@ import { FONT_PAIRINGS, loadFonts } from '@/invite/fonts'
 import { inviteLabels } from '@/invite/labels'
 import { INVITE_SCROLLER } from '@/invite/road'
 import '@/invite/ornate.css'
+import '@/invite/apple-khmer.css'
 import InviteCard from './InviteCard.vue'
 import InviteCover from './InviteCover.vue'
 import InviteParticles from './InviteParticles.vue'
@@ -341,7 +342,7 @@ defineExpose({ replay, close, phase, language })
 .control:hover { background: var(--paper); transform: translateY(-1px); }
 .control:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .control svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.lang-name { font-family: 'Suwannaphum', 'Noto Serif Khmer', 'Cormorant Garamond', Georgia, serif; font-size: 0.85rem; font-weight: 400; line-height: 1; }
+.lang-name { font-family: 'Apple Khmer', 'Suwannaphum', 'Noto Serif Khmer', 'Cormorant Garamond', Georgia, serif; font-size: 0.85rem; font-weight: 400; line-height: 1; }
 .lang-name:lang(en) { font-weight: 600; letter-spacing: 0.04em; }
 .lang-name:lang(km) { font-size: 1rem; line-height: 1.4; }
 /* The close button opens up its space first, gliding the other buttons to the left, then fades in;

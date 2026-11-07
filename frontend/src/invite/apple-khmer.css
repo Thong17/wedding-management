@@ -1,0 +1,14 @@
+/*
+ * "Apple Khmer": Apple's built-in Khmer font (Khmer Sangam MN), for Khmer letters only.
+ *
+ * Safari on iPhone, iPad and Mac draws some Khmer syllables wrongly with web fonts (e.g. ភ្ញៀវ: the
+ * subscript ្ញ and the vowel ៀ run into each other), but correctly with its own Khmer font. Listed
+ * before the web fonts in the invitation's text fonts (src/invite/fonts.ts), so on Apple devices Khmer
+ * uses it; other devices don't have it and fall through to the web font. The unicode-range keeps it to
+ * Khmer, so English text keeps its own fonts everywhere.
+ */
+@font-face {
+  font-family: 'Apple Khmer';
+  src: local('Khmer Sangam MN'), local('KhmerSangamMN'), local('Khmer MN'), local('KhmerMN');
+  unicode-range: U+1780-17FF, U+19E0-19FF, U+200C-200D, U+25CC;
+}

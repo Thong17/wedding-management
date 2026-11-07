@@ -23,7 +23,8 @@ export interface FontPairing {
   faces: string[]
 }
 
-const KHMER_TEXT = "'Suwannaphum'"
+// Apple's own Khmer font first (Apple devices only, Khmer letters only: see apple-khmer.css), then the web font.
+const KHMER_TEXT = "'Apple Khmer', 'Suwannaphum'"
 const SERIF = "Georgia, 'Times New Roman', serif"
 
 export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
@@ -85,8 +86,8 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
   },
   'khmer-elegant': {
     names: `'Noto Serif Khmer', 'Playfair Display', ${SERIF}`,
-    text: `'Noto Serif Khmer', 'Cormorant Garamond', ${SERIF}`,
-    latin: { names: `'Playfair Display', 'Noto Serif Khmer', ${SERIF}`, text: `'Cormorant Garamond', 'Noto Serif Khmer', ${SERIF}` },
+    text: `'Apple Khmer', 'Noto Serif Khmer', 'Cormorant Garamond', ${SERIF}`,
+    latin: { names: `'Playfair Display', 'Noto Serif Khmer', ${SERIF}`, text: `'Cormorant Garamond', 'Apple Khmer', 'Noto Serif Khmer', ${SERIF}` },
     load: () =>
       Promise.all([
         import('@fontsource/noto-serif-khmer/400.css'),
