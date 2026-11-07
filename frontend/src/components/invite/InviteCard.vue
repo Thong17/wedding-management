@@ -425,7 +425,7 @@ onBeforeUnmount(() => observer?.disconnect())
   color: var(--gold);
   font-weight: 600;
 }
-.day:lang(km) { letter-spacing: 0.02em; text-transform: none; }
+.day:lang(km) { letter-spacing: 0; text-transform: none; }
 .part-place { margin: 4px 0 0; display: flex; flex-direction: column; }
 
 /* Reveal on scroll (see vReveal): parts rise into view; pictures uncover from the bottom. */
@@ -498,7 +498,7 @@ onBeforeUnmount(() => observer?.disconnect())
   .grid { grid-template-columns: repeat(4, 1fr); }
 }
 /* Khmer script: wide letter-spacing breaks its stacked consonants apart. */
-.title:lang(km), .details dt:lang(km), .small-caps:lang(km) { letter-spacing: 0.02em; text-transform: none; }
+.title:lang(km), .details dt:lang(km), .small-caps:lang(km) { letter-spacing: 0; text-transform: none; }
 /* Khmer fonts have no italic; a slanted fake reads poorly. */
 .message:lang(km), .amp:lang(km) { font-style: normal; }
 @media (prefers-reduced-motion: reduce) {

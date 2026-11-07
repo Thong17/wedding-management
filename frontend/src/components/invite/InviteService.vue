@@ -53,7 +53,7 @@ const TELEGRAM = 'https://t.me/+855966176917'
   color: var(--gold);
   font-weight: 600;
 }
-.made-with:lang(km) { letter-spacing: 0.02em; text-transform: none; font-size: 0.85rem; }
+.made-with:lang(km) { letter-spacing: 0; text-transform: none; font-size: 0.85rem; }
 .service-card {
   display: flex;
   flex-direction: column;

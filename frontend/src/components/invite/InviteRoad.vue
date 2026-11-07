@@ -37,6 +37,9 @@ const SCROLL = {
   /** Seconds the marker takes to catch up with the scroll: 0 = glued to it, 1–2 = floaty. */
   scrub: 0.8,
 }
+// The drawing only goes forward: scrolling back up leaves it where it got to, and once it has reached
+// the end it stays complete. Kept across redraws (resize, language, fonts) so it never starts over.
+let furthest = 0
 
 const props = withDefaults(
   defineProps<{
@@ -139,7 +142,7 @@ async function animate() {
     showAll.value = true
     return
   }
-  const { gsap } = lib
+  const { gsap, ScrollTrigger } = lib
   await nextTick()
   // How far along the road each stop sits, sampled from the path, so stops light up as the marker passes.
   const length = path.getTotalLength()
@@ -155,25 +158,35 @@ async function animate() {
   showAll.value = false
   context = gsap.context(() => {
     gsap.set(path, { strokeDasharray: length, strokeDashoffset: length })
-    const timeline = gsap.timeline({
-      defaults: { ease: 'none' },
-      scrollTrigger: {
-        trigger: root.value,
-        scroller: scroller.value ?? undefined,
-        // clamp(): a road near the top or the end of the invitation, which can't scroll as far as asked,
-        // still plays in full within the scroll there is.
-        start: `clamp(${SCROLL.start})`,
-        end: `clamp(${SCROLL.end})`,
-        scrub: SCROLL.scrub,
-        onUpdate: (self) => {
-          reached.value = stopAt.map((at) => self.progress >= at - 0.01)
-          // The marker appears once the guest starts along this road (not parked at its corner before).
-          if (marker.value) marker.value.style.opacity = self.progress > 0.002 ? '1' : '0'
-        },
-      },
-    })
+    // Played by hand (not scrubbed), so it can follow the scroll forward only.
+    const timeline = gsap.timeline({ defaults: { ease: 'none' }, paused: true })
     timeline.to(path, { strokeDashoffset: 0 }, 0)
     timeline.to(marker.value, { motionPath: { path, align: path, alignOrigin: [0.5, 0.5] } }, 0)
+    const show = (progress: number) => {
+      reached.value = stopAt.map((at) => progress >= at - 0.01)
+      // The marker appears once the guest starts along this road (not parked at its corner before).
+      if (marker.value) marker.value.style.opacity = progress > 0.002 ? '1' : '0'
+    }
+    // Where it had got to before a redraw.
+    timeline.progress(furthest)
+    show(furthest)
+    if (furthest >= 1) return
+    const trigger = ScrollTrigger.create({
+      trigger: root.value,
+      scroller: scroller.value ?? undefined,
+      // clamp(): a road near the top or the end of the invitation, which can't scroll as far as asked,
+      // still plays in full within the scroll there is.
+      start: `clamp(${SCROLL.start})`,
+      end: `clamp(${SCROLL.end})`,
+      onUpdate: (self) => {
+        if (self.progress <= furthest) return
+        furthest = self.progress
+        show(furthest)
+        // Glide to the new point (as the scrub did), then stop listening once at the end.
+        gsap.to(timeline, { progress: furthest, duration: SCROLL.scrub, ease: 'power3.out', overwrite: true })
+        if (furthest >= 1) trigger.kill()
+      },
+    })
   }, root.value)
 }
 
@@ -206,7 +219,14 @@ onMounted(async () => {
 })
 // Opened (the cover was in the way until now): set the animation up even if the road kept its shape.
 watch(() => props.active, () => relayout(true))
-watch(() => props.items, () => nextTick(relayout), { deep: true })
+watch(
+  () => props.items,
+  () => {
+    furthest = 0
+    nextTick(relayout)
+  },
+  { deep: true },
+)
 watch(() => props.variant, () => nextTick(() => relayout(true)))
 onBeforeUnmount(() => {
   observer?.disconnect()

@@ -346,7 +346,7 @@ function onKey(e: KeyboardEvent) {
   color: var(--gold);
   text-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
 }
-.guest:lang(km) p { letter-spacing: 0.02em; line-height: 1.8; }
+.guest:lang(km) p { letter-spacing: 0; line-height: 1.8; }
 .hint {
   position: absolute;
   left: 0;
@@ -365,7 +365,7 @@ function onKey(e: KeyboardEvent) {
 .eyebrow.ready, .names.ready, .guest.ready { opacity: 1; }
 .hint.ready { opacity: 1; }
 .opening .hint, .closing .hint { opacity: 0; transition-duration: 0.3s; }
-.eyebrow:lang(km), .hint:lang(km) { letter-spacing: 0.02em; text-transform: none; }
+.eyebrow:lang(km), .hint:lang(km) { letter-spacing: 0; text-transform: none; }
 
 @keyframes seal-breathe {
   50% { transform: scale(1.035); filter: drop-shadow(0 0 18px color-mix(in srgb, var(--gold) 55%, transparent)); }

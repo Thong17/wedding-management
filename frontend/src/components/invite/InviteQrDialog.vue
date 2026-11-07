@@ -164,7 +164,7 @@ async function save() {
   .qr-dialog-enter-from .qr-dialog { transform: translateY(100%); }
 }
 .small-caps { font-size: 0.75em; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); font-weight: 600; margin: 0; }
-.small-caps:lang(km) { letter-spacing: 0.02em; text-transform: none; }
+.small-caps:lang(km) { letter-spacing: 0; text-transform: none; }
 @media (prefers-reduced-motion: reduce) {
   .qr-dialog-enter-active, .qr-dialog-leave-active, .qr-dialog-enter-active .qr-dialog { transition: none; }
 }
