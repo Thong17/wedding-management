@@ -705,6 +705,7 @@ export default {
     goldCorners: "Corner ornaments",
     goldDividers: "Dividers",
     sparkles: "Sparkles",
+    countdown: "Countdown",
     ornateFrames: "Ornate frames",
     ornateStyle: "Style",
     ornateStyles: { royal: "Royal", khmer: "Khmer traditional", chinese: "Chinese", minimal: "Minimal", modern: "Modern" },

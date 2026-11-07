@@ -401,6 +401,7 @@ function replaySide() {
                 <label class="check"><input v-model="draft.design.gold_corners" type="checkbox" />{{ t('invite.goldCorners') }}</label>
                 <label class="check"><input v-model="draft.design.gold_dividers" type="checkbox" />{{ t('invite.goldDividers') }}</label>
                 <label class="check"><input v-model="draft.design.sparkles" type="checkbox" />{{ t('invite.sparkles') }}</label>
+                <label class="check"><input v-model="draft.design.countdown" type="checkbox" />{{ t('invite.countdown') }}</label>
               </fieldset>
               <fieldset class="checks">
                 <legend>{{ t('invite.ornateFrames') }}</legend>

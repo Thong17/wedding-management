@@ -30,6 +30,12 @@ const LABELS = {
     preparing: 'កំពុងរៀបចំលិខិតអញ្ជើញ…',
     programme: 'កម្មវិធី',
     gift: 'ចំណងដៃ',
+    countdownTitle: 'រាប់ថយក្រោយដល់ថ្ងៃមង្គល',
+    countdownToday: 'ថ្ងៃនេះជាថ្ងៃមង្គលការរបស់យើង',
+    days: 'ថ្ងៃ',
+    hours: 'ម៉ោង',
+    minutes: 'នាទី',
+    seconds: 'វិនាទី',
     defaultMessage:
       'វត្តមានរបស់លោកអ្នក គឺជាកិត្តិយស និងសុភមង្គលដ៏ធំធេងសម្រាប់ក្រុមគ្រួសារយើងខ្ញុំ។',
     thanksTitle: 'លិខិតសូមថ្លែងអំណរគុណ',
@@ -78,6 +84,12 @@ const LABELS = {
     preparing: 'Preparing your invitation…',
     programme: 'Programme',
     gift: 'Wedding gift',
+    countdownTitle: 'Counting down to our big day',
+    countdownToday: 'Today is our wedding day',
+    days: 'Days',
+    hours: 'Hours',
+    minutes: 'Minutes',
+    seconds: 'Seconds',
     defaultMessage:
       'Your presence would be the greatest gift as we begin our life together. We would be honoured to celebrate this special day with you.',
     thanksTitle: 'With our heartfelt thanks',
@@ -115,7 +127,7 @@ export function inviteLabels(language: InviteLanguage): InviteLabels {
 const KM_DIGITS = '០១២៣៤៥៦៧៨៩'
 const KM_WEEKDAYS = ['អាទិត្យ', 'ច័ន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍']
 const KM_MONTHS = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ']
-const kmDigits = (n: number | string) => String(n).replace(/\d/g, (d) => KM_DIGITS[Number(d)])
+export const kmDigits = (n: number | string) => String(n).replace(/\d/g, (d) => KM_DIGITS[Number(d)])
 
 /** "Saturday, 12 December 2026", or "ថ្ងៃសៅរ៍ ទី១២ ខែធ្នូ ឆ្នាំ២០២៦". */
 export function formatInviteDate(iso: string, language: InviteLanguage): string {

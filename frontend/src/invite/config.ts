@@ -111,6 +111,8 @@ export interface InviteConfig {
     gold_border: boolean
     gold_dividers: boolean
     sparkles: boolean
+    /** A large countdown to the wedding, between the date and the programme. */
+    countdown: boolean
   }
   content: {
     /** The language the invitation opens in; guests can switch. */
@@ -187,6 +189,7 @@ export function defaultConfig(): InviteConfig {
       gold_border: true,
       gold_dividers: true,
       sparkles: true,
+      countdown: true,
     },
     content: {
       language: 'km',

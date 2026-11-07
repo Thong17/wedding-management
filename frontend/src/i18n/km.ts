@@ -703,6 +703,7 @@ const km: typeof en = {
     goldCorners: "ក្បាច់ជ្រុង",
     goldDividers: "បន្ទាត់ខណ្ឌ",
     sparkles: "ពន្លឺភ្លឺរលោង",
+    countdown: "រាប់ថយក្រោយ",
     ornateFrames: "ស៊ុមក្បាច់",
     ornateStyle: "ម៉ូដ",
     ornateStyles: { royal: "រាជវាំង", khmer: "ក្បាច់ខ្មែរ", chinese: "ចិន", minimal: "សាមញ្ញ", modern: "ទំនើប" },

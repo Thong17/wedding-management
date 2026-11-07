@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, watch, type Directive } from 'vue'
 import type { InviteConfig, InviteImages, InviteView, OrnateArea } from '@/invite/config'
 import { formatInviteDate, formatInviteTime, type InviteLabels } from '@/invite/labels'
+import InviteCountdown from './InviteCountdown.vue'
 import InviteDivider from './InviteDivider.vue'
 import InviteMap from './InviteMap.vue'
 import InviteRoad from './InviteRoad.vue'
@@ -45,6 +46,19 @@ const bankQrs = computed(() =>
     return url ? [{ url, label: qr.label }] : []
   }),
 )
+/*
+ * The countdown's moment: the first programme day (the earliest dated part) at its first moment's time,
+ * else the event's date at midnight. In Cambodia's time (UTC+7), wherever the guest is.
+ */
+const countdownAt = computed(() => {
+  const parts = props.content.timeline.filter((part) => part.date).sort((a, b) => a.date.localeCompare(b.date))
+  const first = parts[0]
+  const day = first?.date || props.content.date
+  if (!day) return null
+  const time = first?.items.map((m) => m.time).find((t) => /^d{1,2}:d{2}$/.test(t)) ?? '00:00'
+  const at = Date.parse(`${day}T${time.padStart(5, '0')}:00+07:00`)
+  return Number.isNaN(at) ? null : at
+})
 // The event's own date; its venue only when there is no programme (which lists its own places).
 const date = computed(() => formatInviteDate(props.content.date, lang.value))
 const venue = computed(() => (props.content.timeline.length ? '' : props.content.venue))
@@ -162,6 +176,17 @@ onBeforeUnmount(() => observer?.disconnect())
         <p v-reveal="1" class="message">{{ content.message || labels.defaultMessage }}</p>
       </div>
     </div>
+
+    <!-- A large countdown to the wedding (design.countdown). -->
+    <InviteCountdown
+      v-if="design.countdown && countdownAt != null"
+      v-reveal="0"
+      :target="countdownAt"
+      :labels="labels"
+      :language="lang"
+      :ornate="ornate('names')"
+      :numbers-font="namesFont"
+    />
 
     <!-- The programme: parts of the day (each at its own place, with its map), then their moments. -->
     <section v-if="timeline.length" class="programme">

@@ -206,6 +206,8 @@ SCHEMA = {
         "gold_border": (True, _bool),
         "gold_dividers": (True, _bool),
         "sparkles": (True, _bool),
+        # A large countdown to the wedding, between the date and the programme.
+        "countdown": (True, _bool),
     },
     "content": {
         "language": ("km", _choice(LANGUAGES)),
