@@ -439,7 +439,10 @@ onBeforeUnmount(() => {
 /* A stop's box waits, hidden, until the marker reaches it. */
 .moment.waiting .stop-text { opacity: 0; transform: translateY(var(--reveal-rise)); }
 .when { font-weight: 700; color: var(--gold); font-size: 0.9em; letter-spacing: 0.04em; white-space: nowrap; line-height: 1; }
-.moment-title { font-size: 1.05em; line-height: 1; }
+/* Long titles wrap inside the box, filling each line to its edge: they break between any two letters
+   (never inside a stacked Khmer letter) rather than leaving a gap at a word's end. In both languages. */
+.moment-title { font-size: 1.05em; line-height: 1.35; min-width: 0; word-break: break-all; line-break: anywhere; }
+.moment-title:lang(km) { line-height: 1.7; }
 @media (prefers-reduced-motion: reduce) {
   .dot, .stop-text { transition: none; }
 }
@@ -464,6 +467,21 @@ onBeforeUnmount(() => {
   --label-gap: 34px;
 }
 .variant-line.compact .moment.left { justify-content: stretch; }
+/* On a phone: shorter arrows, so the boxes get more of the width for their words. */
+@container invite (max-width: 560px) {
+  .road {
+    --label-gap: 44px;
+    --label-min: 110px;
+    --box-padding: 9px 12px;
+    /* A narrower road (and gold line along it) to suit the smaller screen. */
+    --road-width: 1.5px;
+    --road-verge: 1px;
+    --road-dash: 4px 6px;
+    --progress-width: 1.5px;
+  }
+  .variant-line { --label-gap: 30px; --line-width: 1.5px; }
+  .variant-line.compact { --label-gap: 22px; --compact-margin: 10px; }
+}
 .variant-line.compact .stop-text { width: 100%; align-items: flex-start; text-align: left; }
 .variant-line .road-shoulder { stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: var(--line-width); }
 .variant-line .road-surface,
