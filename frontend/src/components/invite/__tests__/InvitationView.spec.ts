@@ -38,7 +38,7 @@ describe('InvitationView', () => {
 
     await cover.trigger('click')
     expect(wrapper.get('.cover').classes()).toContain('opening')
-    vi.advanceTimersByTime(2300)
+    vi.advanceTimersByTime(2600)
     await nextTick()
 
     expect(wrapper.find('.cover').exists()).toBe(false)
@@ -199,13 +199,13 @@ describe('InvitationView', () => {
     await flushPromises()
     expect(wrapper.find('.ambient').exists()).toBe(false) // the cover has its own
     await wrapper.get('.cover').trigger('click')
-    vi.advanceTimersByTime(2300)
+    vi.advanceTimersByTime(2600)
     await nextTick()
     expect(wrapper.find('.ambient').exists()).toBe(true)
 
     await wrapper.get('button.close').trigger('click')
     expect(wrapper.get('.cover').classes()).toContain('closing')
-    vi.advanceTimersByTime(2300)
+    vi.advanceTimersByTime(2600)
     await nextTick()
     expect(wrapper.emitted('closed')).toHaveLength(1)
     expect(wrapper.get('.cover').classes()).not.toContain('closing') // back on the cover, ready to open again

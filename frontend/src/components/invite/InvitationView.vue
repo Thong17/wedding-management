@@ -101,13 +101,20 @@ watch(
   },
 )
 
+/** The card zooms about a point a little above the middle of what is on screen (it is much taller). */
+const zoomOrigin = ref('50% 40vh')
+function aimZoom() {
+  const el = scroll.value
+  if (el) zoomOrigin.value = '50% ' + Math.round(el.scrollTop + el.clientHeight * 0.45) + 'px'
+}
 function open() {
   if (phase.value !== 'cover') return
+  aimZoom()
   phase.value = 'opening'
   revealing.value = true
   if (hasSound.value) {
     const engine = soundEngine() // within the tap
-    engine.playTransition()
+    engine.playTransition(false, props.config.animation.style)
     engine.startMusic()
   }
 }
@@ -118,8 +125,9 @@ function done() {
 /** The close button: the opening plays backwards and the cover comes back. */
 function close() {
   if (phase.value !== 'open') return
+  aimZoom()
   phase.value = 'closing'
-  sound?.playTransition(true)
+  sound?.playTransition(true, props.config.animation.style)
 }
 const scroll = ref<HTMLElement | null>(null)
 // The programme road animates with this scrolling (InviteRoad).
@@ -138,7 +146,8 @@ function replay() {
 }
 const coverMode = computed(() => (phase.value === 'opening' ? 'opening' : phase.value === 'closing' ? 'closing' : 'idle'))
 // Once opened, the golden particles keep drifting behind the card (the cover has its own).
-const backgroundParticles = computed(() => props.config.animation.enabled && props.config.animation.particles && phase.value !== 'cover')
+// They start once the doors are gone, so they don't compete with the opening for frames.
+const backgroundParticles = computed(() => props.config.animation.enabled && props.config.animation.particles && (phase.value === 'open' || phase.value === 'closing'))
 // A bank QR code tapped in the card, shown over the whole invitation.
 const bankQr = ref<{ url: string; label: string } | null>(null)
 defineExpose({ replay, close, phase, language })
@@ -157,7 +166,10 @@ defineExpose({ replay, close, phase, language })
       </div>
     </Transition>
     <div ref="scroll" class="scroll" :inert="phase === 'cover' || undefined">
-      <div class="stage" :class="{ revealing, hidden: phase === 'cover' }" @animationend.self="revealing = false">
+      <div
+        class="stage"
+        :class="{ revealing, leaving: phase === 'closing', hidden: phase === 'cover' }"
+        :style="{ transformOrigin: zoomOrigin }" @animationend.self="revealing = false">
         <InviteCard
           :config="config"
           :content="content"
@@ -166,6 +178,7 @@ defineExpose({ replay, close, phase, language })
           :names-font="pairing.names"
           :text-font="pairing.text"
           :active="phase !== 'cover'"
+          :settled="phase === 'open'"
           @open-qr="bankQr = $event"
         />
       </div>
@@ -247,11 +260,25 @@ defineExpose({ replay, close, phase, language })
 }
 .stage { opacity: 0; transition: opacity 0.5s ease; }
 .fonts-ready .stage { opacity: 1; }
-.stage.hidden { visibility: hidden; }
+/* Hidden by opacity, not visibility, so the card is already drawn when the doors start to open (making
+   it visible then would draw the whole card in the first frames of the opening). */
+.stage.hidden { opacity: 0; }
 /* Revealed by the opening: the card rises out of the light as the cover parts. */
-.stage.revealing { animation: card-rise 1.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.6s both; }
+/* Opacity and transform only: a filter (blur) on the whole card would be redrawn every frame and make the
+   doors above it stutter. */
+/* Zooming in: the card comes up from the bottom, small, and grows to its size as it arrives (about the
+   middle of the screen, zoomOrigin). Closing plays it backwards: the card sinks and shrinks as it fades,
+   while the doors close over it. Tune: the rise (--rise-from), how large it starts (--rise-scale), timing. */
+.stage {
+  --rise-from: 120px;
+  --rise-scale: 0.8;
+}
+.stage.revealing { animation: card-rise 1.5s cubic-bezier(0.25, 0.7, 0.25, 1) 0.75s both; }
+/* Reversed, so the curve is given mirrored: in time it starts slowly and speeds away. */
+.stage.leaving { animation: card-rise 1s cubic-bezier(0.2, 0.6, 0.5, 1) reverse both; }
 @keyframes card-rise {
-  from { opacity: 0; transform: translateY(24px) scale(0.95); filter: blur(4px) brightness(1.25); }
+  from { opacity: 0; transform: translateY(var(--rise-from)) scale(var(--rise-scale)); }
+  40% { opacity: 1; }
 }
 @supports (corner-shape: squircle) {
   .invitation { --r-lg: 32px; --r-md: 24px; --r-sm: 14px; }
@@ -271,8 +298,9 @@ defineExpose({ replay, close, phase, language })
   top: max(12px, env(safe-area-inset-top));
   right: 12px;
   display: flex;
-  gap: 8px;
 }
+/* Spacing as a margin rather than gap, so the close button can grow its space smoothly (below). */
+.control + .control { margin-left: 8px; }
 .control {
   height: 44px;
   min-width: 44px;
@@ -298,12 +326,25 @@ defineExpose({ replay, close, phase, language })
 .lang-name { font-family: 'Battambang', 'Noto Serif Khmer', 'Cormorant Garamond', Georgia, serif; font-size: 0.85rem; font-weight: 400; line-height: 1; }
 .lang-name:lang(en) { font-weight: 600; letter-spacing: 0.04em; }
 .lang-name:lang(km) { font-size: 1rem; line-height: 1.4; }
-.close-btn-enter-active { transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s; }
-.close-btn-leave-active { transition: opacity 0.2s ease; }
-.close-btn-enter-from { opacity: 0; transform: scale(0.8); }
-.close-btn-leave-to { opacity: 0; }
+/* The close button opens up its space first, gliding the other buttons to the left, then fades in;
+   leaving, it fades, then its space closes and they glide back. */
+.close { width: 44px; min-width: 0; overflow: hidden; }
+.close-btn-enter-active {
+  transition:
+    width 0.35s cubic-bezier(0.3, 0, 0.2, 1), margin 0.35s cubic-bezier(0.3, 0, 0.2, 1),
+    padding 0.35s cubic-bezier(0.3, 0, 0.2, 1), border-width 0.35s cubic-bezier(0.3, 0, 0.2, 1),
+    opacity 0.3s ease 0.15s, transform 0.3s ease 0.15s;
+}
+.close-btn-leave-active {
+  transition:
+    opacity 0.2s ease, transform 0.2s ease,
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.15s, margin 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.15s,
+    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.15s, border-width 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+}
+.control.close-btn-enter-from,
+.control.close-btn-leave-to { width: 0; min-width: 0; padding-inline: 0; margin-left: 0; border-width: 0; opacity: 0; transform: scale(0.6); }
 
 @media (prefers-reduced-motion: reduce) {
-  .stage.revealing { animation: none; }
+  .stage.revealing, .stage.leaving { animation: none; }
 }
 </style>

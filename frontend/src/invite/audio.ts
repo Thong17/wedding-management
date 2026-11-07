@@ -50,11 +50,32 @@ const TUNES: Record<'musicbox' | 'harp', Tune> = {
 
 const freq = (midi: number) => 440 * 2 ** ((midi - 69) / 12)
 
+// The hall reverb's impulse (royalDoor): 230,000 random samples, too slow to make inside the tap (it
+// held up the first frames of the opening). Made when the page is idle, or on first use if not yet.
+const HALL_RATE = 48000
+let hall: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] | null = null
+function hallImpulse() {
+  if (!hall) {
+    const length = Math.ceil(HALL_RATE * 2.4)
+    hall = [new Float32Array(length), new Float32Array(length)]
+    for (const data of hall) {
+      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 3
+    }
+  }
+  return hall
+}
+if (typeof window !== 'undefined') {
+  const idle = (window as { requestIdleCallback?: (fn: () => void) => void }).requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500))
+  idle(() => hallImpulse())
+}
+
 export class InviteAudio {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
   private musicBus: GainNode | null = null
   private echo: DelayNode | null = null
+  // The door sounds' way out, with a large hall's reverb (royalDoor).
+  private hall: GainNode | null = null
   private song: HTMLAudioElement | null = null
   private songNode: MediaElementAudioSourceNode | null = null
   private scheduler: ReturnType<typeof setInterval> | undefined
@@ -104,11 +125,19 @@ export class InviteAudio {
     if (this.settings.music === 'upload' && this.settings.songUrl) playQuietly(this.prepareSong())
   }
 
-  /** Chime and whoosh as the invitation opens; `reverse` (closing) runs the chime downward. */
-  playTransition(reverse = false) {
+  /**
+   * The sound of the invitation opening; `reverse` when it closes. Gatefold doors get the royal door
+   * (timed to the doors, which start after the emblem has sunk away); the other styles a chime and a
+   * paper whoosh, the chime running downward when closing.
+   */
+  playTransition(reverse = false, style: 'gatefold' | 'envelope' | 'fade' = 'fade') {
     const ctx = this.ctx
     if (!ctx || !this.master || !this.settings.openSound) return
     const now = ctx.currentTime + 0.02
+    if (style === 'gatefold') {
+      this.royalDoor(now, reverse)
+      return
+    }
     this.whoosh(now, reverse)
     const chime = [79, 84, 88, 91, 96]
     ;(reverse ? [...chime].reverse() : chime).forEach((note, i) => this.bell(freq(note), now + 0.25 + i * 0.09, 0.12, 2.2, this.master!))
@@ -319,6 +348,175 @@ export class InviteAudio {
     gain.connect(this.echo!)
     osc.start(at)
     osc.stop(at + decay + 0.05)
+  }
+
+  /**
+   * Heavy palace doors, in a large hall. Opening: the iron latch clanks free, the doors' weight rumbles
+   * and their old hinges creak as they swing, and they settle against their stops with a soft thud.
+   * Closing: rumble and creak, then the doors shut with a deep boom and the latch drops.
+   * Times match InviteCover's gatefold (doors swing from 0.55 s for 1.7 s; closing from 0.05 s).
+   */
+  private royalDoor(at: number, reverse: boolean) {
+    const swing = reverse ? at + 0.05 : at + 0.55
+    const length = 1.65
+    if (reverse) {
+      this.rumble(swing, length, 0.22)
+      this.creak(swing + 0.05, length * 0.85, true)
+      this.thud(swing + length, 0.75)
+      this.latch(swing + length + 0.09, 0.9)
+    } else {
+      this.latch(swing - 0.06, 1)
+      this.rumble(swing, length, 0.2)
+      this.creak(swing + 0.12, length * 0.9, false)
+      this.thud(swing + length + 0.05, 0.28)
+    }
+  }
+
+  /** Where the door sounds go: straight out, and into the hall's reverb (made on first use). */
+  private doorOut(): AudioNode {
+    const ctx = this.ctx!
+    if (!this.hall) {
+      // A large stone hall: 2.4 s of noise fading away, a little different in each ear. Made ahead of time
+      // (hallImpulse) so the tap that opens the invitation doesn't have to.
+      const [left, right] = hallImpulse()
+      const impulse = ctx.createBuffer(2, left.length, HALL_RATE)
+      impulse.copyToChannel(left, 0)
+      impulse.copyToChannel(right, 1)
+      const reverb = ctx.createConvolver()
+      reverb.buffer = impulse
+      const wet = ctx.createGain()
+      wet.gain.value = 0.32
+      reverb.connect(wet).connect(this.master!)
+      this.hall = ctx.createGain()
+      this.hall.connect(this.master!)
+      this.hall.connect(reverb)
+    }
+    return this.hall
+  }
+
+  /** The iron latch: a sharp click, a short metallic ring (inharmonic partials), and a knock of wood. */
+  private latch(at: number, level: number) {
+    const ctx = this.ctx!
+    const out = this.doorOut()
+    const click = ctx.createBufferSource()
+    click.buffer = this.noise(0.04)
+    const bright = ctx.createBiquadFilter()
+    bright.type = 'highpass'
+    bright.frequency.value = 2200
+    const clickGain = ctx.createGain()
+    clickGain.gain.setValueAtTime(0.22 * level, at)
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.04)
+    click.connect(bright).connect(clickGain).connect(out)
+    click.start(at)
+    for (const [hz, amp] of [[1380, 0.05], [2130, 0.035], [3270, 0.025], [4410, 0.015]] as const) {
+      const ring = ctx.createOscillator()
+      ring.frequency.value = hz
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(amp * level, at)
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.22)
+      ring.connect(g).connect(out)
+      ring.start(at)
+      ring.stop(at + 0.25)
+    }
+    this.thud(at + 0.01, 0.35 * level)
+  }
+
+  /** A heavy wooden thud: a low tone falling away, with a short muffled knock. */
+  private thud(at: number, level: number) {
+    const ctx = this.ctx!
+    const out = this.doorOut()
+    const body = ctx.createOscillator()
+    body.frequency.setValueAtTime(72, at)
+    body.frequency.exponentialRampToValueAtTime(36, at + 0.45)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, at)
+    gain.gain.linearRampToValueAtTime(level, at + 0.008)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.6)
+    body.connect(gain).connect(out)
+    body.start(at)
+    body.stop(at + 0.65)
+    const knock = ctx.createBufferSource()
+    knock.buffer = this.noise(0.18)
+    const muffle = ctx.createBiquadFilter()
+    muffle.type = 'lowpass'
+    muffle.frequency.value = 380
+    const knockGain = ctx.createGain()
+    knockGain.gain.setValueAtTime(level * 0.8, at)
+    knockGain.gain.exponentialRampToValueAtTime(0.0001, at + 0.16)
+    knock.connect(muffle).connect(knockGain).connect(out)
+    knock.start(at)
+  }
+
+  /** The doors' weight moving: deep filtered noise swelling and fading. */
+  private rumble(at: number, length: number, level: number) {
+    const ctx = this.ctx!
+    const source = ctx.createBufferSource()
+    source.buffer = this.noise(length)
+    const low = ctx.createBiquadFilter()
+    low.type = 'lowpass'
+    low.frequency.value = 160
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0, at)
+    gain.gain.linearRampToValueAtTime(level, at + length * 0.3)
+    gain.gain.linearRampToValueAtTime(level * 0.6, at + length * 0.75)
+    gain.gain.linearRampToValueAtTime(0, at + length)
+    source.connect(low).connect(gain).connect(this.doorOut())
+    source.start(at)
+  }
+
+  /**
+   * Old hinges creaking. A real creak is stick-slip friction: many tiny clicks, each ringing the wooden
+   * door. So: a stream of very short clicks through two narrow "wood" resonances, coming faster as the
+   * door gathers speed and slower as it settles (the pitch of the creak is how fast they come), each a
+   * little irregular.
+   */
+  private creak(at: number, length: number, reverse: boolean) {
+    const ctx = this.ctx!
+    const out = ctx.createGain()
+    out.gain.value = 1.4
+    out.connect(this.doorOut())
+    const woods = [
+      [reverse ? 520 : 360, reverse ? 380 : 540, 11],
+      [reverse ? 1400 : 1050, reverse ? 1050 : 1450, 8],
+    ] as const
+    const resonators = woods.map(([from, to, q]) => {
+      const f = ctx.createBiquadFilter()
+      f.type = 'bandpass'
+      f.Q.value = q
+      f.frequency.setValueAtTime(from, at)
+      f.frequency.linearRampToValueAtTime(to, at + length)
+      f.connect(out)
+      return f
+    })
+    // One click: 5 ms of noise dying away at once.
+    const clickBuffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.005), ctx.sampleRate)
+    const data = clickBuffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 2
+    let t = at
+    while (t < at + length) {
+      const p = (t - at) / length
+      // Slow, quick, slow: 18 ms between clicks at the ends, 6 ms in the middle; never quite regular.
+      const gap = (0.018 - 0.012 * Math.sin(Math.PI * p)) * (0.75 + Math.random() * 0.5)
+      // Louder in the middle of the swing, with the odd catch of the hinge.
+      const level = Math.sin(Math.PI * Math.min(1, p * 1.1)) * (0.5 + Math.random() * 0.5) * (Math.random() < 0.06 ? 1.8 : 1)
+      const click = ctx.createBufferSource()
+      click.buffer = clickBuffer
+      click.playbackRate.value = 0.8 + Math.random() * 0.4
+      const g = ctx.createGain()
+      g.gain.value = Math.max(0, level)
+      click.connect(g)
+      for (const r of resonators) g.connect(r)
+      click.start(t)
+      t += gap
+    }
+  }
+
+  private noise(seconds: number): AudioBuffer {
+    const ctx = this.ctx!
+    const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * seconds), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+    return buffer
   }
 
   /** Paper sliding: filtered noise sweeping up (or down when closing). */

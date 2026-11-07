@@ -25,7 +25,10 @@ const props = defineProps<{
 const emit = defineEmits<{ open: []; done: []; closed: [] }>()
 
 const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
-const DURATION = { gatefold: 2300, envelope: 2300, fade: 1500 } as const
+// How long each opening / closing takes (ms), matching the CSS below. The gatefold opens faster than it
+// closes: the doors are gone well before the end of their swing, so the card is ready sooner.
+const OPEN_DURATION = { gatefold: 1850, envelope: 2300, fade: 1500 } as const
+const CLOSE_DURATION = { gatefold: 2300, envelope: 2300, fade: 1500 } as const
 
 const anim = computed(() => props.config.animation)
 const style = computed(() => (reduced ? 'reduced' : anim.value.style))
@@ -35,9 +38,9 @@ const ink = computed(() => contrastOn(anim.value.cover_color))
 const pair = computed(() => initials(props.names))
 const names = computed(() => [props.names.partner1, props.names.partner2].filter(Boolean))
 const moving = computed(() => props.mode !== 'idle')
-// Gatefold: one whole face while closed (no seam through the seal), two doors while it moves.
+// Gatefold: always two doors (the seal sits whole above where they meet, .seal-layer).
 const leaves = computed(() =>
-  style.value === 'gatefold' && moving.value ? (['left', 'right'] as const) : (['whole'] as const),
+  style.value === 'gatefold' ? (['left', 'right'] as const) : (['whole'] as const),
 )
 
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -46,7 +49,7 @@ watch(
   (mode) => {
     clearTimeout(timer)
     if (mode === 'idle') return
-    const ms = reduced ? 450 : DURATION[anim.value.style]
+    const ms = reduced ? 450 : (mode === 'opening' ? OPEN_DURATION : CLOSE_DURATION)[anim.value.style]
     timer = setTimeout(() => (mode === 'opening' ? emit('done') : emit('closed')), ms)
   },
   { immediate: true },
@@ -74,6 +77,7 @@ function onKey(e: KeyboardEvent) {
   >
     <div v-for="leaf in leaves" :key="leaf" class="leaf" :class="`leaf-${leaf}`">
       <!-- The same face in every leaf; each gatefold door shows its half of it. -->
+      <div class="panel">
       <div class="face">
         <div class="texture" />
         <img v-if="coverImage" class="cover-image" :src="coverImage" alt="" />
@@ -82,7 +86,8 @@ function onKey(e: KeyboardEvent) {
         <div v-if="style === 'envelope'" class="flap" />
         <div class="center">
           <p class="eyebrow" :class="{ ready: fontsReady }">{{ labels.invitation }}</p>
-          <div class="seal">
+          <!-- Gatefold: the seal is drawn whole above the doors (.seal-layer); here it only holds its place. -->
+          <div class="seal" :class="{ placeholder: style === 'gatefold' }">
             <InviteEmblem
               :kind="anim.emblem"
               :initials="pair"
@@ -97,6 +102,30 @@ function onKey(e: KeyboardEvent) {
           </p>
         </div>
       </div>
+        <!-- Gatefold: the front darkens as the door turns away from the light. -->
+        <div v-if="leaf !== 'whole'" class="door-shade" />
+      </div>
+      <!-- Gatefold: a door is a slab, not a sheet: its inner edge (the thickness) and its back. -->
+      <template v-if="leaf !== 'whole'">
+        <div class="door-edge" />
+        <div class="door-back"><span class="door-moulding" /></div>
+      </template>
+    </div>
+    <!-- Gatefold: the seal sits whole over the seam between the doors, and sinks away before they open.
+         Laid out exactly like the doors' faces (the other lines kept, invisible) so it sits in place. -->
+    <div v-if="style === 'gatefold'" class="center seal-layer" aria-hidden="true">
+      <p class="eyebrow">{{ labels.invitation }}</p>
+      <div class="seal">
+        <InviteEmblem
+          :kind="anim.emblem"
+          :initials="pair"
+          :image-url="emblemImage"
+          :accent="config.design.accent"
+          :wax="anim.cover_color"
+          :names-font="namesFont"
+        />
+      </div>
+      <p v-if="names.length" class="names" :style="{ fontFamily: namesFont }">{{ names.join(` ${labels.and} `) }}</p>
     </div>
     <InviteParticles v-if="anim.particles" :color="'#f0d488'" :burst="moving" />
     <p class="hint" :class="{ ready: fontsReady }">{{ labels.tapToOpen }}</p>
@@ -109,19 +138,69 @@ function onKey(e: KeyboardEvent) {
   inset: 0;
   z-index: 5;
   cursor: pointer;
-  perspective: 1600px;
+  perspective: 1300px;
   color: var(--ink);
   outline: none;
   -webkit-tap-highlight-color: transparent;
+  /* How thick the gatefold doors are. */
+  --door-depth: clamp(14px, 3.4cqi, 26px);
 }
 .cover:focus-visible .seal { filter: drop-shadow(0 0 14px var(--gold)); }
 
-.leaf { position: absolute; inset: 0; overflow: hidden; transform-style: preserve-3d; backface-visibility: hidden; }
-.leaf-left { right: 50%; transform-origin: left center; }
-.leaf-right { left: 50%; transform-origin: right center; }
+/* A leaf is the whole cover, or one gatefold door: a 3D slab whose front (.panel) shows its half of the
+   face, with its inner edge and its back (only seen once it swings past side-on). */
+.leaf { position: absolute; inset: 0; transform-style: preserve-3d; }
+/* The doors overlap by 1px in the middle: two exact halves leave a hairline gap on screens whose width
+   is an odd number of pixels (the half-pixel edges are blended with what is behind). Each face is the
+   cover's full width (100cqi, the invitation's width), pinned to its outer side, so both line up exactly. */
+.leaf-left { right: calc(50% - 1px); transform-origin: left center; }
+.leaf-right { left: calc(50% - 1px); transform-origin: right center; }
+.panel { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; }
 .face { position: absolute; inset: 0; background: var(--cover); }
-.leaf-left .face { right: -100%; }
-.leaf-right .face { left: -100%; }
+.leaf-left .face { right: auto; width: 100cqi; }
+.leaf-right .face { left: auto; width: 100cqi; }
+
+/* The door's thickness: a strip at its inner edge, turned to face the opening, so it shows as the door
+   swings: the cover color in deep shadow, with a gold trim along the front and back. */
+.door-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--door-depth);
+  background:
+    linear-gradient(to right, var(--gold) 0 2px, transparent 2px calc(100% - 2px), var(--gold) calc(100% - 2px)),
+    linear-gradient(to right, color-mix(in srgb, var(--cover) 55%, #000), color-mix(in srgb, var(--cover) 80%, #000) 50%, color-mix(in srgb, var(--cover) 45%, #000));
+  backface-visibility: hidden;
+}
+/* Turned to face the gap between the doors (so it shows as they swing towards the guest), and set back
+   by the door's thickness: the front stays where the cover was, the slab goes behind it. */
+.leaf-left .door-edge { right: 0; transform-origin: right center; transform: translateZ(calc(var(--door-depth) * -1)) rotateY(90deg); }
+.leaf-right .door-edge { left: 0; transform-origin: left center; transform: translateZ(calc(var(--door-depth) * -1)) rotateY(-90deg); }
+/* The back of the door: darker, with a carved gold panel. */
+.door-back {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(calc(var(--door-depth) * -1)) rotateY(180deg);
+  backface-visibility: hidden;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgb(255 255 255 / 0.06), transparent 70%),
+    color-mix(in srgb, var(--cover) 70%, #000);
+}
+.door-moulding {
+  position: absolute;
+  inset: 9% 14%;
+  border: 2px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  box-shadow: inset 0 0 0 6px color-mix(in srgb, var(--cover) 70%, #000), inset 0 0 0 7px color-mix(in srgb, var(--gold) 30%, transparent);
+}
+/* The seal above the doors (gatefold): only the seal shows; the rest only keeps it in place. */
+.seal-layer { pointer-events: none; z-index: 3; }
+.seal-layer .eyebrow, .seal-layer .names { visibility: hidden; }
+.seal.placeholder { visibility: hidden; animation: none; }
+
+/* Shadow falling on the front as the door turns away from the light. */
+.door-shade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+.leaf-left .door-shade { background: linear-gradient(to right, rgb(0 0 0 / 0.2), #000); }
+.leaf-right .door-shade { background: linear-gradient(to left, rgb(0 0 0 / 0.2), #000); }
 
 /* Velvet depth and a soft damask glow, so a plain color still looks rich. */
 .texture {
@@ -205,21 +284,53 @@ function onKey(e: KeyboardEvent) {
 }
 @keyframes hint-pulse { 50% { opacity: 0.45; } }
 
-/* Gatefold: the seal flares, then the doors swing open in 3D and fade into the light. */
-.opening.style-gatefold .seal { animation: seal-flare 0.7s ease-out forwards; }
-.opening.style-gatefold .leaf-left { animation: door-left 1.7s cubic-bezier(0.6, 0.02, 0.2, 1) 0.45s forwards; }
-.opening.style-gatefold .leaf-right { animation: door-right 1.7s cubic-bezier(0.6, 0.02, 0.2, 1) 0.45s forwards; }
-.opening.style-gatefold { animation: cover-out 0.5s ease 1.8s forwards; }
+/* Gatefold: the emblem sinks away from the seam first; then the heavy doors swing open in 3D (darkening
+   as they turn from the light) and, at the end of the swing, slide out past the sides while the cover
+   fades, so nothing lingers. Total 1.85s (OPEN_DURATION.gatefold). */
+.opening.style-gatefold .seal-layer .seal { animation: seal-sink 0.6s ease-in forwards; }
+/* Two movements, each with one smooth curve, overlapping: the swing (rotate) and, starting partway
+   through it, the slide out past the side (translate). Kept as separate properties so neither has to
+   change pace to fit the other, which is what made a single keyframed movement feel jerky.
+   Tune: the swing is DOOR_TURN, the slide starts at DOOR_SLIDE_AT and takes DOOR_SLIDE. */
+.style-gatefold {
+  --door-turn: 1.5s;
+  --door-slide-at: 1.05s;
+  --door-slide: 0.8s;
+}
+.opening.style-gatefold .leaf-left {
+  animation:
+    door-turn-left var(--door-turn) cubic-bezier(0.45, 0, 0.35, 1) 0.55s forwards,
+    door-slide-left var(--door-slide) cubic-bezier(0.6, 0, 0.8, 0.6) var(--door-slide-at) forwards;
+}
+.opening.style-gatefold .leaf-right {
+  animation:
+    door-turn-right var(--door-turn) cubic-bezier(0.45, 0, 0.35, 1) 0.55s forwards,
+    door-slide-right var(--door-slide) cubic-bezier(0.6, 0, 0.8, 0.6) var(--door-slide-at) forwards;
+}
+.opening.style-gatefold .door-shade { animation: door-shade var(--door-turn) cubic-bezier(0.45, 0, 0.35, 1) 0.55s forwards; }
+/* Zoom: as the doors part, the view moves in through them (the cover grows), then it fades. */
+.opening.style-gatefold {
+  animation:
+    cover-zoom 1.3s cubic-bezier(0.5, 0, 0.7, 1) 0.55s forwards,
+    cover-out 0.45s ease-in 1.4s forwards;
+}
+@keyframes cover-zoom { to { transform: scale(1.2); } }
+@keyframes seal-sink {
+  to { opacity: 0; transform: translateY(28px) scale(0.9); }
+}
+@keyframes door-shade {
+  60% { opacity: 0.55; }
+  to { opacity: 0.7; }
+}
 @keyframes seal-flare {
   40% { transform: scale(1.12); filter: drop-shadow(0 0 30px var(--gold)) brightness(1.25); }
   100% { transform: scale(1.05); filter: drop-shadow(0 0 22px var(--gold)) brightness(1.1); }
 }
-@keyframes door-left {
-  to { transform: rotateY(-108deg); box-shadow: 30px 0 60px rgb(0 0 0 / 0.5); }
-}
-@keyframes door-right {
-  to { transform: rotateY(108deg); box-shadow: -30px 0 60px rgb(0 0 0 / 0.5); }
-}
+/* The swing and the slide, as the rotate and translate properties (applied as translate, then rotate). */
+@keyframes door-turn-left { from { rotate: y 0deg; } to { rotate: y -105deg; } }
+@keyframes door-turn-right { from { rotate: y 0deg; } to { rotate: y 105deg; } }
+@keyframes door-slide-left { from { translate: 0 0; } to { translate: -115% 0; } }
+@keyframes door-slide-right { from { translate: 0 0; } to { translate: 115% 0; } }
 
 /* Envelope: the flap lifts, the seal fades, and the envelope slides away below. */
 .flap {
@@ -254,10 +365,26 @@ function onKey(e: KeyboardEvent) {
 
 /* Closing: each opening animation backwards, its start mirrored, so the cover comes back the way it left. */
 .closing { cursor: default; }
-.closing.style-gatefold { animation: cover-out 0.5s ease 0s reverse both; }
-.closing.style-gatefold .leaf-left { animation: door-left 1.7s cubic-bezier(0.8, 0, 0.4, 0.98) 0.15s reverse both; }
-.closing.style-gatefold .leaf-right { animation: door-right 1.7s cubic-bezier(0.8, 0, 0.4, 0.98) 0.15s reverse both; }
-.closing.style-gatefold .seal { animation: seal-flare 0.7s ease-in 1.6s reverse both; }
+/* Backing out through the doors as they close (curve mirrored, as it runs reversed: fast, then easing). */
+.closing.style-gatefold {
+  animation:
+    cover-out 0.25s ease-out 0.05s reverse both,
+    cover-zoom 1.4s cubic-bezier(0.65, 0, 0.8, 0.4) 0.05s reverse both;
+}
+/* Closing: the same two movements, with their own curves (curves given mirrored, as a reversed animation runs its curve backwards): the
+   doors glide in from the sides, already turning, and swing shut with their weight, slowing as they meet. */
+.closing.style-gatefold .leaf-left {
+  animation:
+    door-slide-left 0.8s cubic-bezier(0.6, 0, 0.8, 0.6) 0.05s reverse both,
+    door-turn-left 1.65s cubic-bezier(0.7, 0, 0.45, 1) 0.05s reverse both;
+}
+.closing.style-gatefold .leaf-right {
+  animation:
+    door-slide-right 0.8s cubic-bezier(0.6, 0, 0.8, 0.6) 0.05s reverse both,
+    door-turn-right 1.65s cubic-bezier(0.7, 0, 0.45, 1) 0.05s reverse both;
+}
+.closing.style-gatefold .door-shade { animation: door-shade 1.65s cubic-bezier(0.7, 0, 0.45, 1) 0.05s reverse both; }
+.closing.style-gatefold .seal-layer .seal { animation: seal-sink 0.6s ease-out 1.7s reverse both; }
 .closing.style-envelope { animation: cover-out 0.4s ease 0s reverse both; }
 .closing.style-envelope .leaf-whole { animation: envelope-away 1.1s cubic-bezier(0.7, 0, 0.4, 1) 0.15s reverse both; }
 .closing.style-envelope .flap { animation: flap-open 0.9s cubic-bezier(0.7, 0, 0.5, 1) 1.1s reverse both; }

@@ -23,8 +23,10 @@ const props = withDefaults(
     textFont: string
     /** Reveal the parts as they come into view; off while the cover still hides the card. */
     active?: boolean
+    /** The opening has finished: heavier work (the programme road's scroll animation) waits for this. */
+    settled?: boolean
   }>(),
-  { active: true },
+  { active: true, settled: true },
 )
 
 const design = computed(() => props.config.design)
@@ -185,7 +187,7 @@ onBeforeUnmount(() => observer?.disconnect())
             <span v-if="part.address" class="address">{{ part.address }}</span>
           </p>
         </header>
-        <InviteRoad v-if="part.items.length" :items="part.items" :active="active" />
+        <InviteRoad v-if="part.items.length" :items="part.items" :active="active && settled" />
         <InviteMap
           v-if="part.maps_url || part.place || part.address"
           v-reveal="0"
