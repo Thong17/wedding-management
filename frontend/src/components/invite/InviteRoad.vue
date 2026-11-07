@@ -131,8 +131,10 @@ async function animate() {
       scrollTrigger: {
         trigger: root.value,
         scroller: scroller.value ?? undefined,
-        start: SCROLL.start,
-        end: SCROLL.end,
+        // clamp(): a road near the top or the end of the invitation, which can't scroll as far as asked,
+        // still plays in full within the scroll there is.
+        start: `clamp(${SCROLL.start})`,
+        end: `clamp(${SCROLL.end})`,
         scrub: SCROLL.scrub,
         onUpdate: (self) => {
           reached.value = stopAt.map((at) => self.progress >= at - 0.01)
@@ -149,10 +151,11 @@ async function animate() {
 // Redraw when the layout changes: screen width, language, fonts arriving, pictures above loading.
 let observer: ResizeObserver | null = null
 let pending = 0
-function relayout() {
+/** Re-measure; rebuild the animation if the road changed shape, or when `rebuild` (e.g. just opened). */
+function relayout(rebuild = false) {
   cancelAnimationFrame(pending)
   pending = requestAnimationFrame(async () => {
-    if (measure()) {
+    if (measure() || rebuild) {
       await nextTick()
       await animate()
     } else {
@@ -166,13 +169,14 @@ onMounted(async () => {
   await nextTick()
   await animate()
   if (typeof ResizeObserver !== 'undefined' && root.value) {
-    observer = new ResizeObserver(relayout)
+    observer = new ResizeObserver(() => relayout())
     observer.observe(root.value)
     const card = root.value.closest('.invite-card')
     if (card) observer.observe(card)
   }
 })
-watch(() => props.active, () => relayout())
+// Opened (the cover was in the way until now): set the animation up even if the road kept its shape.
+watch(() => props.active, () => relayout(true))
 watch(() => props.items, () => nextTick(relayout), { deep: true })
 onBeforeUnmount(() => {
   observer?.disconnect()
