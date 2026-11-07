@@ -192,7 +192,10 @@ onBeforeUnmount(() => observer?.disconnect())
     <section v-if="timeline.length" class="programme">
       <InviteDivider v-if="design.gold_dividers" :variant="design.ornate_style" v-reveal="0" />
       <h2 v-reveal="0" class="small-caps">{{ labels.programme }}</h2>
-      <div v-for="(part, p) in timeline" :key="p" class="part">
+      <template v-for="(part, p) in timeline" :key="p">
+      <!-- Between one part (day) and the next: a divider in the frame style. -->
+      <InviteDivider v-if="p > 0" v-reveal="0" :variant="design.ornate_style" class="part-divider" />
+      <div class="part invite-frame" :class="{ 'invite-ornate': ornate('programme') }">
         <header v-reveal="0" class="part-head">
           <h3 v-if="part.title" class="part-title" :style="{ fontFamily: namesFont }">{{ part.title }}</h3>
           <p v-if="part.day" class="day">{{ part.day }}</p>
@@ -212,6 +215,7 @@ onBeforeUnmount(() => observer?.disconnect())
           :label="labels.openMaps"
         />
       </div>
+      </template>
     </section>
 
     <section v-if="gallery.length" class="gallery">
@@ -431,15 +435,23 @@ onBeforeUnmount(() => observer?.disconnect())
 
 /* Programme: parts of the day: the title, date and place, the route of its moments, then its map. */
 .programme { margin-top: clamp(28px, 6cqi, 56px); display: flex; flex-direction: column; align-items: center; gap: 18px; }
-/* No box around a part: the route needs the full width. Parts are set apart by space. */
+/* Each part (day) in its own panel: a shade darker than the card, squircle corners (where the browser
+   draws them), in the frame of the invitation's style (ornate with the Programme frame area). */
 .part {
   width: min(100%, 620px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding: 10px 0 clamp(24px, 6cqi, 40px);
+  padding: clamp(22px, 5cqi, 36px) clamp(12px, 3.5cqi, 28px) clamp(22px, 5cqi, 36px);
+  border-radius: var(--r-lg);
+  background-color: color-mix(in srgb, var(--paper) 93%, var(--ink));
+  --ornate-corner: clamp(18px, 5cqi, 28px);
+  --ornate-inset: 5px;
+  --ornate-shadow: 0 14px 34px color-mix(in srgb, var(--ink) 9%, transparent);
 }
+/* Between parts, outside their panels. */
+.part-divider { margin-block: clamp(4px, 1.5cqi, 12px); }
 .part-head { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .part-title { margin: 0; font-size: clamp(1.5rem, 5.5cqi, 2rem); font-weight: 500; line-height: 1.3; }
 .day {

@@ -297,7 +297,7 @@ function onKey(e: KeyboardEvent) {
   left: 28px;
   right: 28px;
   margin: 0;
-  font-family: 'Cormorant Garamond', 'Battambang', serif;
+  font-family: 'Cormorant Garamond', 'Suwannaphum', serif;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -336,7 +336,7 @@ function onKey(e: KeyboardEvent) {
   background: none;
   box-shadow: none;
 }
-.guest p { margin: 0; font-family: 'Cormorant Garamond', 'Battambang', serif; }
+.guest p { margin: 0; font-family: 'Cormorant Garamond', 'Suwannaphum', serif; }
 .guest-invite { font-size: clamp(0.85rem, 3.2cqi, 1.1rem); letter-spacing: 0.08em; color: color-mix(in srgb, var(--ink) 85%, transparent); }
 .guest-title {
   font-size: clamp(1.4rem, 6cqi, 2.2rem);
@@ -354,7 +354,7 @@ function onKey(e: KeyboardEvent) {
   bottom: clamp(36px, 8%, 64px);
   margin: 0;
   text-align: center;
-  font-family: 'Cormorant Garamond', 'Battambang', serif;
+  font-family: 'Cormorant Garamond', 'Suwannaphum', serif;
   font-size: 0.95rem;
   letter-spacing: 0.08em;
   color: color-mix(in srgb, var(--ink) 80%, transparent);

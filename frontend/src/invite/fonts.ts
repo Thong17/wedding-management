@@ -23,7 +23,7 @@ export interface FontPairing {
   faces: string[]
 }
 
-const KHMER_TEXT = "'Battambang'"
+const KHMER_TEXT = "'Suwannaphum'"
 const SERIF = "Georgia, 'Times New Roman', serif"
 
 export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
@@ -37,7 +37,8 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
         import('@fontsource/cormorant-garamond/400.css'),
         import('@fontsource/cormorant-garamond/600.css'),
         import('@fontsource/noto-serif-khmer/600.css'),
-        import('@fontsource/battambang/400.css'),
+        import('@fontsource/suwannaphum/400.css'),
+        import('@fontsource/suwannaphum/700.css'),
       ]),
     faces: ["500 1em 'Playfair Display'", "400 1em 'Cormorant Garamond'"],
   },
@@ -50,7 +51,8 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
         import('@fontsource/moul/400.css'),
         import('@fontsource/cormorant-garamond/400.css'),
         import('@fontsource/cormorant-garamond/600.css'),
-        import('@fontsource/battambang/400.css'),
+        import('@fontsource/suwannaphum/400.css'),
+        import('@fontsource/suwannaphum/700.css'),
       ]),
     faces: ["400 1em 'Great Vibes'", "400 1em 'Cormorant Garamond'"],
   },
@@ -62,7 +64,8 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
         import('@fontsource/cormorant-garamond/400.css'),
         import('@fontsource/cormorant-garamond/600.css'),
         import('@fontsource/noto-serif-khmer/400.css'),
-        import('@fontsource/battambang/400.css'),
+        import('@fontsource/suwannaphum/400.css'),
+        import('@fontsource/suwannaphum/700.css'),
       ]),
     faces: ["600 1em 'Cormorant Garamond'"],
   },
@@ -73,12 +76,12 @@ export const FONT_PAIRINGS: Record<InviteFont, FontPairing> = {
     load: () =>
       Promise.all([
         import('@fontsource/moul/400.css'),
-        import('@fontsource/battambang/400.css'),
-        import('@fontsource/battambang/700.css'),
+        import('@fontsource/suwannaphum/400.css'),
+        import('@fontsource/suwannaphum/700.css'),
         import('@fontsource/playfair-display/500.css'),
         import('@fontsource/cormorant-garamond/400.css'),
       ]),
-    faces: ["400 1em 'Moul'", "400 1em 'Battambang'"],
+    faces: ["400 1em 'Moul'", "400 1em 'Suwannaphum'"],
   },
   'khmer-elegant': {
     names: `'Noto Serif Khmer', 'Playfair Display', ${SERIF}`,
