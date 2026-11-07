@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { contrastOn, initials, type InviteConfig, type InviteImages, type InviteText } from '@/invite/config'
 import type { InviteLabels } from '@/invite/labels'
 import InviteEmblem from './InviteEmblem.vue'
@@ -56,6 +56,33 @@ watch(
 )
 onBeforeUnmount(() => clearTimeout(timer))
 
+/*
+ * Envelope: the flap's point ends exactly at the seal's centre, so the seal always covers it whatever the
+ * screen and however the names and lines above and below move the seal. Measured, and again on resize.
+ */
+const root = ref<HTMLElement | null>(null)
+const flapTip = ref<number | null>(null)
+function measureFlap() {
+  const cover = root.value
+  const seal = cover?.querySelector<HTMLElement>('.face .seal')
+  if (!cover || !seal || style.value !== 'envelope' || !seal.offsetHeight) return
+  // Layout offsets, not the on-screen box: those ignore the animations (the envelope sliding away, the
+  // seal breathing), which would otherwise be measured into the flap.
+  let top = seal.offsetHeight / 2
+  for (let el: HTMLElement | null = seal; el && el !== cover; el = el.offsetParent as HTMLElement | null) top += el.offsetTop
+  flapTip.value = Math.round(top)
+}
+let resizes: ResizeObserver | null = null
+onMounted(() => {
+  measureFlap()
+  if (typeof ResizeObserver === 'undefined' || !root.value) return
+  resizes = new ResizeObserver(() => measureFlap())
+  resizes.observe(root.value)
+  root.value.querySelectorAll('.face .center').forEach((el) => resizes!.observe(el))
+})
+watch([style, () => props.fontsReady, names], () => nextTick(measureFlap))
+onBeforeUnmount(() => resizes?.disconnect())
+
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
@@ -66,9 +93,10 @@ function onKey(e: KeyboardEvent) {
 
 <template>
   <div
+    ref="root"
     class="cover"
     :class="[`style-${style}`, { opening: mode === 'opening', closing: mode === 'closing' }]"
-    :style="{ '--cover': anim.cover_color, '--ink': ink, '--gold': config.design.accent }"
+    :style="{ '--flap-tip': flapTip != null ? `${flapTip}px` : undefined, '--cover': anim.cover_color, '--ink': ink, '--gold': config.design.accent }"
     role="button"
     tabindex="0"
     :aria-label="labels.tapToOpen"
@@ -81,7 +109,8 @@ function onKey(e: KeyboardEvent) {
       <div class="face">
         <div class="texture" />
         <img v-if="coverImage" class="cover-image" :src="coverImage" alt="" />
-        <div class="frame"><span class="corner tl" /><span class="corner tr" /><span class="corner bl" /><span class="corner br" /></div>
+        <!-- The cover's frame, with the corner and top ornaments of the invitation's frame style (ornate.css). -->
+        <div class="frame"><span class="ornate-corners" /><span class="ornate-top" /></div>
         <!-- Envelope: the flap, under the seal that closes it. -->
         <div v-if="style === 'envelope'" class="flap" />
         <div class="center">
@@ -104,6 +133,11 @@ function onKey(e: KeyboardEvent) {
               <span class="name">{{ name }}</span>
             </template>
           </p>
+          <!-- Below the names: "cordially invite" (small), "our honoured guest" (large). -->
+          <div class="guest" :class="{ ready: fontsReady }">
+            <p class="guest-invite">{{ labels.greetingTitle }}</p>
+            <p class="guest-title invite-frame invite-ornate">{{ labels.honouredGuest }}</p>
+          </div>
         </div>
       </div>
         <!-- Gatefold: the front darkens as the door turns away from the light. -->
@@ -135,6 +169,10 @@ function onKey(e: KeyboardEvent) {
           <span class="name">{{ name }}</span>
         </template>
       </p>
+      <div class="guest">
+        <p class="guest-invite">{{ labels.greetingTitle }}</p>
+        <p class="guest-title invite-frame invite-ornate">{{ labels.honouredGuest }}</p>
+      </div>
     </div>
     <InviteParticles v-if="anim.particles" :color="'#f0d488'" :burst="moving" />
     <p class="hint" :class="{ ready: fontsReady }">{{ labels.tapToOpen }}</p>
@@ -203,7 +241,7 @@ function onKey(e: KeyboardEvent) {
 }
 /* The seal above the doors (gatefold): only the seal shows; the rest only keeps it in place. */
 .seal-layer { pointer-events: none; z-index: 3; }
-.seal-layer .eyebrow, .seal-layer .names { visibility: hidden; }
+.seal-layer .eyebrow, .seal-layer .names, .seal-layer .guest { visibility: hidden; }
 .seal.placeholder { visibility: hidden; animation: none; }
 
 /* Shadow falling on the front as the door turns away from the light. */
@@ -235,11 +273,11 @@ function onKey(e: KeyboardEvent) {
   box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--cover) 92%, transparent), inset 0 0 0 6px color-mix(in srgb, var(--gold) 45%, transparent);
   isolation: isolate;
 }
-.corner { position: absolute; width: 34px; height: 34px; border: 2px solid var(--gold); }
-.corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
-.corner.tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; }
-.corner.bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
-.corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+/* The frame's ornaments, in the invitation's frame style. On the cover the "paper" is the cover colour. */
+/* Above the envelope's flap, so the flap never hides the frame and its ornaments. */
+.frame { --paper: var(--cover); z-index: 1; }
+.frame .ornate-corners { --ornate-inset: 6px; --ornate-corner: clamp(34px, 10cqi, 64px); }
+.frame .ornate-top { --ornate-top-scale: 2.2; }
 
 .center {
   position: absolute;
@@ -252,15 +290,24 @@ function onKey(e: KeyboardEvent) {
   padding: 40px 24px;
   text-align: center;
 }
+/* The heading ("Wedding invitation"): large, across the top of the cover, above the seal and the names. */
 .eyebrow {
+  position: absolute;
+  top: clamp(52px, 11%, 104px);
+  left: 28px;
+  right: 28px;
   margin: 0;
   font-family: 'Cormorant Garamond', 'Battambang', serif;
-  letter-spacing: 0.32em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: clamp(0.72rem, 2.6vw, 0.9rem);
+  font-size: clamp(1.45rem, 6.5cqi, 2.5rem);
+  line-height: 1.5;
   color: var(--gold);
+  text-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
 }
-.seal { width: clamp(120px, 34vmin, 200px); aspect-ratio: 1; animation: seal-breathe 3.2s ease-in-out infinite; }
+.eyebrow:lang(km) { font-size: clamp(1.9rem, 8cqi, 2.9rem); line-height: 1.7; }
+.seal { width: clamp(80px, 21vmin, 128px); aspect-ratio: 1; animation: seal-breathe 3.2s ease-in-out infinite; }
 /* The names stacked as on the card (groom, &, bride); their size follows the names size setting. */
 .names {
   margin: 0;
@@ -276,6 +323,30 @@ function onKey(e: KeyboardEvent) {
 .names .amp { font-size: calc(clamp(1.1rem, 4.2cqi, 1.7rem) * var(--names-scale, 1)); color: var(--gold); font-style: italic; }
 /* Khmer stacks vowels and subscripts above and below the line: more room, so the lines don't overlap. */
 .names:lang(km) { line-height: 1.75; gap: 0.2em; }
+/* Below the names: a small "cordially invite", then "our honoured guest" large, in gold. */
+.guest { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* "Our honoured guest" in an ornate frame of the invitation's style, on the cover colour. */
+.guest-title.invite-frame {
+  --paper: var(--cover);
+  --ornate-corner: 16px;
+  --ornate-inset: 4px;
+  padding: 8px clamp(34px, 10cqi, 48px) 6px;
+  /* Only the ornaments (corners and top): no border, card, line or shadow. */
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.guest p { margin: 0; font-family: 'Cormorant Garamond', 'Battambang', serif; }
+.guest-invite { font-size: clamp(0.85rem, 3.2cqi, 1.1rem); letter-spacing: 0.08em; color: color-mix(in srgb, var(--ink) 85%, transparent); }
+.guest-title {
+  font-size: clamp(1.4rem, 6cqi, 2.2rem);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  text-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
+}
+.guest:lang(km) p { letter-spacing: 0.02em; line-height: 1.8; }
 .hint {
   position: absolute;
   left: 0;
@@ -290,8 +361,8 @@ function onKey(e: KeyboardEvent) {
   animation: hint-pulse 2.4s ease-in-out infinite;
 }
 /* Text waits for its font so it never shows in a fallback first. */
-.eyebrow, .names, .hint { opacity: 0; transition: opacity 0.6s ease; }
-.eyebrow.ready, .names.ready { opacity: 1; }
+.eyebrow, .names, .guest, .hint { opacity: 0; transition: opacity 0.6s ease; }
+.eyebrow.ready, .names.ready, .guest.ready { opacity: 1; }
 .hint.ready { opacity: 1; }
 .opening .hint, .closing .hint { opacity: 0; transition-duration: 0.3s; }
 .eyebrow:lang(km), .hint:lang(km) { letter-spacing: 0.02em; text-transform: none; }
@@ -355,16 +426,16 @@ function onKey(e: KeyboardEvent) {
   left: 0;
   right: 0;
   top: 0;
-  height: 46%;
+  /* Down to the seal's centre (measured), so the seal hides the point. */
+  height: var(--flap-tip, 46%);
   background: linear-gradient(to bottom, color-mix(in srgb, var(--cover) 82%, #000), var(--cover));
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  /* Full width down the sides, then two curved edges sweeping in to the point behind the seal. */
+  clip-path: polygon(0 0, 100% 0, 100% 56%, 96.83% 59.94%, 93.59% 63.76%, 90.3% 67.45%, 86.94% 71.02%, 83.52% 74.47%, 80.04% 77.8%, 76.5% 81%, 72.9% 84.08%, 69.23% 87.04%, 65.51% 89.88%, 61.72% 92.59%, 57.88% 95.18%, 53.97% 97.65%, 50% 100%, 46.03% 97.65%, 42.12% 95.18%, 38.28% 92.59%, 34.49% 89.88%, 30.77% 87.04%, 27.1% 84.08%, 23.5% 81%, 19.96% 77.8%, 16.48% 74.47%, 13.06% 71.02%, 9.7% 67.45%, 6.41% 63.76%, 3.17% 59.94%, 0% 56%);
   transform-origin: top center;
   backface-visibility: hidden;
   filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35));
 }
 .style-envelope .seal { position: relative; z-index: 2; }
-/* The flap covers the top half: the eyebrow goes below the names instead. */
-.style-envelope .eyebrow { order: 3; }
 .opening.style-envelope .seal { animation: seal-lift 0.5s ease-in forwards; }
 .opening.style-envelope .flap { animation: flap-open 0.9s cubic-bezier(0.5, 0, 0.3, 1) 0.3s forwards; }
 .opening.style-envelope .leaf-whole { animation: envelope-away 1.1s cubic-bezier(0.6, 0, 0.3, 1) 1.05s forwards; }

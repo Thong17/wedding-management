@@ -8,9 +8,10 @@ import type { InviteLanguage } from './config'
 const LABELS = {
   km: {
     tapToOpen: 'ចុចដើម្បីបើកលិខិតអញ្ជើញ',
-    invitation: 'លិខិតអញ្ចើញអាពាហ៍ពិពាហ៍',
+    invitation: 'សិរីមង្គលអាពាហ៍ពិពាហ៍',
     defaultTitle: 'សិរីមង្គលអាពាហ៍ពិពាហ៍',
     greetingTitle: 'សូមគោរពអញ្ចើញ',
+    honouredGuest: 'ភ្ញៀវកិត្តិយស',
     defaultGreeting: 'ឯកឧត្តម លោកជំទាវ លោក លោកស្រី អ្នកនាងកញ្ញា អញ្ជើញចូលរួមជាអធិបតី និងជាភ្ញៀវកិត្តិយស',
     and: 'និង',
     date: 'កាលបរិច្ឆេទ',
@@ -58,6 +59,7 @@ const LABELS = {
     invitation: 'Wedding invitation',
     defaultTitle: 'The Wedding Celebration',
     greetingTitle: 'You are cordially invited',
+    honouredGuest: 'Our honoured guest',
     defaultGreeting: 'Together with their families, request the pleasure of your company at their wedding',
     and: '&',
     date: 'Date',
