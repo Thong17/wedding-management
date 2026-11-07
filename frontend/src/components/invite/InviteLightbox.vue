@@ -43,7 +43,7 @@ watch(
     darkenBrowser(index != null)
     if (index != null && before == null) {
       await nextTick()
-      box.value?.focus()
+      box.value?.focus({ preventScroll: true })
     }
   },
 )

@@ -30,7 +30,9 @@ watch(
     saveState.value = 'idle'
     if (!qr) return
     await nextTick()
-    dialog.value?.focus()
+    // Without scrolling: it slides up from just below the edge, and the browser would scroll the whole
+    // invitation to bring it into view (the page underneath jumped, which looked like a flicker).
+    dialog.value?.focus({ preventScroll: true })
   },
 )
 
