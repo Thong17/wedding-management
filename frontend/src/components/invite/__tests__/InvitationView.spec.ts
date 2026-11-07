@@ -32,7 +32,8 @@ describe('InvitationView', () => {
     const wrapper = mount(InvitationView, { props: { config: config(), images: {}, event } })
     await flushPromises() // fonts ready
     const cover = wrapper.get('.cover')
-    expect(cover.text()).toContain('Sokha & Dara')
+    // The names, stacked: groom, &, bride.
+    expect(cover.findAll('.names').at(0)?.findAll('span').map((s) => s.text())).toEqual(['Sokha', '&', 'Dara'])
     expect(cover.attributes('aria-label')).toBe('Tap to open the invitation')
     expect(wrapper.get('.stage').classes()).toContain('hidden')
 

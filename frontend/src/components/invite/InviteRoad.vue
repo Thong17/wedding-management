@@ -28,12 +28,12 @@ import { INVITE_SCROLLER, roadPath, type Point } from '@/invite/road'
  */
 const SCROLL = {
   /** The marker sets off when the road's top reaches here. Lower % = starts earlier (road still low). */
-  start: 'top 22%',
+  start: 'top 50%',
   /**
    * The marker arrives when the road's bottom reaches here. Keep it the same % as `start` and the marker
    * stays at that height on screen while the road scrolls under it; a larger % makes it finish sooner.
    */
-  end: 'bottom 22%',
+  end: 'bottom 50%',
   /** Seconds the marker takes to catch up with the scroll: 0 = glued to it, 1–2 = floaty. */
   scrub: 0.8,
 }
@@ -79,17 +79,33 @@ function stopCentres(box: HTMLElement): Point[] {
 const inward = ref<boolean[]>([])
 
 /** Where the stops sit, which side their words go, and the road through them. */
+/**
+ * The straight line on a narrow screen (a phone): one line near the left edge, every stop on it, their
+ * boxes to its right using the rest of the width (there is no room for boxes on both sides of a middle
+ * line). Margins keep the dots and the boxes off the edges.
+ */
+const COMPACT_BELOW = 520
+const compact = ref(false)
+
 function measure(): boolean {
   const box = root.value
   if (!box) return false
   const width = box.offsetWidth
+  const narrow = props.variant === 'line' && width < COMPACT_BELOW
+  if (narrow !== compact.value) {
+    // The stops move: measure again once they have.
+    compact.value = narrow
+    nextTick(() => relayout(true))
+  }
   const height = box.offsetHeight
   const stops = stopCentres(box)
   const labelMin = Number.parseFloat(getComputedStyle(box).getPropertyValue('--label-min')) || 0
   const dot = box.querySelector<HTMLElement>('.dot')?.offsetWidth ?? 0
   // On the straight line the words always sit beside it, each side of the middle.
   inward.value = stops.map((stop, i) => props.variant === 'road' && (i % 2 ? width - stop.x : stop.x) - dot / 2 < labelMin)
-  const next = roadPath(stops, width, height)
+  // The road comes in from, and goes out to, the middle; on the compact line, the line's own x (so it
+  // stays straight).
+  const next = roadPath(stops, compact.value && stops.length ? stops[0].x * 2 : width, height)
   const changed = next !== d.value
   size.value = { w: width, h: height }
   d.value = next
@@ -200,7 +216,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="road" :class="[`variant-${variant}`, { drawn: !!d }]">
+  <div ref="root" class="road" :class="[`variant-${variant}`, { drawn: !!d, compact }]">
     <svg v-if="d" class="road-svg" :viewBox="`0 0 ${size.w} ${size.h}`" :width="size.w" :height="size.h" aria-hidden="true">
       <path :d="d" class="road-shoulder" />
       <path :d="d" class="road-surface" />
@@ -214,10 +230,11 @@ onBeforeUnmount(() => {
         :key="i"
         class="moment"
         :class="[
-          i % 2 ? 'right' : 'left',
+          // On the compact line every stop is a left one with its box after the dot (as when turned inward).
+          i % 2 && !compact ? 'right' : 'left',
           // The box is before (left of) the dot for left stops, unless turned inward; the reverse for right ones.
-          (i % 2 === 1) === !!inward[i] ? 'box-before' : 'box-after',
-          { reached: showAll || reached[i], waiting: !showAll && !reached[i], inward: inward[i] },
+          !compact && (i % 2 === 1) === !!inward[i] ? 'box-before' : 'box-after',
+          { reached: showAll || reached[i], waiting: !showAll && !reached[i], inward: inward[i] || compact },
         ]"
       >
         <span class="dot">{{ i + 1 }}</span>
@@ -418,6 +435,16 @@ onBeforeUnmount(() => {
   /* Less than the road's: here each side only has half the width. */
   --label-gap: 48px;
 }
+/* Compact (narrow screens): the line near the left edge, the boxes filling the width to its right, their
+   text aligned left. --compact-margin keeps the dots and the boxes that far from the edges. */
+.variant-line.compact {
+  --compact-margin: 14px;
+  --stop-left: calc(var(--compact-margin) + var(--dot-size) / 2);
+  --label-edge: var(--compact-margin);
+  --label-gap: 34px;
+}
+.variant-line.compact .moment.left { justify-content: stretch; }
+.variant-line.compact .stop-text { width: 100%; align-items: flex-start; text-align: left; }
 .variant-line .road-shoulder { stroke: color-mix(in srgb, var(--gold) 45%, transparent); stroke-width: var(--line-width); }
 .variant-line .road-surface,
 .variant-line .road-dash { display: none; }

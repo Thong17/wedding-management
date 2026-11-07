@@ -102,6 +102,11 @@ export interface InviteConfig {
     route_style: RouteStyle
     ornate_frames: OrnateArea[]
     ornate_style: OrnateStyle
+    /** The couple's names, as a percentage of their usual size (cover and card), 60–160. */
+    names_size: number
+    /** Which part of the main photo shows: 0–100 % across and down (50 = centre). */
+    hero_x: number
+    hero_y: number
     gold_corners: boolean
     gold_border: boolean
     gold_dividers: boolean
@@ -175,6 +180,9 @@ export function defaultConfig(): InviteConfig {
       route_style: 'road',
       ornate_frames: [...ORNATE_AREAS],
       ornate_style: 'royal',
+      names_size: 100,
+      hero_x: 50,
+      hero_y: 50,
       gold_corners: true,
       gold_border: true,
       gold_dividers: true,

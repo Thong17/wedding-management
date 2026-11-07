@@ -97,8 +97,12 @@ function onKey(e: KeyboardEvent) {
               :names-font="namesFont"
             />
           </div>
+          <!-- Stacked like the card's: groom, &, bride. -->
           <p v-if="names.length" class="names" :class="{ ready: fontsReady }" :style="{ fontFamily: namesFont }">
-            {{ names.join(` ${labels.and} `) }}
+            <template v-for="(name, i) in names" :key="i">
+              <span v-if="i" class="amp">{{ labels.and }}</span>
+              <span class="name">{{ name }}</span>
+            </template>
           </p>
         </div>
       </div>
@@ -125,7 +129,12 @@ function onKey(e: KeyboardEvent) {
           :names-font="namesFont"
         />
       </div>
-      <p v-if="names.length" class="names" :style="{ fontFamily: namesFont }">{{ names.join(` ${labels.and} `) }}</p>
+      <p v-if="names.length" class="names" :style="{ fontFamily: namesFont }">
+        <template v-for="(name, i) in names" :key="i">
+          <span v-if="i" class="amp">{{ labels.and }}</span>
+          <span class="name">{{ name }}</span>
+        </template>
+      </p>
     </div>
     <InviteParticles v-if="anim.particles" :color="'#f0d488'" :burst="moving" />
     <p class="hint" :class="{ ready: fontsReady }">{{ labels.tapToOpen }}</p>
@@ -252,13 +261,21 @@ function onKey(e: KeyboardEvent) {
   color: var(--gold);
 }
 .seal { width: clamp(120px, 34vmin, 200px); aspect-ratio: 1; animation: seal-breathe 3.2s ease-in-out infinite; }
+/* The names stacked as on the card (groom, &, bride); their size follows the names size setting. */
 .names {
   margin: 0;
-  font-size: clamp(1.6rem, 6vw, 2.6rem);
-  line-height: 1.25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05em;
+  line-height: 1.2;
   color: var(--ink);
   text-shadow: 0 2px 14px rgb(0 0 0 / 0.35);
 }
+.names .name { font-size: calc(clamp(1.8rem, 7.5cqi, 3rem) * var(--names-scale, 1)); font-weight: 500; }
+.names .amp { font-size: calc(clamp(1.1rem, 4.2cqi, 1.7rem) * var(--names-scale, 1)); color: var(--gold); font-style: italic; }
+/* Khmer stacks vowels and subscripts above and below the line: more room, so the lines don't overlap. */
+.names:lang(km) { line-height: 1.75; gap: 0.2em; }
 .hint {
   position: absolute;
   left: 0;

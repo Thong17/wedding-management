@@ -390,6 +390,10 @@ function replaySide() {
                 </label>
               </div>
               <label>{{ t('invite.font') }} <AppSelect v-model="draft.design.font" :options="fontOptions" /></label>
+              <label>
+                {{ t('invite.namesSize', { n: draft.design.names_size }) }}
+                <input v-model.number="draft.design.names_size" type="range" min="60" max="160" step="5" class="volume" />
+              </label>
               <label>{{ t('invite.cardStyle') }} <AppSelect v-model="draft.design.card_style" :options="cardOptions" /></label>
               <fieldset class="checks">
                 <legend>{{ t('invite.decorations') }}</legend>
@@ -463,6 +467,17 @@ function replaySide() {
                 @pick="upload($event, 'hero')"
                 @clear="draft.content.hero_photo = null"
               />
+              <!-- Which part of the main photo shows in its arch. -->
+              <div v-if="draft.content.hero_photo != null" class="photo-position">
+                <label>
+                  {{ t('invite.heroX', { n: draft.design.hero_x }) }}
+                  <input v-model.number="draft.design.hero_x" type="range" min="0" max="100" step="1" class="volume" />
+                </label>
+                <label>
+                  {{ t('invite.heroY', { n: draft.design.hero_y }) }}
+                  <input v-model.number="draft.design.hero_y" type="range" min="0" max="100" step="1" class="volume" />
+                </label>
+              </div>
               <div class="gallery-edit">
                 <span class="picker-label">{{ t('invite.gallery', { n: draft.content.gallery.length, max: MAX_GALLERY }) }}</span>
                 <div class="thumbs">
@@ -766,6 +781,7 @@ textarea { resize: vertical; }
 .song { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .song .btn-small { display: inline-flex; align-items: center; gap: 4px; }
 .song-player { width: 100%; height: 40px; }
+.photo-position { display: grid; gap: 10px; }
 .volume { padding: 0; min-height: 0; accent-color: var(--c-primary); }
 .slug-row { display: flex; align-items: center; gap: 6px; }
 .slug-row .prefix { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; }

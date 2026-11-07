@@ -128,7 +128,7 @@ onBeforeUnmount(() => observer?.disconnect())
 
     <div class="layout">
       <figure v-if="hero" v-reveal="0" class="hero reveal-image" :class="{ 'invite-frame invite-ornate ornate-arch': ornate('hero') }">
-        <img :src="hero" alt="" loading="eager" />
+        <img :src="hero" alt="" loading="eager" :style="{ objectPosition: `${design.hero_x}% ${design.hero_y}%` }" />
       </figure>
 
       <div class="body">
@@ -322,6 +322,9 @@ onBeforeUnmount(() => observer?.disconnect())
   color: var(--gold);
 }
 .couple { display: flex; flex-direction: column; align-items: center; gap: 0.1em; line-height: 1.2; }
+/* Khmer stacks vowels and subscripts above and below the line (very tall in Moul): more room, so the
+   names and "និង" don't overlap. */
+.couple:lang(km) { line-height: 1.75; gap: 0.2em; }
 /* Ornate: the names on a framed plaque. */
 .couple.invite-ornate {
   --ornate-corner: 20px;
@@ -333,8 +336,8 @@ onBeforeUnmount(() => observer?.disconnect())
   border-radius: var(--r-md);
   background-color: color-mix(in srgb, var(--paper) 94%, transparent);
 }
-.name { font-size: clamp(2.2rem, 9cqi, 4rem); font-weight: 500; }
-.amp { font-size: clamp(1.4rem, 5cqi, 2.2rem); color: var(--gold); font-style: italic; }
+.name { font-size: calc(clamp(2.2rem, 9cqi, 4rem) * var(--names-scale, 1)); font-weight: 500; }
+.amp { font-size: calc(clamp(1.4rem, 5cqi, 2.2rem) * var(--names-scale, 1)); color: var(--gold); font-style: italic; }
 
 .details { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 0; width: 100%; }
 .details div { display: flex; flex-direction: column; gap: 2px; }

@@ -97,7 +97,7 @@ export default {
     menu: 'Account menu for {name}',
     profile: 'Profile',
     install: 'Install app',
-    installed: 'Installed: open Gift Desk from your home screen.',
+    installed: 'Installed: open Wedding Desk from your home screen.',
     installIos: 'To install on iPhone or iPad: tap the Share button (the square with an arrow) in Safari, then "Add to Home Screen".',
   },
   profile: {
@@ -114,7 +114,7 @@ export default {
     savedRenamed: 'Profile saved. Sign in as “{name}” from now on.',
   },
   app: {
-    brand: 'Gift Desk',
+    brand: 'Wedding Desk',
     events: 'Events',
     sync: 'Sync',
     roles: 'Roles',
@@ -137,7 +137,7 @@ export default {
     openSync: 'Open sync center',
   },
   login: {
-    title: 'Wedding Gift Desk',
+    title: 'Wedding Desk',
     sessionExpired: 'Your session expired. Log in again to resume uploading. Gifts already saved on this device are kept.',
     username: 'Username',
     password: 'Password',
@@ -695,6 +695,9 @@ export default {
     textColor: "Text",
     gold: "Gold",
     font: "Font",
+    namesSize: "Names size ({n}%)",
+    heroX: "Photo position: left ↔ right ({n}%)",
+    heroY: "Photo position: top ↕ bottom ({n}%)",
     cardStyle: "Card style",
     routeStyle: "Moments shown as",
     decorations: "Gold decorations",

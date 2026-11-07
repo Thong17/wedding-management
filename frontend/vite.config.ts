@@ -15,9 +15,9 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Wedding Gift Desk',
-        short_name: 'Gift Desk',
-        description: 'Record wedding gifts, even offline.',
+        name: 'Wedding Desk',
+        short_name: 'Wedding Desk',
+        description: 'Wedding e-invitations and gift recording, even offline.',
         theme_color: '#7a3b5c',
         background_color: '#faf7f8',
         display: 'standalone',

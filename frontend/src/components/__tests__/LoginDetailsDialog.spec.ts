@@ -28,7 +28,7 @@ describe('LoginDetailsDialog', () => {
     copy.click()
     await flushPromises()
     expect(writeText).toHaveBeenCalledWith(
-      `Your login for Wedding Gift Desk\nWebsite: ${window.location.origin}/login\nUsername: dara\nPassword: Xy7kP2mQ\n\nPlease change the password after signing in (Profile → Change password).`,
+      `Your login for Wedding Desk\nWebsite: ${window.location.origin}/login\nUsername: dara\nPassword: Xy7kP2mQ\n\nPlease change the password after signing in (Profile → Change password).`,
     )
     expect(document.body.textContent).toContain('Copied')
     w.unmount()

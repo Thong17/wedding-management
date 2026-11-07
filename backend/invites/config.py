@@ -194,6 +194,11 @@ SCHEMA = {
         "route_style": ("road", _choice(ROUTE_STYLES)),
         "ornate_frames": (list(ORNATE_AREAS), _choices(ORNATE_AREAS)),
         "ornate_style": ("royal", _choice(ORNATE_STYLES)),
+        # The couple's names, as a percentage of their usual size (cover and card).
+        "names_size": (100, _number(60, 160)),
+        # Which part of the main photo shows in its arch: 0–100 % across and down (50 = centre).
+        "hero_x": (50, _number(0, 100)),
+        "hero_y": (50, _number(0, 100)),
         "gold_corners": (True, _bool),
         "gold_border": (True, _bool),
         "gold_dividers": (True, _bool),

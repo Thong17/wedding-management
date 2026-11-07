@@ -38,7 +38,7 @@ describe('PublicInviteView', () => {
     const wrapper = mount(PublicInviteView, { props: { slug: 'sokha-dara' } })
     expect(wrapper.get('[role="progressbar"]').attributes('aria-label')).toBe('Preparing your invitation…')
     await settle(wrapper, '.cover')
-    expect(wrapper.get('.cover').text()).toContain('Sokha & Dara')
+    expect(wrapper.get('.cover .names').findAll('span').map((s) => s.text())).toEqual(['Sokha', '&', 'Dara'])
     expect(document.title).toBe('Sokha & Dara · Wedding invitation')
   })
 

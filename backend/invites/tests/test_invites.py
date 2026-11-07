@@ -97,6 +97,8 @@ class InviteTests(APITestCase):
             ({"design": {"ornate_frames": "names"}}, "design.ornate_frames"),
             ({"design": {"route_style": "zigzag"}}, "design.route_style"),
             ({"design": {"ornate_style": "baroque"}}, "design.ornate_style"),
+            ({"design": {"names_size": 400}}, "design.names_size"),
+            ({"design": {"hero_y": -5}}, "design.hero_y"),
             ({"content": {"timeline": [{"maps_url": "javascript:alert(1)"}]}}, "content.timeline.0.maps_url"),
             ({"content": {"gallery": [999]}}, "content.gallery"),
             ({"content": {"text": {"en": {"title": "x" * 121}}}}, "content.text.en.title"),

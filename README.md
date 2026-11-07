@@ -1,4 +1,4 @@
-# Wedding Management System — offline gift desk
+# Wedding Desk — wedding e-invitations and an offline gift desk
 
 Record guests' money gifts at the wedding even without internet. Gifts are saved
 instantly in the browser (IndexedDB) and uploaded to the Django API when the

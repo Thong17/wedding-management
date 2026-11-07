@@ -11,6 +11,7 @@ import InviteCover from './InviteCover.vue'
 import InviteParticles from './InviteParticles.vue'
 import InviteQrDialog from './InviteQrDialog.vue'
 import InviteLightbox from './InviteLightbox.vue'
+import InviteService from './InviteService.vue'
 
 /**
  * The whole guest experience for one design: the cover, the opening animation, then the invitation.
@@ -166,7 +167,12 @@ defineExpose({ replay, close, phase, language })
   <div
     class="invitation"
     :class="[`card-${config.design.card_style}`, `frames-${config.design.ornate_style}`, { 'fonts-ready': fontsReady }]"
-    :style="{ '--paper': config.design.background, '--ink': config.design.text_color, '--gold': config.design.accent }"
+    :style="{
+      '--paper': config.design.background,
+      '--ink': config.design.text_color,
+      '--gold': config.design.accent,
+      '--names-scale': config.design.names_size / 100,
+    }"
     :lang="language"
   >
     <Transition name="particles">
@@ -191,6 +197,7 @@ defineExpose({ replay, close, phase, language })
           @open-qr="bankQr = $event"
           @open-photo="openPhoto"
         />
+        <InviteService :labels="labels" :style="{ fontFamily: pairing.text }" />
       </div>
     </div>
     <InviteCover

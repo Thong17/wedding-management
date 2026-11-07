@@ -38,6 +38,11 @@ const LABELS = {
     soundOff: 'បិទសំឡេង',
     switchLanguage: 'Switch to English',
     otherLanguage: 'EN',
+    serviceMadeWith: 'លិខិតអញ្ជើញនេះបង្កើតដោយ Wedding Desk',
+    serviceTitle: 'បង្កើតលិខិតអញ្ជើញឌីជីថលរបស់អ្នក',
+    serviceText: 'លិខិតអញ្ជើញអាពាហ៍ពិពាហ៍ឌីជីថលដ៏ស្រស់ស្អាត មានកម្មវិធី ផែនទី QR ចំណងដៃ រូបថត និងតន្ត្រី ព្រមទាំងប្រព័ន្ធកត់ត្រាចំណងដៃនៅថ្ងៃមង្គលការ។',
+    serviceFeatures: 'លិខិតអញ្ជើញឌីជីថល · ភាសាខ្មែរ និងអង់គ្លេស · កត់ត្រាចំណងដៃ',
+    serviceContact: 'ទាក់ទងយើងតាម Telegram',
   },
   en: {
     tapToOpen: 'Tap to open the invitation',
@@ -71,6 +76,11 @@ const LABELS = {
     soundOff: 'Turn sound off',
     switchLanguage: 'ប្ដូរទៅភាសាខ្មែរ',
     otherLanguage: 'ខ្មែរ',
+    serviceMadeWith: 'This invitation was made with Wedding Desk',
+    serviceTitle: 'Create your own digital invitation',
+    serviceText: 'Beautiful wedding e-invitations with your programme, maps, gift QR codes, photos and music, plus a gift desk to record every gift on the day.',
+    serviceFeatures: 'Digital invitations · Khmer & English · Gift recording',
+    serviceContact: 'Contact us on Telegram',
   },
 } as const
 
