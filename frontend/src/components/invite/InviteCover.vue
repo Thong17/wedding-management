@@ -287,6 +287,9 @@ function onKey(e: KeyboardEvent) {
 .frame { --paper: var(--cover); z-index: 1; }
 .frame .ornate-corners { --ornate-inset: 6px; --ornate-corner: clamp(34px, 10cqi, 64px); }
 .frame .ornate-top { --ornate-top-scale: 2.2; }
+/* Floral D (Damask): a much shorter reach on the cover, which fills the screen (its corners would grow
+   very big); the card keeps the usual one (ornate.css). */
+.frames-floral-d .frame .ornate-corners { --damask-reach: calc(var(--ornate-corner) * 5); }
 
 .center {
   position: absolute;
@@ -345,6 +348,24 @@ function onKey(e: KeyboardEvent) {
   background: none;
   box-shadow: none;
 }
+/* Floral boxes get paper cut to their notches and a shadow (ornate.css): not here, on the cover. */
+.frames-floral .guest-title.invite-frame {
+  /* Its flowers a little larger (Damask's more, and its vines may reach further up the short sides;
+     the others' corner clusters would otherwise meet on so short a box). */
+  --ornate-corner: 18px;
+  --damask-cap: 70%;
+  background: none !important;
+  filter: none;
+}
+.frames-floral-d .guest-title.invite-frame { --ornate-corner: 21px; }
+/* Nor their notched double line: the flowers only. */
+.frames-floral .guest-title.invite-ornate::before {
+  --edge: linear-gradient(transparent, transparent);
+  --floral-notch-tl: linear-gradient(transparent, transparent);
+  --floral-notch-tr: linear-gradient(transparent, transparent);
+  --floral-notch-bl: linear-gradient(transparent, transparent);
+  --floral-notch-br: linear-gradient(transparent, transparent);
+}
 .guest p { margin: 0; font-family: 'Cormorant Garamond', 'Apple Khmer', 'Suwannaphum', serif; }
 .guest-invite { font-size: clamp(0.85rem, 3.2cqi, 1.1rem); letter-spacing: 0.08em; color: color-mix(in srgb, var(--ink) 85%, transparent); }
 .guest-title {
@@ -356,6 +377,20 @@ function onKey(e: KeyboardEvent) {
   text-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
 }
 .guest:lang(km) p { letter-spacing: 0; line-height: 1.8; }
+/* Floral: the gold words (heading, "&", "honoured guest") mixed toward the cover's contrast colour, so
+   they read on a light cover (a deeper gold) as well as a dark one (a brighter gold); their glow from
+   the cover colour, so it stays soft on a light cover. */
+.frames-floral .eyebrow,
+.frames-floral .names .amp,
+.frames-floral .guest-title {
+  color: color-mix(in srgb, var(--gold) 62%, var(--ink));
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--cover) 45%, rgb(0 0 0 / 0.35));
+}
+.frames-floral .names { text-shadow: 0 2px 14px color-mix(in srgb, var(--cover) 45%, rgb(0 0 0 / 0.35)); }
+/* Floral: the cover's flowers (the frame's corners and those around "honoured guest") in the same
+   contrast-mixed gold, so they show on a light cover too. */
+.frames-floral .frame .ornate-corners,
+.frames-floral .guest-title.invite-ornate::before { background: color-mix(in srgb, var(--gold) 62%, var(--ink)); }
 .hint {
   position: absolute;
   left: 0;

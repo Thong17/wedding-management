@@ -517,8 +517,6 @@
     var(--edge) 4px 50% / 1px var(--side) no-repeat,
     var(--edge) calc(100% - 4px) 50% / 1px var(--side) no-repeat;
 }
-/* On the card and cover: a shorter reach (they are large, so the corners would grow very big). */
-.frames-floral-d .ornate-corners { --damask-reach: calc(var(--ornate-corner) * 1); }
 /* Without the lines (an arch; the cover, which draws its own border): the pictures only. */
 .frames-floral-d .invite-ornate.ornate-arch::before {
   -webkit-mask:
