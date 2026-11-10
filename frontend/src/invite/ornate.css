@@ -266,6 +266,9 @@
   /* How far a vine may reach along its edge, and at most --damask-cap of the box's width or height. */
   --damask-reach: calc(var(--ornate-corner) * 8);
   --damask-cap: 46%;
+  /* In a box, how far the corners (flower and vines together) are moved out toward the edge (the
+     flower is drawn a little way into its picture); they may overhang the box. */
+  --damask-nudge: calc(var(--ornate-corner) * 0.3);
 }
 .frames-floral .invite-ornate.ornate-arch {
   --ornate-tl: linear-gradient(transparent, transparent);
@@ -407,6 +410,10 @@
   --damask-s-tr: linear-gradient(transparent, transparent);
 }
 .frames-floral-d .invite-ornate:not(.ornate-arch)::before {
+  /* Reaches past the box by --damask-nudge, so the corners moved out there are not cut off; the lines
+     are drawn that much in, on the box's edge as before. */
+  inset: calc(var(--ornate-corner-at) - var(--damask-nudge));
+  --side: calc(100% - 40px - 2 * var(--damask-nudge));
   -webkit-mask:
     var(--damask-f-tl) left var(--ornate-offset) top var(--ornate-offset) / min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3) min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3 / 0.7) no-repeat,
     var(--damask-h-tl) left var(--ornate-offset) top var(--ornate-offset) / min(var(--damask-reach), var(--damask-cap)) min(var(--damask-reach) * 0.4, var(--damask-cap) * 0.4 / 0.7) no-repeat,
@@ -420,18 +427,18 @@
     var(--damask-f-br) right var(--ornate-offset) bottom var(--ornate-offset) / min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3) min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3 / 0.7) no-repeat,
     var(--damask-h-br) right var(--ornate-offset) bottom var(--ornate-offset) / min(var(--damask-reach), var(--damask-cap)) min(var(--damask-reach) * 0.4, var(--damask-cap) * 0.4 / 0.7) no-repeat,
     var(--damask-s-br) right var(--ornate-offset) bottom var(--ornate-offset) / min(var(--damask-reach) * 0.4, var(--damask-cap) * 0.4) min(var(--damask-reach) * 0.7, var(--damask-cap)) no-repeat,
-    var(--floral-notch-tl) left top / 20px no-repeat,
-    var(--floral-notch-tr) right top / 20px no-repeat,
-    var(--floral-notch-bl) left bottom / 20px no-repeat,
-    var(--floral-notch-br) right bottom / 20px no-repeat,
-    var(--edge) 50% 0 / var(--side) 1px no-repeat,
-    var(--edge) 50% 100% / var(--side) 1px no-repeat,
-    var(--edge) 0 50% / 1px var(--side) no-repeat,
-    var(--edge) 100% 50% / 1px var(--side) no-repeat,
-    var(--edge) 50% 4px / var(--side) 1px no-repeat,
-    var(--edge) 50% calc(100% - 4px) / var(--side) 1px no-repeat,
-    var(--edge) 4px 50% / 1px var(--side) no-repeat,
-    var(--edge) calc(100% - 4px) 50% / 1px var(--side) no-repeat;
+    var(--floral-notch-tl) left var(--damask-nudge) top var(--damask-nudge) / 20px no-repeat,
+    var(--floral-notch-tr) right var(--damask-nudge) top var(--damask-nudge) / 20px no-repeat,
+    var(--floral-notch-bl) left var(--damask-nudge) bottom var(--damask-nudge) / 20px no-repeat,
+    var(--floral-notch-br) right var(--damask-nudge) bottom var(--damask-nudge) / 20px no-repeat,
+    var(--edge) 50% var(--damask-nudge) / var(--side) 1px no-repeat,
+    var(--edge) 50% calc(100% - var(--damask-nudge)) / var(--side) 1px no-repeat,
+    var(--edge) var(--damask-nudge) 50% / 1px var(--side) no-repeat,
+    var(--edge) calc(100% - var(--damask-nudge)) 50% / 1px var(--side) no-repeat,
+    var(--edge) 50% calc(4px + var(--damask-nudge)) / var(--side) 1px no-repeat,
+    var(--edge) 50% calc(100% - 4px - var(--damask-nudge)) / var(--side) 1px no-repeat,
+    var(--edge) calc(4px + var(--damask-nudge)) 50% / 1px var(--side) no-repeat,
+    var(--edge) calc(100% - 4px - var(--damask-nudge)) 50% / 1px var(--side) no-repeat;
   mask:
     var(--damask-f-tl) left var(--ornate-offset) top var(--ornate-offset) / min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3) min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3 / 0.7) no-repeat,
     var(--damask-h-tl) left var(--ornate-offset) top var(--ornate-offset) / min(var(--damask-reach), var(--damask-cap)) min(var(--damask-reach) * 0.4, var(--damask-cap) * 0.4 / 0.7) no-repeat,
@@ -445,18 +452,18 @@
     var(--damask-f-br) right var(--ornate-offset) bottom var(--ornate-offset) / min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3) min(var(--damask-reach) * 0.3, var(--damask-cap) * 0.3 / 0.7) no-repeat,
     var(--damask-h-br) right var(--ornate-offset) bottom var(--ornate-offset) / min(var(--damask-reach), var(--damask-cap)) min(var(--damask-reach) * 0.4, var(--damask-cap) * 0.4 / 0.7) no-repeat,
     var(--damask-s-br) right var(--ornate-offset) bottom var(--ornate-offset) / min(var(--damask-reach) * 0.4, var(--damask-cap) * 0.4) min(var(--damask-reach) * 0.7, var(--damask-cap)) no-repeat,
-    var(--floral-notch-tl) left top / 20px no-repeat,
-    var(--floral-notch-tr) right top / 20px no-repeat,
-    var(--floral-notch-bl) left bottom / 20px no-repeat,
-    var(--floral-notch-br) right bottom / 20px no-repeat,
-    var(--edge) 50% 0 / var(--side) 1px no-repeat,
-    var(--edge) 50% 100% / var(--side) 1px no-repeat,
-    var(--edge) 0 50% / 1px var(--side) no-repeat,
-    var(--edge) 100% 50% / 1px var(--side) no-repeat,
-    var(--edge) 50% 4px / var(--side) 1px no-repeat,
-    var(--edge) 50% calc(100% - 4px) / var(--side) 1px no-repeat,
-    var(--edge) 4px 50% / 1px var(--side) no-repeat,
-    var(--edge) calc(100% - 4px) 50% / 1px var(--side) no-repeat;
+    var(--floral-notch-tl) left var(--damask-nudge) top var(--damask-nudge) / 20px no-repeat,
+    var(--floral-notch-tr) right var(--damask-nudge) top var(--damask-nudge) / 20px no-repeat,
+    var(--floral-notch-bl) left var(--damask-nudge) bottom var(--damask-nudge) / 20px no-repeat,
+    var(--floral-notch-br) right var(--damask-nudge) bottom var(--damask-nudge) / 20px no-repeat,
+    var(--edge) 50% var(--damask-nudge) / var(--side) 1px no-repeat,
+    var(--edge) 50% calc(100% - var(--damask-nudge)) / var(--side) 1px no-repeat,
+    var(--edge) var(--damask-nudge) 50% / 1px var(--side) no-repeat,
+    var(--edge) calc(100% - var(--damask-nudge)) 50% / 1px var(--side) no-repeat,
+    var(--edge) 50% calc(4px + var(--damask-nudge)) / var(--side) 1px no-repeat,
+    var(--edge) 50% calc(100% - 4px - var(--damask-nudge)) / var(--side) 1px no-repeat,
+    var(--edge) calc(4px + var(--damask-nudge)) 50% / 1px var(--side) no-repeat,
+    var(--edge) calc(100% - 4px - var(--damask-nudge)) 50% / 1px var(--side) no-repeat;
 }
 .frames-floral-d .ornate-corners.ornate-lines {
   -webkit-mask:
@@ -511,7 +518,7 @@
     var(--edge) calc(100% - 4px) 50% / 1px var(--side) no-repeat;
 }
 /* On the card and cover: a shorter reach (they are large, so the corners would grow very big). */
-.frames-floral-d .ornate-corners { --damask-reach: calc(var(--ornate-corner) * 5); }
+.frames-floral-d .ornate-corners { --damask-reach: calc(var(--ornate-corner) * 1); }
 /* Without the lines (an arch; the cover, which draws its own border): the pictures only. */
 .frames-floral-d .invite-ornate.ornate-arch::before {
   -webkit-mask:
