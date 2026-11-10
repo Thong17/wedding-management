@@ -259,6 +259,14 @@ function onKey(e: KeyboardEvent) {
     radial-gradient(ellipse at 50% 120%, rgb(0 0 0 / 0.45), transparent 60%),
     repeating-radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.025) 0 2px, transparent 2px 9px);
 }
+/* Floral: the rings in the cover's text colour (dark on a light cover, light on a dark one), so they
+   still show on a bright cover, where white ones vanish. */
+.frames-floral .texture {
+  background:
+    radial-gradient(ellipse at 50% 42%, rgb(255 255 255 / 0.13), transparent 60%),
+    radial-gradient(ellipse at 50% 120%, rgb(0 0 0 / 0.45), transparent 60%),
+    repeating-radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--ink) 9%, transparent) 0 2px, transparent 2px 9px);
+}
 .cover-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .cover-image + .frame::before {
   content: '';
