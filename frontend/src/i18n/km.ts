@@ -708,6 +708,8 @@ const km: typeof en = {
     ornateFrames: "ស៊ុមក្បាច់",
     ornateStyle: "ម៉ូដ",
     ornateStyles: { royal: "រាជវាំង", khmer: "ក្បាច់ខ្មែរ", chinese: "ចិន", minimal: "សាមញ្ញ", modern: "ទំនើប", floral: "ក្បាច់ផ្កា" },
+    ornateVariant: "ម៉ូដ",
+    ornateVariants: { floral: { a: "A · ផ្កាមូល", b: "B · ផ្កាច្រើនជាន់", c: "C · មែកផ្កា", d: "D · ក្បាច់វល្លិ" } },
     ornateAreas: { hero: "រូបថតធំ", names: "ឈ្មោះគូស្វាមីភរិយា", programme: "ស៊ុមកម្មវិធី", moments: "កម្មវិធីតាមម៉ោង", maps: "ផែនទី", gifts: "QR ចំណងដៃ", gallery: "រូបថត" },
     content: "ខ្លឹមសារ",
     language: "បើកជាភាសា",

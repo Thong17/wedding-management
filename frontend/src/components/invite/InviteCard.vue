@@ -309,8 +309,8 @@ onBeforeUnmount(() => observer?.disconnect())
 }
 /* Floral frames: the corners element draws a notched double line instead (ornate.css), so the lines sit
    close together like the boxes' frames. */
-:global(.frames-floral) .style-ornate.with-border { outline: none; }
-:global(.frames-floral) .style-ornate.with-border::before { content: none; }
+.frames-floral .style-ornate.with-border { outline: none; }
+.frames-floral .style-ornate.with-border::before { content: none; }
 .style-minimal { background: transparent; }
 /* The ornate card's ornaments (frame style): on the double border, 16px in from the edge. */
 .card-ornaments {
@@ -388,6 +388,11 @@ onBeforeUnmount(() => observer?.disconnect())
   border-radius: var(--r-md);
   background-color: color-mix(in srgb, var(--paper) 94%, transparent);
 }
+/* Floral designs on the names plaque: Rosette and Peony draw their corners large (ornate.css), so
+   smaller here; Damask's vines may reach further along it. */
+.frames-floral-a .couple.invite-ornate,
+.frames-floral-b .couple.invite-ornate { --ornate-corner: 16px; }
+.frames-floral-d .couple.invite-ornate { --ornate-corner: 28px; --damask-cap: 50%; }
 .name { font-size: calc(clamp(2.2rem, 9cqi, 4rem) * var(--names-scale, 1)); font-weight: 500; }
 .amp { font-size: calc(clamp(1.4rem, 5cqi, 2.2rem) * var(--names-scale, 1)); color: var(--gold); font-style: italic; }
 

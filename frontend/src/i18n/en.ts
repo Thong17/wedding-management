@@ -710,6 +710,8 @@ export default {
     ornateFrames: "Ornate frames",
     ornateStyle: "Style",
     ornateStyles: { royal: "Royal", khmer: "Khmer traditional", chinese: "Chinese", minimal: "Minimal", modern: "Modern", floral: "Floral" },
+    ornateVariant: "Design",
+    ornateVariants: { floral: { a: "A · Rosette", b: "B · Peony", c: "C · Blossom", d: "D · Damask" } },
     ornateAreas: { hero: "Main photo", names: "Couple's names", programme: "Programme frame", moments: "Programme moments", maps: "Maps", gifts: "Gift QR codes", gallery: "Gallery photos" },
     content: "Content",
     language: "Opens in",

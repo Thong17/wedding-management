@@ -17,6 +17,8 @@ import {
   ROUTE_STYLES,
   ORNATE_AREAS,
   ORNATE_STYLES,
+  ORNATE_VARIANTS,
+  STYLES_WITH_VARIANTS,
   EMBLEMS,
   FONTS,
   LANGUAGES,
@@ -255,6 +257,9 @@ function removeGallery(index: number) {
 const fontOptions = computed(() => FONTS.map((f) => ({ value: f, label: t(`invite.fonts.${f}`) })))
 const cardOptions = computed(() => CARD_STYLES.map((s) => ({ value: s, label: t(`invite.cards.${s}`) })))
 const ornateStyleOptions = computed(() => ORNATE_STYLES.map((s) => ({ value: s, label: t(`invite.ornateStyles.${s}`) })))
+const ornateVariantOptions = computed(() =>
+  ORNATE_VARIANTS.map((v) => ({ value: v, label: t(`invite.ornateVariants.${draft.value.design.ornate_style}.${v}`) })),
+)
 const routeOptions = computed(() => ROUTE_STYLES.map((s) => ({ value: s, label: t(`invite.routes.${s}`) })))
 const openingOptions = computed(() => OPENING_STYLES.map((s) => ({ value: s, label: t(`invite.openings.${s}`) })))
 const emblemOptions = computed(() => EMBLEMS.map((s) => ({ value: s, label: t(`invite.emblems.${s}`) })))
@@ -411,6 +416,9 @@ function replaySide() {
               <fieldset class="checks">
                 <legend>{{ t('invite.ornateFrames') }}</legend>
                 <label class="full-row">{{ t('invite.ornateStyle') }} <AppSelect v-model="draft.design.ornate_style" :options="ornateStyleOptions" /></label>
+                <label v-if="STYLES_WITH_VARIANTS.includes(draft.design.ornate_style)" class="full-row">
+                  {{ t('invite.ornateVariant') }} <AppSelect v-model="draft.design.ornate_variant" :options="ornateVariantOptions" />
+                </label>
                 <label v-for="area in ORNATE_AREAS" :key="area" class="check">
                   <input v-model="draft.design.ornate_frames" type="checkbox" :value="area" />{{ t(`invite.ornateAreas.${area}`) }}
                 </label>

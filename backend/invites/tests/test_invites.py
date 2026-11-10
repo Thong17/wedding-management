@@ -79,6 +79,7 @@ class InviteTests(APITestCase):
         self.assertNotIn("nonsense", draft["design"])
         self.assertEqual(draft["content"]["text"]["en"]["greeting"], "Welcome")
         self.assertEqual(draft["design"]["font"], "classic")  # default filled in
+        self.assertEqual(draft["design"]["ornate_variant"], "a")
         self.assertEqual(draft["design"]["ornate_frames"], ["hero", "names", "programme", "moments", "maps", "gifts", "gallery"])
         self.assertEqual(res.data["revision"], 1)
 
@@ -110,6 +111,7 @@ class InviteTests(APITestCase):
             ({"design": {"route_style": "zigzag"}}, "design.route_style"),
             ({"design": {"ornate_style": "baroque"}}, "design.ornate_style"),
             ({"design": {"names_size": 400}}, "design.names_size"),
+            ({"design": {"ornate_variant": "z"}}, "design.ornate_variant"),
             ({"design": {"hero_y": -5}}, "design.hero_y"),
             ({"content": {"timeline": [{"maps_url": "javascript:alert(1)"}]}}, "content.timeline.0.maps_url"),
             ({"content": {"gallery": [999]}}, "content.gallery"),

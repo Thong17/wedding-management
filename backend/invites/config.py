@@ -32,6 +32,8 @@ ROUTE_STYLES = ("road", "line")
 ORNATE_AREAS = ("hero", "names", "programme", "moments", "maps", "gifts", "gallery")
 # The ornate frame's look.
 ORNATE_STYLES = ("royal", "khmer", "chinese", "minimal", "modern", "floral")
+# A design within the frame style (Floral: A rosette, B peony, C blossom, D damask); styles without designs ignore it.
+ORNATE_VARIANTS = ("a", "b", "c", "d")
 OPENING_STYLES = ("gatefold", "envelope", "fade")
 EMBLEMS = ("seal", "monogram", "image")
 LANGUAGES = ("km", "en")
@@ -199,6 +201,7 @@ SCHEMA = {
         "route_style": ("road", _choice(ROUTE_STYLES)),
         "ornate_frames": (list(ORNATE_AREAS), _choices(ORNATE_AREAS)),
         "ornate_style": ("royal", _choice(ORNATE_STYLES)),
+        "ornate_variant": ("a", _choice(ORNATE_VARIANTS)),
         # The couple's names, as a percentage of their usual size (cover and card).
         "names_size": (100, _number(60, 160)),
         # How far the cover's and the ornate card's corner ornaments sit from their border, as a percentage of their size

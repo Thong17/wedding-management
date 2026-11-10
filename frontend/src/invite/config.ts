@@ -21,6 +21,10 @@ export const ROUTE_STYLES = ['road', 'line'] as const
 export const ORNATE_AREAS = ['hero', 'names', 'programme', 'moments', 'maps', 'gifts', 'gallery'] as const
 /** The ornate frame's look (src/invite/ornate.css). */
 export const ORNATE_STYLES = ['royal', 'khmer', 'chinese', 'minimal', 'modern', 'floral'] as const
+/** A design within the frame style (Floral: A rosette, B peony, C blossom, D damask); styles without designs ignore it. */
+export const ORNATE_VARIANTS = ['a', 'b', 'c', 'd'] as const
+/** The frame styles that come in designs (ORNATE_VARIANTS). */
+export const STYLES_WITH_VARIANTS: readonly OrnateStyle[] = ['floral']
 export const OPENING_STYLES = ['gatefold', 'envelope', 'fade'] as const
 export const EMBLEMS = ['monogram', 'seal', 'image'] as const
 export const LANGUAGES = ['km', 'en'] as const
@@ -35,6 +39,7 @@ export type CardStyle = (typeof CARD_STYLES)[number]
 export type RouteStyle = (typeof ROUTE_STYLES)[number]
 export type OrnateArea = (typeof ORNATE_AREAS)[number]
 export type OrnateStyle = (typeof ORNATE_STYLES)[number]
+export type OrnateVariant = (typeof ORNATE_VARIANTS)[number]
 export type OpeningStyle = (typeof OPENING_STYLES)[number]
 export type Emblem = (typeof EMBLEMS)[number]
 export type InviteLanguage = (typeof LANGUAGES)[number]
@@ -104,6 +109,7 @@ export interface InviteConfig {
     route_style: RouteStyle
     ornate_frames: OrnateArea[]
     ornate_style: OrnateStyle
+    ornate_variant: OrnateVariant
     /** The couple's names, as a percentage of their usual size (cover and card), 60–160. */
     names_size: number
     /** How far the cover's and the ornate card's corner ornaments sit from their border, as a percentage of their size, -30–20 (0 = the style's own). */
@@ -186,6 +192,7 @@ export function defaultConfig(): InviteConfig {
       route_style: 'road',
       ornate_frames: [...ORNATE_AREAS],
       ornate_style: 'royal',
+      ornate_variant: 'a',
       names_size: 100,
       ornate_spacing: 0,
       hero_x: 50,

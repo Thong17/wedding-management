@@ -167,7 +167,12 @@ defineExpose({ replay, close, phase, language })
 <template>
   <div
     class="invitation"
-    :class="[`card-${config.design.card_style}`, `frames-${config.design.ornate_style}`, { 'fonts-ready': fontsReady }]"
+    :class="[
+      `card-${config.design.card_style}`,
+      `frames-${config.design.ornate_style}`,
+      `frames-${config.design.ornate_style}-${config.design.ornate_variant}`,
+      { 'fonts-ready': fontsReady },
+    ]"
     :style="{
       '--paper': config.design.background,
       '--ink': config.design.text_color,
