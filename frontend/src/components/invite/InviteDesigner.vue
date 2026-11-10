@@ -403,6 +403,11 @@ function replaySide() {
                 <label class="check"><input v-model="draft.design.sparkles" type="checkbox" />{{ t('invite.sparkles') }}</label>
                 <label class="check"><input v-model="draft.design.countdown" type="checkbox" />{{ t('invite.countdown') }}</label>
               </fieldset>
+              <!-- The cover's and the ornate card's corner ornaments move with it. -->
+              <label>
+                {{ t('invite.ornateSpacing', { n: draft.design.ornate_spacing }) }}
+                <input v-model.number="draft.design.ornate_spacing" type="range" min="-30" max="20" step="1" class="volume" />
+              </label>
               <fieldset class="checks">
                 <legend>{{ t('invite.ornateFrames') }}</legend>
                 <label class="full-row">{{ t('invite.ornateStyle') }} <AppSelect v-model="draft.design.ornate_style" :options="ornateStyleOptions" /></label>

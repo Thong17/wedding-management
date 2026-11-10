@@ -109,8 +109,9 @@ function onKey(e: KeyboardEvent) {
       <div class="face">
         <div class="texture" />
         <img v-if="coverImage" class="cover-image" :src="coverImage" alt="" />
-        <!-- The cover's frame, with the corner and top ornaments of the invitation's frame style (ornate.css). -->
-        <div class="frame"><span class="ornate-corners" /><span class="ornate-top" /></div>
+        <!-- The cover's frame, with the corner and top ornaments of the invitation's frame style (ornate.css);
+             the corners sit as far from the border as on the card (design.ornate_spacing). -->
+        <div class="frame" :style="{ '--ornate-spacing': config.design.ornate_spacing }"><span class="ornate-corners" /><span class="ornate-top" /></div>
         <!-- Envelope: the flap, under the seal that closes it. -->
         <div v-if="style === 'envelope'" class="flap" />
         <div class="center">

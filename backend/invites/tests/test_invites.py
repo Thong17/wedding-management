@@ -79,7 +79,7 @@ class InviteTests(APITestCase):
         self.assertNotIn("nonsense", draft["design"])
         self.assertEqual(draft["content"]["text"]["en"]["greeting"], "Welcome")
         self.assertEqual(draft["design"]["font"], "classic")  # default filled in
-        self.assertEqual(draft["design"]["ornate_frames"], ["hero", "names", "programme", "maps", "gifts", "gallery"])
+        self.assertEqual(draft["design"]["ornate_frames"], ["hero", "names", "programme", "moments", "maps", "gifts", "gallery"])
         self.assertEqual(res.data["revision"], 1)
 
     def test_ornate_frames_keep_the_chosen_areas_once_in_order(self):
@@ -88,6 +88,18 @@ class InviteTests(APITestCase):
         self.assertEqual(res.data["draft"]["design"]["ornate_frames"], ["names", "gallery"])
         res = self.save({"design": {"ornate_frames": []}}, revision=1)
         self.assertEqual(res.data["draft"]["design"]["ornate_frames"], [])
+
+    def test_a_design_from_before_moments_had_their_own_area_keeps_them_ornate(self):
+        # Before version 3, "programme" covered the programme's frame and its moments.
+        old = {"version": 2, "design": {"ornate_frames": ["names", "programme", "gifts"]}}
+        EInvite.objects.create(event=self.event, slug="old-frames", draft=old, published=old, revision=1)
+        self.assertEqual(self.client.get(self.url).data["draft"]["design"]["ornate_frames"], ["names", "programme", "moments", "gifts"])
+        self.assertEqual(self.public("old-frames").data["design"]["ornate_frames"], ["names", "programme", "moments", "gifts"])
+        # Without "programme" there were no ornate moments, and today's designs keep what they chose.
+        res = self.save({"version": 2, "design": {"ornate_frames": ["names"]}}, revision=1)
+        self.assertEqual(res.data["draft"]["design"]["ornate_frames"], ["names"])
+        res = self.save({"version": 3, "design": {"ornate_frames": ["programme"]}}, revision=2)
+        self.assertEqual(res.data["draft"]["design"]["ornate_frames"], ["programme"])
 
     def test_invalid_values_are_refused_by_field(self):
         cases = [
@@ -268,7 +280,7 @@ class InviteTests(APITestCase):
         self.assertEqual(public["event"]["venue"], "Sokha Hotel")
         # Saving it stores the new shape, every field filled in.
         saved = self.save(draft, revision=1).data["draft"]
-        self.assertEqual(saved["version"], 2)
+        self.assertEqual(saved["version"], 3)
         self.assertEqual(saved["content"]["text"]["en"]["title"], "Old title")
         self.assertEqual(saved["content"]["text"]["km"]["title"], "")
 

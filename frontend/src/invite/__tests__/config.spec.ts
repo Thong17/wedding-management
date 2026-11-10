@@ -11,6 +11,16 @@ describe('invite config', () => {
     expect(config.content.gallery).toEqual([])
   })
 
+  it('keeps the moments ornate in designs from before they had their own area', () => {
+    // Before version 3, "programme" covered the programme's frame and its moments.
+    const old = (version: number | undefined, areas: string[]) => withDefaults({ version, design: { ornate_frames: areas } } as never).design.ornate_frames
+    expect(old(2, ['names', 'programme', 'gifts'])).toEqual(['names', 'programme', 'moments', 'gifts'])
+    expect(old(undefined, ['programme'])).toEqual(['programme', 'moments'])
+    expect(old(2, ['names'])).toEqual(['names'])
+    expect(old(3, ['programme'])).toEqual(['programme'])
+    expect(withDefaults({ version: 2 } as never).design.ornate_frames).toContain('moments')
+  })
+
   it("shows the event's own date and venue", () => {
     const config = defaultConfig()
     const event = { date: '2026-12-12', venue: 'Sokha Hotel' }

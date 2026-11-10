@@ -418,6 +418,13 @@ onBeforeUnmount(() => {
   background-color: color-mix(in srgb, var(--paper) 92%, transparent);
   transition: opacity var(--reveal-time) ease, transform var(--reveal-time) cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+/* Not ornate: a plain double line (the border and a finer line just inside it). */
+.stop-text:not(.invite-ornate) {
+  box-shadow:
+    inset 0 0 0 3px color-mix(in srgb, var(--paper) 92%, transparent),
+    inset 0 0 0 4px color-mix(in srgb, var(--gold) 45%, transparent),
+    var(--ornate-shadow, 0 4px 14px color-mix(in srgb, var(--ink) 8%, transparent));
+}
 .box-before .stop-text { align-items: flex-end; text-align: right; }
 .box-after .stop-text { align-items: flex-start; text-align: left; }
 /* The link from the dot to the box: the arrow across the gap, its head at the box. Its height follows

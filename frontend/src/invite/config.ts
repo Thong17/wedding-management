@@ -14,11 +14,13 @@ export const CARD_STYLES = ['framed', 'ornate', 'minimal'] as const
 export const ROUTE_STYLES = ['road', 'line'] as const
 /**
  * Where the ornate gold frame (corner flourishes, a diamond on top) is used. Areas left out get a plain
- * frame (programme, maps, gifts) or none (hero photo, names, gallery).
+ * frame (programme, maps, gifts), a plain double line (moments) or none (hero photo, names, gallery).
+ * "programme" is each programme part's panel, "moments" the boxes of its moments; before version 3 the
+ * one "programme" area covered both (see withDefaults).
  */
-export const ORNATE_AREAS = ['hero', 'names', 'programme', 'maps', 'gifts', 'gallery'] as const
+export const ORNATE_AREAS = ['hero', 'names', 'programme', 'moments', 'maps', 'gifts', 'gallery'] as const
 /** The ornate frame's look (src/invite/ornate.css). */
-export const ORNATE_STYLES = ['royal', 'khmer', 'chinese', 'minimal', 'modern'] as const
+export const ORNATE_STYLES = ['royal', 'khmer', 'chinese', 'minimal', 'modern', 'floral'] as const
 export const OPENING_STYLES = ['gatefold', 'envelope', 'fade'] as const
 export const EMBLEMS = ['monogram', 'seal', 'image'] as const
 export const LANGUAGES = ['km', 'en'] as const
@@ -104,6 +106,8 @@ export interface InviteConfig {
     ornate_style: OrnateStyle
     /** The couple's names, as a percentage of their usual size (cover and card), 60–160. */
     names_size: number
+    /** How far the cover's and the ornate card's corner ornaments sit from their border, as a percentage of their size, -30–20 (0 = the style's own). */
+    ornate_spacing: number
     /** Which part of the main photo shows: 0–100 % across and down (50 = centre). */
     hero_x: number
     hero_y: number
@@ -171,7 +175,7 @@ export const emptyText = (): InviteText => ({ greeting: '', title: '', partner1:
 
 export function defaultConfig(): InviteConfig {
   return {
-    version: 2,
+    version: 3,
     template: 'classic',
     design: {
       background: '#fbf6ee',
@@ -183,6 +187,7 @@ export function defaultConfig(): InviteConfig {
       ornate_frames: [...ORNATE_AREAS],
       ornate_style: 'royal',
       names_size: 100,
+      ornate_spacing: 0,
       hero_x: 50,
       hero_y: 50,
       gold_corners: true,
@@ -231,8 +236,8 @@ export function withDefaults(config: (Partial<Omit<InviteConfig, 'content'>> & {
   return {
     ...base,
     ...config,
-    version: 2,
-    design: { ...base.design, ...config.design },
+    version: 3,
+    design: { ...base.design, ...config.design, ornate_frames: ornateFrames(config) },
     content: {
       language,
       text: { km: words(text.km), en: words(text.en) },
@@ -244,6 +249,15 @@ export function withDefaults(config: (Partial<Omit<InviteConfig, 'content'>> & {
     animation: { ...base.animation, ...config.animation },
     audio: { ...base.audio, ...config.audio },
   }
+}
+
+/** The ornate areas; before version 3, "programme" also meant its moments, now an area of their own. */
+function ornateFrames(config: { version?: number; design?: Partial<InviteConfig['design']> }): OrnateArea[] {
+  const areas = config.design?.ornate_frames ?? defaultConfig().design.ornate_frames
+  if ((config.version ?? 1) >= 3 || !areas.includes('programme') || areas.includes('moments')) return areas
+  const upgraded = [...areas]
+  upgraded.splice(upgraded.indexOf('programme') + 1, 0, 'moments')
+  return upgraded
 }
 
 const other = (language: InviteLanguage): InviteLanguage => (language === 'km' ? 'en' : 'km')

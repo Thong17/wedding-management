@@ -2,11 +2,13 @@
 
 Mirrored by frontend/src/invite/config.ts (same keys, option lists and defaults). A design is
 
-    {"version": 2, "template": "classic", "design": {...}, "content": {...}, "animation": {...}, "audio": {...}}
+    {"version": 3, "template": "classic", "design": {...}, "content": {...}, "animation": {...}, "audio": {...}}
 
 The invitation's words are written per language, `content.text = {"km": {...}, "en": {...}}`, so guests
 can switch between Khmer and English; `content.language` is the one it opens in. Version 1 designs
-(one language, the words directly in `content`) are converted when read.
+(one language, the words directly in `content`) are converted when read. Before version 3, the ornate
+area "programme" covered both the programme's frame and its moments; now "moments" is its own area,
+so a version 1 or 2 design with "programme" gets "moments" too.
 
 `clean_config` turns whatever an editor sends into a complete, valid design: unknown keys are dropped,
 missing ones get their default, and invalid values raise a ValidationError naming the field.
@@ -18,7 +20,7 @@ from datetime import date, time
 
 from rest_framework.exceptions import ValidationError
 
-VERSION = 2
+VERSION = 3
 TEMPLATES = ("classic",)
 # Font pairings (names / text). Each also covers Khmer script.
 FONTS = ("classic", "romantic", "modern", "khmer-royal", "khmer-elegant")
@@ -27,9 +29,9 @@ CARD_STYLES = ("framed", "ornate", "minimal")
 ROUTE_STYLES = ("road", "line")
 # Where the ornate gold frame (corner flourishes, a diamond) is used. Areas left out get a plain frame
 # (programme, maps, gifts) or none (hero photo, names, gallery).
-ORNATE_AREAS = ("hero", "names", "programme", "maps", "gifts", "gallery")
+ORNATE_AREAS = ("hero", "names", "programme", "moments", "maps", "gifts", "gallery")
 # The ornate frame's look.
-ORNATE_STYLES = ("royal", "khmer", "chinese", "minimal", "modern")
+ORNATE_STYLES = ("royal", "khmer", "chinese", "minimal", "modern", "floral")
 OPENING_STYLES = ("gatefold", "envelope", "fade")
 EMBLEMS = ("seal", "monogram", "image")
 LANGUAGES = ("km", "en")
@@ -199,6 +201,9 @@ SCHEMA = {
         "ornate_style": ("royal", _choice(ORNATE_STYLES)),
         # The couple's names, as a percentage of their usual size (cover and card).
         "names_size": (100, _number(60, 160)),
+        # How far the cover's and the ornate card's corner ornaments sit from their border, as a percentage of their size
+        # (negative = closer, toward the edge).
+        "ornate_spacing": (0, _number(-30, 20)),
         # Which part of the main photo shows in its arch: 0–100 % across and down (50 = centre).
         "hero_x": (50, _number(0, 100)),
         "hero_y": (50, _number(0, 100)),
@@ -260,7 +265,8 @@ def _split_names(name):
 
 
 def upgrade(data):
-    """A version 1 design (the words directly in `content`, one language) in the version 2 shape."""
+    """An older design in today's shape: version 1's words (directly in `content`, one language) moved
+    into `content.text`; before version 3, "programme" in the ornate areas also meant its moments."""
     if not isinstance(data, dict):
         return data
     content = data.get("content")
@@ -268,7 +274,17 @@ def upgrade(data):
         language = content.get("language") if content.get("language") in LANGUAGES else LANGUAGES[0]
         words = {key: value for key, value in content.items() if key in TEXT_FIELDS}
         rest = {key: value for key, value in content.items() if key not in TEXT_FIELDS}
-        data = {**data, "content": {**rest, "text": {language: words}}, "version": VERSION}
+        data = {**data, "content": {**rest, "text": {language: words}}, "version": 2}
+    version = data.get("version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 3:
+        design = data.get("design")
+        if isinstance(design, dict):
+            areas = design.get("ornate_frames")
+            if isinstance(areas, list) and "programme" in areas and "moments" not in areas:
+                areas = list(areas)
+                areas.insert(areas.index("programme") + 1, "moments")
+                data = {**data, "design": {**design, "ornate_frames": areas}}
+        data = {**data, "version": VERSION}
     return data
 
 

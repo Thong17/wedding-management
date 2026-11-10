@@ -129,8 +129,13 @@ onBeforeUnmount(() => observer?.disconnect())
   >
     <!-- Ornate card: its corners and a top ornament in the invitation's frame style (ornate.css), on the
          double gold border. -->
-    <span v-if="design.gold_corners && design.card_style === 'ornate'" class="card-ornaments" aria-hidden="true">
-      <span class="ornate-corners" />
+    <span
+      v-if="design.gold_corners && design.card_style === 'ornate'"
+      class="card-ornaments"
+      :style="{ '--ornate-spacing': design.ornate_spacing }"
+      aria-hidden="true"
+    >
+      <span class="ornate-corners" :class="{ 'ornate-lines': design.gold_border }" />
       <span v-if="design.gold_border" class="ornate-top" />
     </span>
     <template v-else-if="design.gold_corners">
@@ -204,7 +209,7 @@ onBeforeUnmount(() => observer?.disconnect())
             <span v-if="part.address" class="address">{{ part.address }}</span>
           </p>
         </header>
-        <InviteRoad v-if="part.items.length" :items="part.items" :variant="design.route_style" :ornate="ornate('programme')" :active="active && settled" />
+        <InviteRoad v-if="part.items.length" :items="part.items" :variant="design.route_style" :ornate="ornate('moments')" :active="active && settled" />
         <InviteMap
           :ornate="ornate('maps')"
           v-if="part.maps_url || part.place || part.address"
@@ -302,6 +307,10 @@ onBeforeUnmount(() => observer?.disconnect())
   border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
   pointer-events: none;
 }
+/* Floral frames: the corners element draws a notched double line instead (ornate.css), so the lines sit
+   close together like the boxes' frames. */
+:global(.frames-floral) .style-ornate.with-border { outline: none; }
+:global(.frames-floral) .style-ornate.with-border::before { content: none; }
 .style-minimal { background: transparent; }
 /* The ornate card's ornaments (frame style): on the double border, 16px in from the edge. */
 .card-ornaments {

@@ -38,6 +38,18 @@ withDefaults(defineProps<{ variant?: OrnateStyle }>(), { variant: 'royal' })
       <path d="M50 12h62M128 12h62" stroke="currentColor" stroke-width="0.8" fill="none" />
       <circle cx="120" cy="12" r="1.8" fill="currentColor" />
     </g>
+    <!-- Floral: a flower (as on the frames) with leafy stems curling out either side, on fine lines. -->
+    <g v-else-if="variant === 'floral'" fill="currentColor">
+      <path d="M20 12h50M170 12h50" stroke="currentColor" stroke-width="0.8" fill="none" />
+      <path d="M109 12c-8-6-18-6-24-1c-4 3.5-2 8 1.5 7c2.5-0.7 2-3.6-0.2-3.4M131 12c8-6 18-6 24-1c4 3.5 2 8-1.5 7c-2.5-0.7-2-3.6 0.2-3.4" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" />
+      <path d="M104 9.4c-1-4-5-6-9-5.6c2.4 2 4.6 4.6 9 5.6ZM136 9.4c1-4 5-6 9-5.6c-2.4 2-4.6 4.6-9 5.6Z" opacity="0.7" />
+      <path d="M96 9.6c-1.6 3.4-1.2 6.4 1 8.6c0.8-3 0.6-5.8-1-8.6ZM144 9.6c1.6 3.4 1.2 6.4-1 8.6c-0.8-3-0.6-5.8 1-8.6Z" opacity="0.7" />
+      <g transform="translate(120 12)" opacity="0.55">
+        <ellipse v-for="a in 8" :key="a" cx="0" cy="-5" rx="2.6" ry="4.2" :transform="`rotate(${a * 45})`" />
+      </g>
+      <circle cx="120" cy="12" r="2.2" />
+      <circle cx="74" cy="12" r="1.4" /><circle cx="166" cy="12" r="1.4" />
+    </g>
     <!-- Modern: bold short bars either side of a small square. -->
     <g v-else>
       <path d="M40 12h66M134 12h66" stroke="currentColor" stroke-width="1" fill="none" />
